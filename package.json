@@ -1,0 +1,43 @@
+{
+  "name": "@geoblocks/ngv",
+  "version": "1.0.0",
+  "main": "lib/index.js",
+  "typings": "./lib/types/src/index.d.ts",
+  "scripts": {
+    "build": "vite build",
+    "start": "vite serve",
+    "lint": "eslint .",
+    "lint-fix": "eslint . --fix",
+    "prettier": "prettier . --check",
+    "prettier-fix": "prettier -w .",
+    "prepare": "tsc",
+    "api-extractor": "api-extractor run --local --verbose --typescript-compiler-folder node_modules/typescript",
+    "api-extractor-check": "api-extractor run --verbose --typescript-compiler-folder node_modules/typescript",
+    "api-documenter": "api-documenter markdown -i temp/ -o docs",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Guillaume Beraudo",
+  "license": "BSD-3",
+  "description": "Next Generation 3D Viewer framework",
+  "type": "module",
+  "devDependencies": {
+    "@cesium/engine": "10.1.0",
+    "@cesium/widgets": "7.1.0",
+    "@eslint/js": "9.9.0",
+    "@geoblocks/oidcjs": "^0.5.10",
+    "@lit/task": "^1.0.1",
+    "eslint": "9.9.0",
+    "lit": "3.2.0",
+    "typescript": "5.5.4",
+    "typescript-eslint": "8.0.1",
+    "vite": "5.4.0"
+  },
+  "dependencies": {
+    "@lit/context": "^1.1.2",
+    "@microsoft/api-documenter": "7.25.10",
+    "@microsoft/api-extractor": "7.47.5",
+    "@trevoreyre/autocomplete-js": "3.0.2",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "3.3.3"
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "lib": ["es2023", "dom"],
+    "baseUrl": "./",
+    "skipLibCheck": true,
+
+    "moduleResolution": "Node16",
+    "outDir": "./lib",
+    "sourceMap": true,
+
+    "declaration": true,
+    "declarationDir": "./lib/types",
+    "declarationMap": true,
+
+    // Use old decorators for the moment
+    // That is what lit recommends in https://lit.dev/docs/components/decorators/#compiler-output-considerations
+    // Also, it does not work out of the box with vitejs
+    "experimentalDecorators": true,
+
+    // Since we don't use standard decorators and accessor keyword we need this
+    // See https://lit.dev/docs/components/properties/#avoiding-issues-with-class-fields
+    "useDefineForClassFields": false,
+
+    "forceConsistentCasingInFileNames": true,
+
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": false,
+    "strictFunctionTypes": true,
+    "strictPropertyInitialization": false,
+    "noImplicitThis": true,
+    "alwaysStrict": true,
+
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+
+    "resolveJsonModule": true
+  },
+  "include": ["test/**/*.js", "src/**/*"],
+  "typeAcquisition": {
+    "enable": false
+  }
+}

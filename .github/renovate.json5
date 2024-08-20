@@ -1,0 +1,22 @@
+{
+  extends: ["config:base", "schedule:earlyMondays"],
+  baseBranches: ["master"],
+  lockFileMaintenance: { enabled: true },
+  dependencyDashboardApproval: true,
+  packageRules: [
+    {
+      matchPackagePrefixes: [],
+      matchUpdateTypes: ["major"],
+      enabled: false,
+    },
+    {
+      matchDepTypes: ["devDependencies"],
+      automerge: true,
+    },
+    {
+      matchUpdateTypes: ["minor", "patch"],
+      groupName: "all patch and minor versions",
+      automerge: true,
+    },
+  ],
+}

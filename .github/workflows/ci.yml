@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+env:
+  IN_CI: "1"
+
+jobs:
+  basic:
+    timeout-minutes: 3
+    runs-on: ubuntu-24.04
+    name: Basic checks
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+      - name: Build
+        run: npm run build
+      - name: Prettier
+        run: npm run prettier
+      - name: Linter
+        run: npm run lint
+      # - name: Api extractor
+      #   run: npm run api-extractor-check
