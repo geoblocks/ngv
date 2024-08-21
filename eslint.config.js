@@ -22,6 +22,6 @@ export default tseslint.config(
   },
   prettierConfig,
   {
-    ignores: ["lib/*"],
+    ignores: ["lib/*", "dist/*"],
   },
 );
