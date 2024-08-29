@@ -1,0 +1,20 @@
+{
+  "header": {
+    "languages": ["de", "fr", "en", "it"],
+    "title": {
+      "fr": "Ma super app",
+      "en": "My super app",
+      "de": "Meine supper app",
+      "it": "Mia super app"
+    }
+  },
+  "footer": {
+    "contact": "me@example.com",
+    "impressum": {
+      "fr": "Bla bla FR impressim",
+      "en": "Bla bla EN impressim",
+      "de": "Bla bla DE impressim",
+      "it": "Bla bla IT impressim"
+    }
+  }
+}

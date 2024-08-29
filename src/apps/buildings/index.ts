@@ -1,53 +1,33 @@
-import { LitElement, html } from "lit";
-import { customElement, state } from "lit/decorators.js";
+import {html} from 'lit';
+import {customElement} from 'lit/decorators.js';
 
-import "../../structure/ngv-structure-app.js";
-import { INgvStructureApp } from "../../structure/ngv-structure-app.js";
+import '../../structure/ngv-structure-app.js';
+import {INgvStructureApp} from '../../structure/ngv-structure-app.js';
 
-// @ts-expect-error ?url parameter is a viteJS specificity
-import logoUrl from "../../logo.svg?url";
+// // @ts-expect-error ?url parameter is a viteJS specificity
+// import logoUrl from "../../logo.svg?url";
+import {localized, msg} from '@lit/localize';
+import {ABaseApp} from '../../structure/BaseApp.js';
 
-@customElement("ngv-app-buildings")
-export class NgvAppBuildings extends LitElement {
-  @state()
-  ngvStructureAppConfig: INgvStructureApp;
+// @ts-expect-error viteJS specific import
+import configUrl from './defaultConfig.json?url';
+//
 
+@customElement('ngv-app-buildings')
+@localized()
+export class NgvAppBuildings extends ABaseApp<INgvStructureApp> {
   constructor() {
-    super();
-    // this.shadowRoot.adoptedStyleSheets.push(styles);
-  }
-
-  protected firstUpdated(): void {
-    // simulate retrieving config from an external config file
-    setTimeout(() => {
-      this.ngvStructureAppConfig = {
-        header: {
-          languages: ["fr", "en", "it", "de"],
-          logo: logoUrl as string,
-          title: {
-            fr: "Ma super app",
-            en: "My super app",
-            de: "Meine supper app",
-            it: "Mia super app",
-          },
-        },
-        footer: {
-          contact: "me@example.com",
-          impressum: {
-            fr: "Bla bla FR impressim",
-            en: "Bla bla EN impressim",
-            de: "Bla bla DE impressim",
-            it: "Bla bla IT impressim",
-          },
-        },
-      };
-    }, 200);
+    super(configUrl as string);
   }
 
   render() {
+    const r = super.render();
+    if (r) {
+      return r;
+    }
     return html`
-      <ngv-structure-app .config=${this.ngvStructureAppConfig}>
-        THIS IS A CRAZY BUILDINGS app
+      <ngv-structure-app .config=${this.config}>
+        ${msg('THIS IS A CRAZY BUILDINGS app')}
       </ngv-structure-app>
     `;
   }

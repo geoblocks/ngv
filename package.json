@@ -4,6 +4,8 @@
   "main": "lib/index.js",
   "typings": "./lib/types/src/index.d.ts",
   "scripts": {
+    "i18n-extract": "lit-localize extract",
+    "i18n-build": "lit-localize build",
     "build": "vite build",
     "start": "vite serve",
     "lint": "eslint .",
@@ -25,19 +27,20 @@
     "@cesium/widgets": "7.1.0",
     "@eslint/js": "9.9.0",
     "@geoblocks/oidcjs": "^0.5.10",
+    "@lit/localize-tools": "^0.8.0",
     "@lit/task": "^1.0.1",
     "eslint": "9.9.0",
     "lit": "3.2.0",
     "typescript": "5.5.4",
     "typescript-eslint": "8.0.1",
-    "vite": "5.4.0"
-  },
-  "dependencies": {
+    "vite": "5.4.0",
     "@lit/context": "^1.1.2",
+    "@lit/localize": "^0.12.2",
     "@microsoft/api-documenter": "7.25.10",
     "@microsoft/api-extractor": "7.47.5",
     "@trevoreyre/autocomplete-js": "3.0.2",
     "eslint-config-prettier": "^9.1.0",
     "prettier": "3.3.3"
-  }
+  },
+  "dependencies": {}
 }

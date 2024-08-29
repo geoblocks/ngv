@@ -1,18 +1,15 @@
-import { LitElement, html } from "lit";
-import { customElement, property } from "lit/decorators.js";
-
-// Fixme: this should be one of the supported language.
-// Per application?
-type Language = "en" | "it" | "fr" | "de";
+import {LitElement, html} from 'lit';
+import {customElement, property} from 'lit/decorators.js';
+import {getLocale, Locale, setLocale} from './helpers/localeHelper.js';
 
 export interface INgvStructureApp {
   header: {
     logo: string;
-    languages: Language[];
-    title: Record<Language, string>;
+    languages: Locale[];
+    title: Record<Locale, string>;
   };
   footer: {
-    impressum: Record<Language, string>;
+    impressum: Record<Locale, string>;
     contact: string;
   };
 }
@@ -20,9 +17,9 @@ export interface INgvStructureApp {
 /**
  * This element structures the app using slots.
  */
-@customElement("ngv-structure-app")
+@customElement('ngv-structure-app')
 export class NgvStructureApp extends LitElement {
-  @property({ type: Object })
+  @property({type: Object})
   config: INgvStructureApp;
 
   constructor() {
@@ -31,15 +28,30 @@ export class NgvStructureApp extends LitElement {
   }
 
   render() {
-    const { header, footer } = this.config;
+    if (!this.config) {
+      return undefined;
+    }
+    const {header, footer} = this.config;
+    const currentLocale = getLocale();
     return html`
       <header>
         <img src="${header.logo}" />
         <div>
           <label for="language">Lang:</label>
-          <select name="language" id="language">
+          <select
+            name="language"
+            id="language"
+            @change=${async (evt: Event) => {
+              const el = evt.target as HTMLSelectElement;
+              const locale = header.languages[el.selectedIndex];
+              await setLocale(locale);
+            }}
+          >
             ${header.languages.map(
-              (l) => html`<option value="${l}">${l}</option>`,
+              (l) =>
+                html`<option value="${l}" ?selected=${l === currentLocale}>
+                  ${l}
+                </option>`,
             )}
           </select>
         </div>
@@ -48,7 +60,7 @@ export class NgvStructureApp extends LitElement {
         <slot></slot>
       </main>
       <footer>
-        <p>${footer.impressum}</p>
+        <p>${footer.impressum[getLocale() as Locale]}</p>
       </footer>
     `;
   }
@@ -56,6 +68,6 @@ export class NgvStructureApp extends LitElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    "ngv-structure-app": NgvStructureApp;
+    'ngv-structure-app': NgvStructureApp;
   }
 }
