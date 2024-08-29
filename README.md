@@ -22,7 +22,7 @@ The "modern" touch comes from today's advances of the technology (CSS vars, type
 We provide web applications customized using a json file, CSS variables, graphic resources.
 These are focused on a particular use-case.
 
-- [Digital twins: building permits](./src/apps/buildings/README.md)
+- [Digital twins: building permits](./src/apps/buildings/README.md) [[demo]](https://geoblocks.github.io/ngv/src/apps/buildings/index.html)
 
 # Application builder
 
