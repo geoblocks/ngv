@@ -162,6 +162,10 @@ export class NgvMainIllumination extends LitElement {
     super.firstUpdated(_changedProperties);
   }
 
+  // FIXME: extract slider to own component
+
+  // FIXME: extract Cesium to own component
+
   protected render() {
     return html`
       <div class="app-container">
