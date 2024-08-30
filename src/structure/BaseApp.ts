@@ -28,11 +28,19 @@ export abstract class ABaseApp<ConfigType> extends LitElement {
     }
   }
 
-  private async initializeConfig(configUrl: string) {
+  private async initializeConfig(
+    configUrl: string | (() => Promise<{defaultConfig: ConfigType}>),
+  ) {
     this.configLoading = 'loading';
     try {
-      const result = await fetch(configUrl);
-      this.config = (await result.json()) as ConfigType;
+      if (typeof configUrl === 'function') {
+        const {defaultConfig} = await configUrl();
+        this.config = defaultConfig;
+      } else {
+        const result = await fetch(configUrl);
+        this.config = (await result.json()) as ConfigType;
+      }
+
       this.configLoading = 'ready';
     } catch (e) {
       this.configLoading = 'error';
@@ -40,7 +48,9 @@ export abstract class ABaseApp<ConfigType> extends LitElement {
     }
   }
 
-  constructor(configUrl: string) {
+  constructor(
+    configUrl: string | (() => Promise<{defaultConfig: ConfigType}>),
+  ) {
     super();
     try {
       this.initializeLocale().catch(() => {});

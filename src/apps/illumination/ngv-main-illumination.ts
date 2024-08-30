@@ -1,16 +1,9 @@
 import {customElement, property, query, state} from 'lit/decorators.js';
-import {css, html, LitElement, PropertyValues} from 'lit';
-import {
-  Cartesian3,
-  Cesium3DTileset,
-  CesiumTerrainProvider,
-  CesiumWidget,
-  JulianDate,
-  Math as CMath,
-  ShadowMode,
-  Terrain,
-} from '@cesium/engine';
+import {css, html, LitElement} from 'lit';
+import {type CesiumWidget, JulianDate} from '@cesium/engine';
 import {IIlluminationConfig} from './ingv-config-illumination.js';
+
+import '../../plugins/ngv-plugin-cesium-widget.js';
 
 const YEAR = new Date().getFullYear();
 const BASE_DATE = new Date(`${YEAR}-01-01T00:00:00`);
@@ -22,7 +15,9 @@ export class NgvMainIllumination extends LitElement {
   day: number = 1;
   @state()
   hour: number = 12;
+
   private viewer: CesiumWidget;
+
   @query('#cesium-container')
   cesiumContainer: HTMLDivElement;
   @query('.hour-slider')
@@ -121,47 +116,6 @@ export class NgvMainIllumination extends LitElement {
     }
   `;
 
-  private async initializeViewer() {
-    window.CESIUM_BASE_URL = '/';
-    const {
-      terrain: terrainUrl,
-      buildings: buildingsUrl,
-      vegetation: vegetationUrl,
-      initialView,
-    } = this.config;
-    this.viewer = new CesiumWidget(this.cesiumContainer, {
-      shadows: true,
-      scene3DOnly: true,
-      terrain: new Terrain(CesiumTerrainProvider.fromUrl(terrainUrl)),
-      terrainShadows: ShadowMode.ENABLED,
-    });
-    const buildingsTS = await Cesium3DTileset.fromUrl(buildingsUrl, {
-      show: true,
-      backFaceCulling: false,
-    });
-    this.viewer.scene.primitives.add(buildingsTS);
-    const vegetationTS = await Cesium3DTileset.fromUrl(vegetationUrl, {
-      show: true,
-      backFaceCulling: false,
-    });
-    this.viewer.scene.primitives.add(vegetationTS);
-
-    this.viewer.camera.flyTo({
-      destination: Cartesian3.fromDegrees(...initialView.destination),
-      orientation: {
-        heading: CMath.toRadians(initialView.orientation.heading),
-        pitch: CMath.toRadians(initialView.orientation.pitch),
-      },
-      duration: 0,
-    });
-  }
-
-  protected async firstUpdated(_changedProperties: PropertyValues) {
-    await this.initializeViewer();
-    this.updateDayAndHour();
-    super.firstUpdated(_changedProperties);
-  }
-
   // FIXME: extract slider to own component
 
   // FIXME: extract Cesium to own component
@@ -196,7 +150,13 @@ export class NgvMainIllumination extends LitElement {
             />
           </div>
         </div>
-        <div id="cesium-container"></div>
+        <ngv-plugin-cesium-widget
+          .config=${this.config.cesiumContext}
+          @viewerInitialized=${(evt: CustomEvent<CesiumWidget>) => {
+            this.viewer = evt.detail;
+            this.updateDayAndHour();
+          }}
+        ></ngv-plugin-cesium-widget>
       </div>
     `;
   }
