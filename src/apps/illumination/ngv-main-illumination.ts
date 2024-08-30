@@ -1,0 +1,242 @@
+import {customElement, property, query, state} from 'lit/decorators.js';
+import {css, html, LitElement, PropertyValues} from 'lit';
+import {
+  Cartesian3,
+  Cesium3DTileset,
+  CesiumTerrainProvider,
+  CesiumWidget,
+  JulianDate,
+  Math as CMath,
+  ShadowMode,
+  Terrain,
+} from '@cesium/engine';
+import {IIlluminationConfig} from './ingv-config-illumination.js';
+
+const YEAR = new Date().getFullYear();
+const BASE_DATE = new Date(`${YEAR}-01-01T00:00:00`);
+const BASE_JULIAN_DATE = JulianDate.fromDate(BASE_DATE);
+
+@customElement('ngv-main-illumination')
+export class NgvMainIllumination extends LitElement {
+  @state()
+  day: number = 1;
+  @state()
+  hour: number = 12;
+  private viewer: CesiumWidget;
+  @query('#cesium-container')
+  cesiumContainer: HTMLDivElement;
+  @query('.hour-slider')
+  hourSlider: HTMLInputElement;
+  @query('.day-slider')
+  daySlider: HTMLInputElement;
+
+  @property({type: Object})
+  config: IIlluminationConfig['app'];
+
+  static styles = css`
+    .app-container {
+      margin-top: 10px;
+      width: 100%;
+    }
+
+    #cesium-container {
+      width: 100%;
+      height: calc(100vh - 320px);
+      padding: 10px 0;
+      display: flex;
+    }
+
+    #cesium-container .cesium-widget,
+    #cesium-container .cesium-widget canvas {
+      width: 100%;
+      height: 100%;
+    }
+
+    .controls {
+      position: absolute;
+      display: flex;
+      flex-direction: row;
+      width: 95%;
+      margin-top: 10px;
+      padding: 10px;
+      column-gap: 10px;
+      background: rgba(0, 0, 0, 0.3);
+      color: white;
+    }
+
+    .slider-container {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+    }
+
+    .day-slider {
+      background-image: linear-gradient(
+        to right,
+        #1843ef 8.3%,
+        #96de23 33.3%,
+        #d2c801 58.3%,
+        #f8700e 83.3%,
+        #1843ef 100%
+      );
+      //background-image: linear-gradient(to left, #1893EF 8.3%, #f8700e 8.3% 33.3%, #d2c801 33.3% 58.3%, #96de23 58.3% 83.3%, #1893EF 83.3% 100%)
+    }
+
+    .hour-slider {
+      background-image: linear-gradient(
+        to right,
+        #000033 0%,
+        /* 00:00 Night */ #000033 20%,
+        /* 05:00 */ #003366 25%,
+        /* 06:00 Dawn */ #6699ff 33%,
+        /* 09:00 Day */ #ffffcc 66%,
+        /* 16:00 Peak Daylight */ #ff9966 75%,
+        /* 17:00 Dusk */ #cc3300 80%,
+        /* 19:00 */ #000033 100% /* 23:00 Night */
+      );
+    }
+
+    .slider-container input {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 10px;
+    }
+
+    .slider-container input::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 12px;
+      height: 12px;
+      border: 0;
+      background: red;
+      cursor: pointer;
+    }
+
+    .slider-container input::-moz-range-thumb {
+      width: 12px;
+      height: 12px;
+      border: 0;
+      background: red;
+      cursor: pointer;
+    }
+  `;
+
+  private async initializeViewer() {
+    window.CESIUM_BASE_URL = '/';
+    const {
+      terrain: terrainUrl,
+      buildings: buildingsUrl,
+      vegetation: vegetationUrl,
+      initialView,
+    } = this.config;
+    this.viewer = new CesiumWidget(this.cesiumContainer, {
+      shadows: true,
+      scene3DOnly: true,
+      terrain: new Terrain(CesiumTerrainProvider.fromUrl(terrainUrl)),
+      terrainShadows: ShadowMode.ENABLED,
+    });
+    const buildingsTS = await Cesium3DTileset.fromUrl(buildingsUrl, {
+      show: true,
+      backFaceCulling: false,
+    });
+    this.viewer.scene.primitives.add(buildingsTS);
+    const vegetationTS = await Cesium3DTileset.fromUrl(vegetationUrl, {
+      show: true,
+      backFaceCulling: false,
+    });
+    this.viewer.scene.primitives.add(vegetationTS);
+
+    this.viewer.camera.flyTo({
+      destination: Cartesian3.fromDegrees(...initialView.destination),
+      orientation: {
+        heading: CMath.toRadians(initialView.orientation.heading),
+        pitch: CMath.toRadians(initialView.orientation.pitch),
+      },
+      duration: 0,
+    });
+  }
+
+  protected async firstUpdated(_changedProperties: PropertyValues) {
+    await this.initializeViewer();
+    this.updateDayAndHour();
+    super.firstUpdated(_changedProperties);
+  }
+
+  // FIXME: extract slider to own component
+
+  // FIXME: extract Cesium to own component
+
+  protected render() {
+    return html`
+      <div class="app-container">
+        <label class="year-label">Year: ${YEAR}</label>
+        <div class="controls">
+          <div class="slider-container">
+            <label>Time: ${this.time}</label>
+            <input
+              type="range"
+              class="hour-slider"
+              min="0"
+              max="23"
+              step="1"
+              value="${this.hour}"
+              @input="${() => this.updateDayAndHour()}"
+            />
+          </div>
+          <div class="slider-container">
+            <label>Day: ${this.date}</label>
+            <input
+              type="range"
+              class="day-slider"
+              min="1"
+              max="${this.daysInYear}"
+              step="1"
+              value="${this.day}"
+              @input="${() => this.updateDayAndHour()}"
+            />
+          </div>
+        </div>
+        <div id="cesium-container"></div>
+      </div>
+    `;
+  }
+
+  get time() {
+    BASE_DATE.setHours(this.hour);
+    return BASE_DATE.toLocaleTimeString();
+  }
+
+  get date() {
+    BASE_DATE.setMonth(0);
+    BASE_DATE.setDate(this.day);
+    const day = BASE_DATE.getDate();
+    const monthName = BASE_DATE.toLocaleString('default', {month: 'long'});
+    return `${day} of ${monthName} (day ${this.day})`;
+  }
+
+  updateDayAndHour() {
+    this.hour = parseInt(this.hourSlider.value);
+    this.day = parseInt(this.daySlider.value);
+    JulianDate.addHours(
+      BASE_JULIAN_DATE,
+      (this.day - 1) * 24 + this.hour,
+      this.viewer.clock.currentTime,
+    );
+  }
+
+  get daysInYear() {
+    return (YEAR % 4 === 0 && YEAR % 100 !== 0) || YEAR % 400 === 0 ? 366 : 365;
+  }
+}
+
+declare global {
+  interface HTMLElementTagNameMap {
+    'ngv-main-illumination': NgvMainIllumination;
+  }
+}
+
+declare global {
+  interface Window {
+    CESIUM_BASE_URL: string;
+  }
+}

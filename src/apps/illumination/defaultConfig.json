@@ -1,0 +1,32 @@
+{
+  "header": {
+    "languages": ["de", "fr", "en", "it"],
+    "title": {
+      "fr": "Ma super app",
+      "en": "My super app",
+      "de": "Meine supper app",
+      "it": "Mia super app"
+    }
+  },
+  "footer": {
+    "contact": "me@example.com",
+    "impressum": {
+      "fr": "Bla bla FR impressim",
+      "en": "Bla bla EN impressim",
+      "de": "Bla bla DE impressim",
+      "it": "Bla bla IT impressim"
+    }
+  },
+  "app": {
+    "terrain": "https://3d.geo.admin.ch/ch.swisstopo.terrain.3d/v1/",
+    "buildings": "https://vectortiles0.geo.admin.ch/3d-tiles/ch.swisstopo.swisstlm3d.3d/20201020/tileset.json",
+    "vegetation": "https://vectortiles.geo.admin.ch/3d-tiles/ch.swisstopo.vegetation.3d/20190313/tileset.json",
+    "initialView": {
+      "destination": [6.628484, 46.5, 1000],
+      "orientation": {
+        "heading": 0,
+        "pitch": -30.0
+      }
+    }
+  }
+}

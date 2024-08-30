@@ -2,20 +2,21 @@ import {html} from 'lit';
 import {customElement} from 'lit/decorators.js';
 
 import '../../structure/ngv-structure-app.js';
-import {INgvStructureApp} from '../../structure/ngv-structure-app.js';
 
 // // @ts-expect-error ?url parameter is a viteJS specificity
 // import logoUrl from "../../logo.svg?url";
-import {localized, msg} from '@lit/localize';
+import {localized} from '@lit/localize';
 import {ABaseApp} from '../../structure/BaseApp.js';
 
 // @ts-expect-error viteJS specific import
 import configUrl from './defaultConfig.json?url';
-//
 
-@customElement('ngv-app-buildings')
+import './ngv-main-illumination.js';
+import {IIlluminationConfig} from './ingv-config-illumination.js';
+
+@customElement('ngv-app-illumination')
 @localized()
-export class NgvAppBuildings extends ABaseApp<INgvStructureApp> {
+export class NgvAppIllumination extends ABaseApp<IIlluminationConfig> {
   constructor() {
     super(configUrl as string);
   }
@@ -27,7 +28,9 @@ export class NgvAppBuildings extends ABaseApp<INgvStructureApp> {
     }
     return html`
       <ngv-structure-app .config=${this.config}>
-        ${msg('THIS IS A CRAZY BUILDINGS app')}
+        <ngv-main-illumination
+          .config=${this.config.app}
+        ></ngv-main-illumination>
       </ngv-structure-app>
     `;
   }
