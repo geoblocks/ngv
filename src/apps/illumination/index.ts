@@ -8,9 +8,6 @@ import '../../structure/ngv-structure-app.js';
 import {localized} from '@lit/localize';
 import {ABaseApp} from '../../structure/BaseApp.js';
 
-// @ts-expect-error viteJS specific import
-import configUrl from './defaultConfig.json?url';
-
 import './ngv-main-illumination.js';
 import {IIlluminationConfig} from './ingv-config-illumination.js';
 
@@ -18,7 +15,7 @@ import {IIlluminationConfig} from './ingv-config-illumination.js';
 @localized()
 export class NgvAppIllumination extends ABaseApp<IIlluminationConfig> {
   constructor() {
-    super(configUrl as string);
+    super(() => import('./defaultConfig.js'));
   }
 
   render() {

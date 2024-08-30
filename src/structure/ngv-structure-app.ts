@@ -4,7 +4,7 @@ import {getLocale, Locale, setLocale} from './helpers/localeHelper.js';
 
 export interface INgvStructureApp {
   header: {
-    logo: string;
+    logo?: string;
     languages: Locale[];
     title: Record<Locale, string>;
   };
