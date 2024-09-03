@@ -21,34 +21,66 @@ import {
 import {IngvCesiumContext} from 'src/interfaces/ingv-cesium-context.js';
 import {INGVCatalog} from 'src/interfaces/ingv-catalog.js';
 
+function withExtra<T>(options: T, extra: Record<string, any>): T {
+  if (!extra) {
+    return options;
+  }
+  return Object.assign({}, options, extra) as T;
+}
+
 export async function instantiateTerrain(
   config: INGVCesiumTerrain,
+  extraOptions?: Record<string, any>,
 ): Promise<CesiumTerrainProvider> {
   const url = config.url;
   if (typeof url === 'string') {
-    return CesiumTerrainProvider.fromUrl(url, config.options);
+    return CesiumTerrainProvider.fromUrl(
+      url,
+      withExtra(config.options, extraOptions),
+    );
   } else {
-    return CesiumTerrainProvider.fromIonAssetId(url, config.options);
+    return CesiumTerrainProvider.fromIonAssetId(
+      url,
+      withExtra(config.options, extraOptions),
+    );
   }
 }
 
-export async function instantiate3dTileset(config: INGVCesium3DTiles) {
+export async function instantiate3dTileset(
+  config: INGVCesium3DTiles,
+  extraOptions?: Record<string, any>,
+) {
   const url = config.url;
   if (typeof url === 'string') {
-    return Cesium3DTileset.fromUrl(url, config.options);
+    return Cesium3DTileset.fromUrl(
+      url,
+      withExtra(config.options, extraOptions),
+    );
   } else {
-    return Cesium3DTileset.fromIonAssetId(url, config.options);
+    return Cesium3DTileset.fromIonAssetId(
+      url,
+      withExtra(config.options, extraOptions),
+    );
   }
 }
 
-export function instantiateImageryProvider(config: INGVCesiumImageryTypes) {
+export function instantiateImageryProvider(
+  config: INGVCesiumImageryTypes,
+  extraOptions?: Record<string, any>,
+) {
   switch (config.type) {
     case 'urltemplate':
-      return new UrlTemplateImageryProvider(config.options);
+      return new UrlTemplateImageryProvider(
+        withExtra(config.options, extraOptions),
+      );
     case 'wms':
-      return new WebMapServiceImageryProvider(config.options);
+      return new WebMapServiceImageryProvider(
+        withExtra(config.options, extraOptions),
+      );
     case 'wmts':
-      return new WebMapTileServiceImageryProvider(config.options);
+      return new WebMapTileServiceImageryProvider(
+        withExtra(config.options, extraOptions),
+      );
   }
 }
 
@@ -160,14 +192,17 @@ export async function initCesiumWidget(
 
   const stuffToDo: Promise<void>[] = [];
   if (cesiumContext.layers.terrain) {
-    const config = resolvedLayers[cesiumContext.layers.terrain];
+    const name = cesiumContext.layers.terrain;
+    const config = resolvedLayers[name];
     if (!isTerrainConfig(config)) {
       throw new Error();
     }
     stuffToDo.push(
-      instantiateTerrain(config).then((terrainProvider) => {
-        viewer.scene.terrainProvider = terrainProvider;
-      }),
+      instantiateTerrain(config, cesiumContext.layerOptions[name]).then(
+        (terrainProvider) => {
+          viewer.scene.terrainProvider = terrainProvider;
+        },
+      ),
     );
   }
 
@@ -177,9 +212,11 @@ export async function initCesiumWidget(
       throw new Error();
     }
     stuffToDo.push(
-      instantiate3dTileset(config).then((tileset) => {
-        viewer.scene.primitives.add(tileset);
-      }),
+      instantiate3dTileset(config, cesiumContext.layerOptions[name]).then(
+        (tileset) => {
+          viewer.scene.primitives.add(tileset);
+        },
+      ),
     );
   });
 
@@ -188,7 +225,10 @@ export async function initCesiumWidget(
     if (!isImageryConfig(config)) {
       throw new Error();
     }
-    const provider = instantiateImageryProvider(config);
+    const provider = instantiateImageryProvider(
+      config,
+      cesiumContext.layerOptions[name],
+    );
     viewer.scene.imageryLayers.addImageryProvider(provider);
   });
 

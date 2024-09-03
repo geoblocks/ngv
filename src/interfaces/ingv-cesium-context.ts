@@ -22,8 +22,7 @@ export interface IngvCesiumContext {
     // imageries: string[];
     baseLayers?: string[];
   };
-  // FIXME: probably useful
-  // layerOptions: Record<string, any>;
+  layerOptions?: Record<string, Record<string, any>>;
   camera: {
     position: [number, number, number];
     orientation: {

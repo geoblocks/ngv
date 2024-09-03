@@ -29,6 +29,14 @@ export const defaultConfig: IIlluminationConfig = {
         imageries: ['@geoadmin/pixel-karte-farbe'],
         terrain: '@geoadmin/terrain',
       },
+      layerOptions: {
+        '@geoadmin/buildings': {
+          backFaceCulling: false,
+        },
+        '@geoadmin/vegetation': {
+          backFaceCulling: false,
+        },
+      },
       quickLists: {
         baseLayers: [
           '@geoadmin/pixel-karte-farbe',
