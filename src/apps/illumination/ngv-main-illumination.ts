@@ -3,7 +3,7 @@ import {css, html, LitElement} from 'lit';
 import {type CesiumWidget, JulianDate} from '@cesium/engine';
 import {IIlluminationConfig} from './ingv-config-illumination.js';
 
-import '../../plugins/ngv-plugin-cesium-widget.js';
+import '../../plugins/cesium/ngv-plugin-cesium-widget.js';
 
 const YEAR = new Date().getFullYear();
 const BASE_DATE = new Date(`${YEAR}-01-01T00:00:00`);
@@ -151,7 +151,7 @@ export class NgvMainIllumination extends LitElement {
           </div>
         </div>
         <ngv-plugin-cesium-widget
-          .config=${this.config.cesiumContext}
+          .cesiumContext=${this.config.cesiumContext}
           @viewerInitialized=${(evt: CustomEvent<CesiumWidget>) => {
             this.viewer = evt.detail;
             this.updateDayAndHour();

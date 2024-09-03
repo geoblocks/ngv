@@ -1,8 +1,8 @@
 import type {IIlluminationConfig} from './ingv-config-illumination.js';
 
 export const defaultConfig: IIlluminationConfig = {
+  languages: ['de', 'fr', 'en', 'it'],
   header: {
-    languages: ['de', 'fr', 'en', 'it'],
     title: {
       fr: 'Ma super app',
       en: 'My super app',
@@ -21,19 +21,32 @@ export const defaultConfig: IIlluminationConfig = {
   },
   app: {
     cesiumContext: {
-      layers: {
-        terrain: 'https://3d.geo.admin.ch/ch.swisstopo.terrain.3d/v1/',
-        buildings:
-          'https://vectortiles0.geo.admin.ch/3d-tiles/ch.swisstopo.swisstlm3d.3d/20201020/tileset.json',
-        vegetation:
-          'https://vectortiles.geo.admin.ch/3d-tiles/ch.swisstopo.vegetation.3d/20190313/tileset.json',
+      catalogs: {
+        '@geoadmin': () => import('../../catalogs/geoadminCatalog.js'),
       },
-      initialView: {
-        destination: [6.628484, 46.5, 1000],
+      layers: {
+        tiles3d: ['@geoadmin/buildings', '@geoadmin/vegetation'],
+        imageries: ['@geoadmin/pixel-karte-farbe'],
+        terrain: '@geoadmin/terrain',
+      },
+      quickLists: {
+        baseLayers: [
+          '@geoadmin/pixel-karte-farbe',
+          '@geodmin/pixel-karte-frau',
+          '@geoadmin/swissimage',
+        ],
+      },
+      camera: {
+        position: [6.628484, 46.5, 1000],
         orientation: {
           heading: 0,
           pitch: -30.0,
         },
+      },
+      widgetOptions: {
+        shadows: true,
+        terrainShadows: 1,
+        scene3DOnly: true,
       },
     },
   },

@@ -3,9 +3,9 @@ import {customElement, property} from 'lit/decorators.js';
 import {getLocale, Locale, setLocale} from './helpers/localeHelper.js';
 
 export interface INgvStructureApp {
+  languages: Locale[];
   header: {
     logo?: string;
-    languages: Locale[];
     title: Record<Locale, string>;
   };
   footer: {
@@ -31,7 +31,7 @@ export class NgvStructureApp extends LitElement {
     if (!this.config) {
       return undefined;
     }
-    const {header, footer} = this.config;
+    const {header, footer, languages} = this.config;
     const currentLocale = getLocale();
     return html`
       <header>
@@ -43,11 +43,11 @@ export class NgvStructureApp extends LitElement {
             id="language"
             @change=${async (evt: Event) => {
               const el = evt.target as HTMLSelectElement;
-              const locale = header.languages[el.selectedIndex];
+              const locale = languages[el.selectedIndex];
               await setLocale(locale);
             }}
           >
-            ${header.languages.map(
+            ${languages.map(
               (l) =>
                 html`<option value="${l}" ?selected=${l === currentLocale}>
                   ${l}
