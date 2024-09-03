@@ -3,7 +3,7 @@ import {css, html, LitElement} from 'lit';
 import {type CesiumWidget, JulianDate} from '@cesium/engine';
 import {IIlluminationConfig} from './ingv-config-illumination.js';
 
-import '../../plugins/ngv-plugin-cesium-widget.js';
+import '../../plugins/cesium/ngv-plugin-cesium-widget.js';
 
 const YEAR = new Date().getFullYear();
 const BASE_DATE = new Date(`${YEAR}-01-01T00:00:00`);
@@ -18,8 +18,6 @@ export class NgvMainIllumination extends LitElement {
 
   private viewer: CesiumWidget;
 
-  @query('#cesium-container')
-  cesiumContainer: HTMLDivElement;
   @query('.hour-slider')
   hourSlider: HTMLInputElement;
   @query('.day-slider')
@@ -34,17 +32,10 @@ export class NgvMainIllumination extends LitElement {
       width: 100%;
     }
 
-    #cesium-container {
+    ngv-plugin-cesium-widget {
       width: 100%;
       height: calc(100vh - 320px);
       padding: 10px 0;
-      display: flex;
-    }
-
-    #cesium-container .cesium-widget,
-    #cesium-container .cesium-widget canvas {
-      width: 100%;
-      height: 100%;
     }
 
     .controls {
@@ -57,6 +48,7 @@ export class NgvMainIllumination extends LitElement {
       column-gap: 10px;
       background: rgba(0, 0, 0, 0.3);
       color: white;
+      z-index: 1000;
     }
 
     .slider-container {
@@ -101,7 +93,7 @@ export class NgvMainIllumination extends LitElement {
       -webkit-appearance: none;
       appearance: none;
       width: 12px;
-      height: 12px;
+      height: 22px;
       border: 0;
       background: red;
       cursor: pointer;
@@ -109,7 +101,7 @@ export class NgvMainIllumination extends LitElement {
 
     .slider-container input::-moz-range-thumb {
       width: 12px;
-      height: 12px;
+      height: 22px;
       border: 0;
       background: red;
       cursor: pointer;
@@ -117,8 +109,6 @@ export class NgvMainIllumination extends LitElement {
   `;
 
   // FIXME: extract slider to own component
-
-  // FIXME: extract Cesium to own component
 
   protected render() {
     return html`
@@ -151,7 +141,7 @@ export class NgvMainIllumination extends LitElement {
           </div>
         </div>
         <ngv-plugin-cesium-widget
-          .config=${this.config.cesiumContext}
+          .cesiumContext=${this.config.cesiumContext}
           @viewerInitialized=${(evt: CustomEvent<CesiumWidget>) => {
             this.viewer = evt.detail;
             this.updateDayAndHour();
@@ -192,11 +182,5 @@ export class NgvMainIllumination extends LitElement {
 declare global {
   interface HTMLElementTagNameMap {
     'ngv-main-illumination': NgvMainIllumination;
-  }
-}
-
-declare global {
-  interface Window {
-    CESIUM_BASE_URL: string;
   }
 }

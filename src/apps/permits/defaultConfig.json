@@ -1,6 +1,6 @@
 {
+  "languages": ["de", "fr", "en", "it"],
   "header": {
-    "languages": ["de", "fr", "en", "it"],
     "title": {
       "fr": "Ma super app",
       "en": "My super app",
