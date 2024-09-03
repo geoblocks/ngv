@@ -36,7 +36,6 @@ export class NgvMainIllumination extends LitElement {
       width: 100%;
       height: calc(100vh - 320px);
       padding: 10px 0;
-      display: flex;
     }
 
     .controls {
@@ -49,6 +48,7 @@ export class NgvMainIllumination extends LitElement {
       column-gap: 10px;
       background: rgba(0, 0, 0, 0.3);
       color: white;
+      z-index: 1000;
     }
 
     .slider-container {
@@ -93,7 +93,7 @@ export class NgvMainIllumination extends LitElement {
       -webkit-appearance: none;
       appearance: none;
       width: 12px;
-      height: 12px;
+      height: 22px;
       border: 0;
       background: red;
       cursor: pointer;
@@ -101,7 +101,7 @@ export class NgvMainIllumination extends LitElement {
 
     .slider-container input::-moz-range-thumb {
       width: 12px;
-      height: 12px;
+      height: 22px;
       border: 0;
       background: red;
       cursor: pointer;

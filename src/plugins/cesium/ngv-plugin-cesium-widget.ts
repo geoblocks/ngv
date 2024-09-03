@@ -33,6 +33,11 @@ export class NgvPluginCesiumWidget extends LitElement {
 
   protected async firstUpdated(): Promise<void> {
     this.viewer = await initCesiumWidget(this.element, this.cesiumContext);
+    this.dispatchEvent(
+      new CustomEvent('viewerInitialized', {
+        detail: this.viewer,
+      }),
+    );
   }
 
   render() {
