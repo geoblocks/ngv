@@ -1,3 +1,4 @@
+import type {ImageryProvider} from '@cesium/engine';
 import {
   Ion,
   Math as CesiumMath,
@@ -5,7 +6,7 @@ import {
   Cartesian3,
 } from '@cesium/engine';
 
-import {
+import type {
   INGVCesium3DTiles,
   INGVCesiumAllTypes,
   INGVCesiumImageryTypes,
@@ -18,8 +19,8 @@ import {
   WebMapServiceImageryProvider,
   WebMapTileServiceImageryProvider,
 } from '@cesium/engine';
-import {IngvCesiumContext} from 'src/interfaces/ingv-cesium-context.js';
-import {INGVCatalog} from 'src/interfaces/ingv-catalog.js';
+import type {IngvCesiumContext} from 'src/interfaces/ingv-cesium-context.js';
+import type {INGVCatalog} from 'src/interfaces/ingv-catalog.js';
 
 function withExtra<T>(options: T, extra: Record<string, any>): T {
   if (!extra) {
@@ -49,8 +50,19 @@ export async function instantiateTerrain(
 export async function instantiate3dTileset(
   config: INGVCesium3DTiles,
   extraOptions?: Record<string, any>,
-) {
+): Promise<Cesium3DTileset> {
   const url = config.url;
+  const subtype = config.subtype;
+  if (subtype === 'googlePhotorealistic') {
+    // this should be treeshaked, at leat parcel does it
+    // https://parceljs.org/features/code-splitting/
+    // not 100% sure about vite
+    const {createGooglePhotorealistic3DTileset} = await import(
+      '@cesium/engine'
+    );
+    const key = extraOptions?.key as string | undefined;
+    return createGooglePhotorealistic3DTileset(key);
+  }
   if (typeof url === 'string') {
     return Cesium3DTileset.fromUrl(
       url,
@@ -67,9 +79,21 @@ export async function instantiate3dTileset(
 export function instantiateImageryProvider(
   config: INGVCesiumImageryTypes,
   extraOptions?: Record<string, any>,
-) {
+): ImageryProvider {
   switch (config.type) {
     case 'urltemplate':
+      if (config.options.customTags) {
+        const cts = config.options.customTags as Record<
+          string,
+          (() => any) | string
+        >;
+        for (const k in cts) {
+          const v = cts[k];
+          if (typeof v !== 'function') {
+            cts[k] = () => v;
+          }
+        }
+      }
       return new UrlTemplateImageryProvider(
         withExtra(config.options, extraOptions),
       );
@@ -137,6 +161,9 @@ async function resolveLayers(
       // and avoid having to remove that first character?
       const [catalogName, layerName] = k.split('/', 2);
       const catalog = cesiumContext.catalogs[catalogName] as INGVCatalog; // we resolved it before
+      if (!catalog) {
+        throw new Error(`The catalog ${catalogName} can not be found`);
+      }
       const config = catalog.layers[layerName];
       if (!config) {
         throw new Error(
@@ -160,11 +187,7 @@ export async function initCesiumWidget(
   if (cesiumContext.cesiumApiKey) {
     Ion.defaultAccessToken = cesiumContext.cesiumApiKey;
   }
-
-  // Retrieve catalogs
-  for (const catalogName in cesiumContext.catalogs) {
-    await resolveCatalog(cesiumContext, catalogName);
-  }
+  cesiumContext.layerOptions = cesiumContext.layerOptions || {};
 
   // Resolve active layers
   const resolvedLayers = await resolveLayers(

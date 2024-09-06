@@ -1,3 +1,4 @@
+import type {HTMLTemplateResult} from 'lit';
 import {html, LitElement} from 'lit';
 import {customElement, property} from 'lit/decorators.js';
 
@@ -11,7 +12,7 @@ export class NgvStructureAppLoading extends LitElement {
   @property({type: String})
   language: Status;
 
-  renderItem(status: Status) {
+  renderItem(status: Status): string {
     switch (status) {
       case 'error':
         return '⨯';
@@ -24,7 +25,7 @@ export class NgvStructureAppLoading extends LitElement {
     }
   }
 
-  render() {
+  render(): HTMLTemplateResult {
     return html`Loading...<br />
       - ${this.renderItem(this.config)} config<br />
       - ${this.renderItem(this.language)} lang<br /> `;

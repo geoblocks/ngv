@@ -1,4 +1,4 @@
-import {INGVCatalog} from '../interfaces/ingv-catalog.js';
+import type {INGVCatalog} from '../interfaces/ingv-catalog.js';
 
 export const catalog: INGVCatalog = {
   id: '@geoadmin',
@@ -19,14 +19,11 @@ export const catalog: INGVCatalog = {
     'pixel-karte-farbe': {
       type: 'wmts',
       options: {
-        url: 'https://wmts.geo.admin.ch/1.0.0/{layer}/default/{timestamp}/3857/{z}/{x}/{y}.{format}',
+        url: 'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/{Style}/current/{TileMatrixSet}/{TileMatrix}/{TileCol}/{TileRow}.jpeg',
         layer: 'ch.swisstopo.pixelkarte-farbe',
-        dimensions: {
-          timestamp: 'current',
-        },
-        format: 'jpeg',
-        style: 'what is this?',
-        tileMatrixSetID: 'idem',
+        format: 'image/jpeg',
+        style: 'default',
+        tileMatrixSetID: '3857',
         maximumLevel: 18,
       },
     },

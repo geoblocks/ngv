@@ -19,6 +19,7 @@ export type INGVCesiumAllTypes =
 
 export interface INGVCesium3DTiles {
   type: '3dtiles';
+  subtype?: 'googlePhotorealistic';
   url: string | number;
   options?: ConstructorParameters<typeof Cesium3DTileset>[0];
 }
