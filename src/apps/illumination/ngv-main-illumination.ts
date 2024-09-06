@@ -1,7 +1,8 @@
 import {customElement, property, query, state} from 'lit/decorators.js';
+import type {HTMLTemplateResult} from 'lit';
 import {css, html, LitElement} from 'lit';
 import {type CesiumWidget, JulianDate} from '@cesium/engine';
-import {IIlluminationConfig} from './ingv-config-illumination.js';
+import type {IIlluminationConfig} from './ingv-config-illumination.js';
 
 import '../../plugins/cesium/ngv-plugin-cesium-widget.js';
 
@@ -110,7 +111,7 @@ export class NgvMainIllumination extends LitElement {
 
   // FIXME: extract slider to own component
 
-  protected render() {
+  protected render(): HTMLTemplateResult {
     return html`
       <div class="app-container">
         <label class="year-label">Year: ${YEAR}</label>
@@ -151,12 +152,12 @@ export class NgvMainIllumination extends LitElement {
     `;
   }
 
-  get time() {
+  get time(): string {
     BASE_DATE.setHours(this.hour);
     return BASE_DATE.toLocaleTimeString();
   }
 
-  get date() {
+  get date(): string {
     BASE_DATE.setMonth(0);
     BASE_DATE.setDate(this.day);
     const day = BASE_DATE.getDate();
@@ -164,7 +165,7 @@ export class NgvMainIllumination extends LitElement {
     return `${day} of ${monthName} (day ${this.day})`;
   }
 
-  updateDayAndHour() {
+  updateDayAndHour(): void {
     this.hour = parseInt(this.hourSlider.value);
     this.day = parseInt(this.daySlider.value);
     JulianDate.addHours(
@@ -174,7 +175,7 @@ export class NgvMainIllumination extends LitElement {
     );
   }
 
-  get daysInYear() {
+  get daysInYear(): number {
     return (YEAR % 4 === 0 && YEAR % 100 !== 0) || YEAR % 400 === 0 ? 366 : 365;
   }
 }

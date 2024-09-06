@@ -1,4 +1,4 @@
-import {INGVCesiumAllTypes} from './ingv-layers.js';
+import type {INGVCesiumAllTypes} from './ingv-layers.js';
 
 export interface NGVLayerDescr<Type, LayerType> {
   type: Type;

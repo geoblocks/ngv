@@ -1,6 +1,6 @@
-import type {IIlluminationConfig} from './ingv-config-illumination.js';
+import type {IPermitsConfig} from './ingv-config-permits.js';
 
-export const defaultConfig: IIlluminationConfig = {
+export const config: IPermitsConfig = {
   languages: ['de', 'fr', 'en', 'it'],
   header: {
     title: {
@@ -22,27 +22,13 @@ export const defaultConfig: IIlluminationConfig = {
   app: {
     cesiumContext: {
       catalogs: {
+        '@cesium': () => import('../../catalogs/cesiumCatalog.js'),
         '@geoadmin': () => import('../../catalogs/geoadminCatalog.js'),
       },
       layers: {
-        tiles3d: ['@geoadmin/buildings', '@geoadmin/vegetation'],
+        tiles3d: ['@cesium/googlePhotorealistic'],
         imageries: ['@geoadmin/pixel-karte-farbe'],
-        terrain: '@geoadmin/terrain',
-      },
-      layerOptions: {
-        '@geoadmin/buildings': {
-          backFaceCulling: false,
-        },
-        '@geoadmin/vegetation': {
-          backFaceCulling: false,
-        },
-      },
-      quickLists: {
-        baseLayers: [
-          '@geoadmin/pixel-karte-farbe',
-          '@geodmin/pixel-karte-frau',
-          '@geoadmin/swissimage',
-        ],
+        // terrain: '@geoadmin/terrain',
       },
       camera: {
         position: [6.628484, 46.5, 1000],
@@ -52,8 +38,6 @@ export const defaultConfig: IIlluminationConfig = {
         },
       },
       widgetOptions: {
-        shadows: true,
-        terrainShadows: 1,
         scene3DOnly: true,
       },
     },

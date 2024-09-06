@@ -1,3 +1,4 @@
+import type {HTMLTemplateResult} from 'lit';
 import {html} from 'lit';
 import {customElement} from 'lit/decorators.js';
 
@@ -9,16 +10,16 @@ import {localized} from '@lit/localize';
 import {ABaseApp} from '../../structure/BaseApp.js';
 
 import './ngv-main-illumination.js';
-import {IIlluminationConfig} from './ingv-config-illumination.js';
+import type {IIlluminationConfig} from './ingv-config-illumination.js';
 
 @customElement('ngv-app-illumination')
 @localized()
 export class NgvAppIllumination extends ABaseApp<IIlluminationConfig> {
   constructor() {
-    super(() => import('./defaultConfig.js'));
+    super(() => import('./demoIlluminationConfig.js'));
   }
 
-  render() {
+  render(): HTMLTemplateResult {
     const r = super.render();
     if (r) {
       return r;

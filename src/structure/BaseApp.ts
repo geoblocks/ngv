@@ -1,9 +1,11 @@
-import {html, LitElement, TemplateResult} from 'lit';
+import type {HTMLTemplateResult} from 'lit';
+import {html, LitElement} from 'lit';
 import {state} from 'lit/decorators.js';
-import {Status} from './ngv-structure-apploading.js';
+import type {Status} from './ngv-structure-apploading.js';
 import './ngv-structure-apploading.js';
 
-import {detectOKLanguage, Locale, setLocale} from './helpers/localeHelper.js';
+import type {Locale} from './helpers/localeHelper.js';
+import {detectOKLanguage, setLocale} from './helpers/localeHelper.js';
 
 export abstract class ABaseApp<ConfigType> extends LitElement {
   @state()
@@ -29,13 +31,13 @@ export abstract class ABaseApp<ConfigType> extends LitElement {
   }
 
   private async initializeConfig(
-    configUrl: string | (() => Promise<{defaultConfig: ConfigType}>),
+    configUrl: string | (() => Promise<{config: ConfigType}>),
   ) {
     this.configLoading = 'loading';
     try {
       if (typeof configUrl === 'function') {
-        const {defaultConfig} = await configUrl();
-        this.config = defaultConfig;
+        const {config} = await configUrl();
+        this.config = config;
       } else {
         const result = await fetch(configUrl);
         this.config = (await result.json()) as ConfigType;
@@ -48,9 +50,7 @@ export abstract class ABaseApp<ConfigType> extends LitElement {
     }
   }
 
-  constructor(
-    configUrl: string | (() => Promise<{defaultConfig: ConfigType}>),
-  ) {
+  constructor(configUrl: string | (() => Promise<{config: ConfigType}>)) {
     super();
     try {
       this.initializeLocale().catch(() => {});
@@ -60,7 +60,7 @@ export abstract class ABaseApp<ConfigType> extends LitElement {
     }
   }
 
-  override render(): TemplateResult {
+  override render(): HTMLTemplateResult {
     if (this.configLoading === 'ready' && this.localeLoading === 'ready') {
       return undefined;
     }

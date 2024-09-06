@@ -2,5 +2,7 @@
   "files.associations": {
     "*.json": "jsonc"
   },
-  "lit-plugin.strict": true
+  "lit-plugin.strict": true,
+  "javascript.preferGoToSourceDefinition": true,
+  "typescript.preferGoToSourceDefinition": true
 }

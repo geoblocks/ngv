@@ -1,6 +1,8 @@
+import type {HTMLTemplateResult} from 'lit';
 import {LitElement, html} from 'lit';
 import {customElement, property} from 'lit/decorators.js';
-import {getLocale, Locale, setLocale} from './helpers/localeHelper.js';
+import type {Locale} from './helpers/localeHelper.js';
+import {getLocale, setLocale} from './helpers/localeHelper.js';
 
 export interface INgvStructureApp {
   languages: Locale[];
@@ -27,7 +29,7 @@ export class NgvStructureApp extends LitElement {
     // this.shadowRoot.adoptedStyleSheets.push(styles);
   }
 
-  render() {
+  render(): HTMLTemplateResult {
     if (!this.config) {
       return undefined;
     }

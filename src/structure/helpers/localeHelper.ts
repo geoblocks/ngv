@@ -1,4 +1,5 @@
-import {configureLocalization, LocaleModule} from '@lit/localize';
+import type {LocaleModule} from '@lit/localize';
+import {configureLocalization} from '@lit/localize';
 import {
   allLocales,
   sourceLocale,

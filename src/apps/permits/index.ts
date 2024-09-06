@@ -1,33 +1,42 @@
+import type {HTMLTemplateResult} from 'lit';
 import {html} from 'lit';
 import {customElement} from 'lit/decorators.js';
 
 import '../../structure/ngv-structure-app.js';
-import {INgvStructureApp} from '../../structure/ngv-structure-app.js';
 
 // // @ts-expect-error ?url parameter is a viteJS specificity
 // import logoUrl from "../../logo.svg?url";
-import {localized, msg} from '@lit/localize';
+import {localized} from '@lit/localize';
 import {ABaseApp} from '../../structure/BaseApp.js';
 
-// @ts-expect-error viteJS specific import
-import configUrl from './defaultConfig.json?url';
+import type {IPermitsConfig} from './ingv-config-permits.js';
+import '../../plugins/cesium/ngv-plugin-cesium-widget';
+import type {CesiumWidget} from '@cesium/engine';
 //
 
 @customElement('ngv-app-permits')
 @localized()
-export class NgvAppPermits extends ABaseApp<INgvStructureApp> {
+export class NgvAppPermits extends ABaseApp<IPermitsConfig> {
+  // @ts-expect-error unused for now
+  private viewer: CesiumWidget;
+
   constructor() {
-    super(configUrl as string);
+    super(() => import('./demoPermitConfig.js'));
   }
 
-  render() {
+  render(): HTMLTemplateResult {
     const r = super.render();
     if (r) {
       return r;
     }
     return html`
       <ngv-structure-app .config=${this.config}>
-        ${msg('THIS IS A CRAZY BUILDINGS app')}
+        <ngv-plugin-cesium-widget
+          .cesiumContext=${this.config.app.cesiumContext}
+          @viewerInitialized=${(evt: CustomEvent<CesiumWidget>) => {
+            this.viewer = evt.detail;
+          }}
+        ></ngv-plugin-cesium-widget>
       </ngv-structure-app>
     `;
   }
