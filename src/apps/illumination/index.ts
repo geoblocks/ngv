@@ -21,13 +21,14 @@ export class NgvAppIllumination extends ABaseApp<IIlluminationConfig> {
 
   render(): HTMLTemplateResult {
     const r = super.render();
-    if (r) {
+    if (r && !this.config) {
+      // todo check
       return r;
     }
     return html`
       <ngv-structure-app .config=${this.config}>
         <ngv-main-illumination
-          .config=${this.config.app}
+          .config=${this.config?.app}
         ></ngv-main-illumination>
       </ngv-structure-app>
     `;

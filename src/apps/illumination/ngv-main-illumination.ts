@@ -1,10 +1,12 @@
-import {customElement, property, query, state} from 'lit/decorators.js';
+import {customElement, property, state} from 'lit/decorators.js';
 import type {HTMLTemplateResult} from 'lit';
 import {css, html, LitElement} from 'lit';
 import {type CesiumWidget, JulianDate} from '@cesium/engine';
 import type {IIlluminationConfig} from './ingv-config-illumination.js';
 
 import '../../plugins/cesium/ngv-plugin-cesium-widget.js';
+import '../../plugins/ui/ngv-colored-slider.js';
+import type {SliderInputEventData} from '../../plugins/ui/ngv-colored-slider.js';
 
 const YEAR = new Date().getFullYear();
 const BASE_DATE = new Date(`${YEAR}-01-01T00:00:00`);
@@ -18,11 +20,6 @@ export class NgvMainIllumination extends LitElement {
   hour: number = 12;
 
   private viewer: CesiumWidget;
-
-  @query('.hour-slider')
-  hourSlider: HTMLInputElement;
-  @query('.day-slider')
-  daySlider: HTMLInputElement;
 
   @property({type: Object})
   config: IIlluminationConfig['app'];
@@ -52,60 +49,8 @@ export class NgvMainIllumination extends LitElement {
       z-index: 1000;
     }
 
-    .slider-container {
-      display: flex;
-      flex-direction: column;
+    ngv-colored-slider {
       width: 100%;
-    }
-
-    .day-slider {
-      background-image: linear-gradient(
-        to right,
-        #1843ef 8.3%,
-        #96de23 33.3%,
-        #d2c801 58.3%,
-        #f8700e 83.3%,
-        #1843ef 100%
-      );
-      //background-image: linear-gradient(to left, #1893EF 8.3%, #f8700e 8.3% 33.3%, #d2c801 33.3% 58.3%, #96de23 58.3% 83.3%, #1893EF 83.3% 100%)
-    }
-
-    .hour-slider {
-      background-image: linear-gradient(
-        to right,
-        #000033 0%,
-        /* 00:00 Night */ #000033 20%,
-        /* 05:00 */ #003366 25%,
-        /* 06:00 Dawn */ #6699ff 33%,
-        /* 09:00 Day */ #ffffcc 66%,
-        /* 16:00 Peak Daylight */ #ff9966 75%,
-        /* 17:00 Dusk */ #cc3300 80%,
-        /* 19:00 */ #000033 100% /* 23:00 Night */
-      );
-    }
-
-    .slider-container input {
-      -webkit-appearance: none;
-      width: 100%;
-      height: 10px;
-    }
-
-    .slider-container input::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 12px;
-      height: 22px;
-      border: 0;
-      background: red;
-      cursor: pointer;
-    }
-
-    .slider-container input::-moz-range-thumb {
-      width: 12px;
-      height: 22px;
-      border: 0;
-      background: red;
-      cursor: pointer;
     }
   `;
 
@@ -116,30 +61,51 @@ export class NgvMainIllumination extends LitElement {
       <div class="app-container">
         <label class="year-label">Year: ${YEAR}</label>
         <div class="controls">
-          <div class="slider-container">
-            <label>Time: ${this.time}</label>
-            <input
-              type="range"
-              class="hour-slider"
-              min="0"
-              max="23"
-              step="1"
-              value="${this.hour}"
-              @input="${() => this.updateDayAndHour()}"
-            />
-          </div>
-          <div class="slider-container">
-            <label>Day: ${this.date}</label>
-            <input
-              type="range"
-              class="day-slider"
-              min="1"
-              max="${this.daysInYear}"
-              step="1"
-              value="${this.day}"
-              @input="${() => this.updateDayAndHour()}"
-            />
-          </div>
+          <ngv-colored-slider
+            class="hour-slider"
+            .title="Time: ${this.time}"
+            .min=${0}
+            .max=${23}
+            .value="${this.hour}"
+            .colorConfig="${{
+              side: 'to right',
+              colors: [
+                {color: '#000033', percentage: [0]},
+                {color: '#000033', percentage: [20]},
+                {color: '#003366', percentage: [25]},
+                {color: '#6699ff', percentage: [33]},
+                {color: '#ffffcc', percentage: [66]},
+                {color: '#ff9966', percentage: [75]},
+                {color: '#cc3300', percentage: [80]},
+                {color: '#000033', percentage: [100]},
+              ],
+            }}"
+            @valueChanged="${(evt: CustomEvent<SliderInputEventData>) => {
+              this.hour = evt.detail.value;
+              this.updateDayAndHour();
+            }}"
+          ></ngv-colored-slider>
+          <ngv-colored-slider
+            class="day-slider"
+            .title="Day: ${this.date}"
+            .min=${1}
+            .max="${this.daysInYear}"
+            .value="${this.day}"
+            .colorConfig="${{
+              side: 'to right',
+              colors: [
+                {color: '#1843ef', percentage: [8.3]},
+                {color: '#96de23', percentage: [33.3]},
+                {color: '#d2c801', percentage: [58.3]},
+                {color: '#f8700e', percentage: [83.3]},
+                {color: '#1843ef', percentage: [100]},
+              ],
+            }}"
+            @valueChanged="${(value: CustomEvent<SliderInputEventData>) => {
+              this.day = value.detail.value;
+              this.updateDayAndHour();
+            }}"
+          ></ngv-colored-slider>
         </div>
         <ngv-plugin-cesium-widget
           .cesiumContext=${this.config.cesiumContext}
@@ -166,8 +132,6 @@ export class NgvMainIllumination extends LitElement {
   }
 
   updateDayAndHour(): void {
-    this.hour = parseInt(this.hourSlider.value);
-    this.day = parseInt(this.daySlider.value);
     JulianDate.addHours(
       BASE_JULIAN_DATE,
       (this.day - 1) * 24 + this.hour,
