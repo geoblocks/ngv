@@ -12,6 +12,7 @@
     "lint-fix": "eslint . --fix",
     "prettier": "prettier . --check",
     "prettier-fix": "prettier -w .",
+    "typing": "tsc --noEmit",
     "prepare": "tsc",
     "api-extractor": "api-extractor run --local --verbose --typescript-compiler-folder node_modules/typescript",
     "api-extractor-check": "api-extractor run --verbose --typescript-compiler-folder node_modules/typescript",
@@ -26,6 +27,7 @@
     "@cesium/engine": "11.0.0",
     "@cesium/widgets": "8.0.0",
     "@eslint/js": "9.9.1",
+    "@geoblocks/ifc-gltf": "^0.0.2",
     "@geoblocks/oidcjs": "^0.5.10",
     "@lit/context": "^1.1.2",
     "@lit/localize": "^0.12.2",
@@ -38,7 +40,7 @@
     "eslint-config-prettier": "^9.1.0",
     "lit": "3.2.0",
     "prettier": "3.3.3",
-    "typescript": "5.5.4",
+    "typescript": "^5.5.4",
     "typescript-eslint": "8.4.0",
     "vite": "5.4.3"
   }

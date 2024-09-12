@@ -24,9 +24,11 @@ export const config: IPermitsConfig = {
       catalogs: {
         '@cesium': () => import('../../catalogs/cesiumCatalog.js'),
         '@geoadmin': () => import('../../catalogs/geoadminCatalog.js'),
+        '@demo': () => import('../../catalogs/demoCatalog.js'),
       },
       layers: {
-        tiles3d: ['@cesium/googlePhotorealistic'],
+        // tilesets: ['@cesium/googlePhotorealistic'],
+        models: ['@demo/sofa', '@demo/thatopensmall'],
         imageries: ['@geoadmin/pixel-karte-farbe'],
         // terrain: '@geoadmin/terrain',
       },
@@ -37,6 +39,7 @@ export const config: IPermitsConfig = {
           pitch: -30.0,
         },
       },
+      layerOptions: {},
       widgetOptions: {
         scene3DOnly: true,
       },

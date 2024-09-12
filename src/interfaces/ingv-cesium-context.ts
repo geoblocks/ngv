@@ -11,6 +11,7 @@ export interface IngvCesiumContext {
   layers: {
     terrain?: string;
     tiles3d?: string[];
+    models?: string[];
     imageries: string[];
   };
   /**

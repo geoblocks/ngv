@@ -5,7 +5,7 @@ import {customElement, property, query} from 'lit/decorators.js';
 // @ts-expect-error Vite specific ?inline parameter
 import style from '@cesium/engine/Source/Widget/CesiumWidget.css?inline';
 import type {IngvCesiumContext} from 'src/interfaces/ingv-cesium-context.js';
-import type {CesiumWidget} from '@cesium/engine';
+import type {CesiumWidget, Model} from '@cesium/engine';
 import {initCesiumWidget} from './ngv-cesium-factories.js';
 
 @customElement('ngv-plugin-cesium-widget')
@@ -28,12 +28,19 @@ export class NgvPluginCesiumWidget extends LitElement {
   @property({type: Object})
   cesiumContext: IngvCesiumContext;
 
+  @property({type: Object})
+  modelCallback: (name: string, model: Model) => void;
+
   // The configuration should provide a catalog
   @query('#globe')
   private element: HTMLDivElement;
 
   private async initCesiumViewer(): Promise<void> {
-    this.viewer = await initCesiumWidget(this.element, this.cesiumContext);
+    this.viewer = await initCesiumWidget(
+      this.element,
+      this.cesiumContext,
+      this.modelCallback,
+    );
     this.dispatchEvent(
       new CustomEvent('viewerInitialized', {
         detail: this.viewer,
