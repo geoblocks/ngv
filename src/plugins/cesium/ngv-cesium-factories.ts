@@ -13,6 +13,7 @@ import type {
   INGVCesiumAllTypes,
   INGVCesiumImageryTypes,
   INGVCesiumTerrain,
+  INGVIFC,
 } from 'src/interfaces/ingv-layers.js';
 import {
   Cesium3DTileset,
@@ -154,6 +155,10 @@ export function isModelConfig(
   return config?.type === 'model';
 }
 
+export function isIFCConfig(config: INGVCesiumAllTypes): config is INGVIFC {
+  return config?.type === 'ifc';
+}
+
 export function isImageryConfig(
   config: INGVCesiumAllTypes,
 ): config is INGVCesiumImageryTypes {
@@ -196,7 +201,13 @@ async function resolveLayers(
 export async function initCesiumWidget(
   container: HTMLDivElement,
   cesiumContext: IngvCesiumContext,
+  modelCallback: (name: string, model: Model) => void,
 ): Promise<CesiumWidget> {
+  modelCallback =
+    modelCallback ||
+    (() => {
+      console.warn('Missing modelCallback');
+    });
   window.CESIUM_BASE_URL = cesiumContext.baseUrl || '/';
 
   if (cesiumContext.cesiumApiKey) {
@@ -263,20 +274,62 @@ export async function initCesiumWidget(
 
   cesiumContext.layers.models?.forEach((name) => {
     const config = resolvedLayers[name];
-    if (!isModelConfig(config)) {
-      throw new Error(`Not a model config`);
+    if (isModelConfig(config)) {
+      stuffToDo.push(
+        instantiateModel(config, cesiumContext.layerOptions[name]).then(
+          (model) => {
+            console.log('Got model!', config);
+            modelCallback(name, model);
+            viewer.scene.primitives.add(model);
+          },
+          (e) => {
+            console.error('o', e);
+          },
+        ),
+      );
+    } else if (isIFCConfig(config)) {
+      stuffToDo.push(
+        import('@geoblocks/ifc-gltf').then(async (module) => {
+          const {ifcToGLTF} = module;
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          const {metadata, glb, coordinationMatrix} = await ifcToGLTF({
+            url: config.url,
+            webIfcSettings: {
+              wasm: {
+                path: '/',
+                absolute: true,
+              },
+            },
+          });
+          // FIXME: we are missing a mechnism to place the model at a particular place
+          console.log('IFC transformed to glTF', metadata, coordinationMatrix);
+          const glbBlob = new Blob([glb]);
+          const glbURL = URL.createObjectURL(glbBlob);
+          const modelConfig: INGVCesiumModel = {
+            type: 'model',
+            options: Object.assign({}, config.options?.modelOptions, {
+              url: glbURL,
+            }),
+          };
+          return instantiateModel(modelConfig, cesiumContext.layerOptions[name])
+            .then(
+              (model) => {
+                modelCallback(name, model);
+                console.log('Got IFC!', config, modelConfig);
+                viewer.scene.primitives.add(model);
+              },
+              (e) => {
+                console.error('o', e);
+              },
+            )
+            .finally(() => {
+              URL.revokeObjectURL(glbURL);
+            });
+        }),
+      );
+    } else {
+      throw new Error(`Not a supported model config: ${config.type}`);
     }
-    stuffToDo.push(
-      instantiateModel(config, cesiumContext.layerOptions[name]).then(
-        (model) => {
-          console.log('Got model!', config);
-          viewer.scene.primitives.add(model);
-        },
-        (e) => {
-          console.error('o', e);
-        },
-      ),
-    );
   });
 
   cesiumContext.layers.imageries.map((name) => {

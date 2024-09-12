@@ -28,7 +28,7 @@ export const config: IPermitsConfig = {
       },
       layers: {
         // tilesets: ['@cesium/googlePhotorealistic'],
-        models: ['@demo/sofa'],
+        models: ['@demo/sofa', '@demo/thatopensmall'],
         imageries: ['@geoadmin/pixel-karte-farbe'],
         // terrain: '@geoadmin/terrain',
       },
@@ -39,6 +39,7 @@ export const config: IPermitsConfig = {
           pitch: -30.0,
         },
       },
+      layerOptions: {},
       widgetOptions: {
         scene3DOnly: true,
       },

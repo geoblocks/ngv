@@ -17,7 +17,10 @@ export type INGVCesiumAllTypes =
   | INGVCesiumTerrain
   | INGVCesiumImageryTypes;
 
-export type INGVCesiumAllPrimitiveTypes = INGVCesiumModel | INGVCesium3DTiles;
+export type INGVCesiumAllPrimitiveTypes =
+  | INGVCesiumModel
+  | INGVIFC
+  | INGVCesium3DTiles;
 
 export interface INGVCesium3DTiles {
   type: '3dtiles';
@@ -29,6 +32,14 @@ export interface INGVCesium3DTiles {
 export interface INGVCesiumModel {
   type: 'model';
   options?: Parameters<typeof Model.fromGltfAsync>[0];
+}
+
+export interface INGVIFC {
+  type: 'ifc';
+  url: string;
+  options?: {
+    modelOptions: Omit<INGVCesiumModel['options'], 'url'>;
+  };
 }
 
 export interface INGVCesiumTerrain {
