@@ -4,10 +4,12 @@ import {
   Math as CesiumMath,
   CesiumWidget,
   Cartesian3,
+  Model,
 } from '@cesium/engine';
 
 import type {
   INGVCesium3DTiles,
+  INGVCesiumModel,
   INGVCesiumAllTypes,
   INGVCesiumImageryTypes,
   INGVCesiumTerrain,
@@ -45,6 +47,13 @@ export async function instantiateTerrain(
       withExtra(config.options, extraOptions),
     );
   }
+}
+
+export async function instantiateModel(
+  config: INGVCesiumModel,
+  extraOptions?: Record<string, any>,
+): Promise<Model> {
+  return Model.fromGltfAsync(withExtra(config.options, extraOptions));
 }
 
 export async function instantiate3dTileset(
@@ -139,6 +148,12 @@ export function is3dTilesetConfig(
   return config?.type === '3dtiles';
 }
 
+export function isModelConfig(
+  config: INGVCesiumAllTypes,
+): config is INGVCesiumModel {
+  return config?.type === 'model';
+}
+
 export function isImageryConfig(
   config: INGVCesiumAllTypes,
 ): config is INGVCesiumImageryTypes {
@@ -204,6 +219,9 @@ export async function initCesiumWidget(
       if (l.tiles3d) {
         keys.push(...l.tiles3d);
       }
+      if (l.models) {
+        keys.push(...l.models);
+      }
       return keys;
     })(),
   );
@@ -238,6 +256,24 @@ export async function initCesiumWidget(
       instantiate3dTileset(config, cesiumContext.layerOptions[name]).then(
         (tileset) => {
           viewer.scene.primitives.add(tileset);
+        },
+      ),
+    );
+  });
+
+  cesiumContext.layers.models?.forEach((name) => {
+    const config = resolvedLayers[name];
+    if (!isModelConfig(config)) {
+      throw new Error(`Not a model config`);
+    }
+    stuffToDo.push(
+      instantiateModel(config, cesiumContext.layerOptions[name]).then(
+        (model) => {
+          console.log('Got model!', config);
+          viewer.scene.primitives.add(model);
+        },
+        (e) => {
+          console.error('o', e);
         },
       ),
     );

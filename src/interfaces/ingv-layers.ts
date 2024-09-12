@@ -5,7 +5,7 @@ import type {
   WebMapTileServiceImageryProvider,
 } from '@cesium/engine';
 
-import type {CesiumTerrainProvider} from '@cesium/engine';
+import type {CesiumTerrainProvider, Model} from '@cesium/engine';
 
 export type INGVCesiumImageryTypes =
   | INGVCesiumWMSImagery
@@ -13,15 +13,22 @@ export type INGVCesiumImageryTypes =
   | INGVCesiumUrlTemplateImagery;
 
 export type INGVCesiumAllTypes =
-  | INGVCesium3DTiles
+  | INGVCesiumAllPrimitiveTypes
   | INGVCesiumTerrain
   | INGVCesiumImageryTypes;
+
+export type INGVCesiumAllPrimitiveTypes = INGVCesiumModel | INGVCesium3DTiles;
 
 export interface INGVCesium3DTiles {
   type: '3dtiles';
   subtype?: 'googlePhotorealistic';
   url: string | number;
   options?: ConstructorParameters<typeof Cesium3DTileset>[0];
+}
+
+export interface INGVCesiumModel {
+  type: 'model';
+  options?: Parameters<typeof Model.fromGltfAsync>[0];
 }
 
 export interface INGVCesiumTerrain {
