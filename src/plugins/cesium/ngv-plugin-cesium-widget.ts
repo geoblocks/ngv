@@ -15,11 +15,15 @@ export class NgvPluginCesiumWidget extends LitElement {
   static styles = css`
     ${unsafeCSS(style)}
 
-    :host {
+    #globe {
       width: 100%;
       height: 100%;
-      display: block;
     }
+
+    .cesium-widget canvas {
+      position: absolute;
+    }
+
     .cesium-credit-logoContainer {
       display: none !important;
     }
