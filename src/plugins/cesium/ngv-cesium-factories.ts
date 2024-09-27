@@ -345,7 +345,9 @@ export async function initCesiumWidget(
   });
   // Here we wait for all models to be loaded, before continuing.
   // It pleases the linter, but is to be decided if this is really necessary / suitable.
-  await Promise.allSettled(modelPromises);
+  if(modelPromises) {
+    await Promise.allSettled(modelPromises);
+  }
 
   cesiumContext.layers.imageries.map((name) => {
     const config = resolvedLayers[name];
