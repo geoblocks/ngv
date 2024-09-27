@@ -33,7 +33,7 @@ export const config: IPermitsConfig = {
         // terrain: '@geoadmin/terrain',
       },
       camera: {
-        position: [6.628484, 46.5, 1000],
+        position: [6.628484, 46.5, 100],
         orientation: {
           heading: 0,
           pitch: -30.0,
