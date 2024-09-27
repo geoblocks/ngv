@@ -208,6 +208,12 @@ export async function initCesiumWidget(
     (() => {
       console.warn('Missing modelCallback');
     });
+  if (!cesiumContext.baseUrl) {
+    if (document.location.host.endsWith('.github.io')) {
+      // FIXME: ideally this would be done at the application level
+      cesiumContext.baseUrl = document.location.search.split('/')[1];
+    }
+  }
   window.CESIUM_BASE_URL = cesiumContext.baseUrl || '/';
 
   if (cesiumContext.cesiumApiKey) {
