@@ -50,7 +50,7 @@ export class NgvPluginCesiumWidget extends LitElement {
 
   protected firstUpdated(): void {
     this.initCesiumViewer().catch((e) => {
-      console.error('Error during cesium viewer initialization: ', e)
+      console.error('Error during cesium viewer initialization: ', e);
     });
   }
 

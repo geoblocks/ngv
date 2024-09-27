@@ -345,7 +345,7 @@ export async function initCesiumWidget(
   });
   // Here we wait for all models to be loaded, before continuing.
   // It pleases the linter, but is to be decided if this is really necessary / suitable.
-  if(modelPromises) {
+  if (modelPromises) {
     await Promise.allSettled(modelPromises);
   }
 
