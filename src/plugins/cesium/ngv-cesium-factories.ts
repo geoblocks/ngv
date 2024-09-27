@@ -272,65 +272,74 @@ export async function initCesiumWidget(
     );
   });
 
-  cesiumContext.layers.models?.forEach((name) => {
-    const config = resolvedLayers[name];
-    if (isModelConfig(config)) {
-      stuffToDo.push(
-        instantiateModel(config, cesiumContext.layerOptions[name]).then(
-          (model) => {
-            console.log('Got model!', config);
-            modelCallback(name, model);
-            viewer.scene.primitives.add(model);
+  const modelPromises = cesiumContext.layers.models?.map(async (name) => {
+    let config = resolvedLayers[name];
+    let toRevokeUrl: string;
+
+    if (isIFCConfig(config)) {
+      const ifcUrl = config.url;
+      const modelOptions = config.options?.modelOptions;
+      const {ifcToGLTF} = await import('@geoblocks/ifc-gltf');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const {metadata, glb, coordinationMatrix} = await ifcToGLTF({
+        url: ifcUrl,
+        webIfcSettings: {
+          wasm: {
+            path: '/',
+            absolute: true,
           },
-          (e) => {
-            console.error('o', e);
-          },
-        ),
-      );
-    } else if (isIFCConfig(config)) {
-      stuffToDo.push(
-        import('@geoblocks/ifc-gltf').then(async (module) => {
-          const {ifcToGLTF} = module;
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-          const {metadata, glb, coordinationMatrix} = await ifcToGLTF({
-            url: config.url,
-            webIfcSettings: {
-              wasm: {
-                path: '/',
-                absolute: true,
-              },
-            },
-          });
-          // FIXME: we are missing a mechnism to place the model at a particular place
-          console.log('IFC transformed to glTF', metadata, coordinationMatrix);
-          const glbBlob = new Blob([glb]);
-          const glbURL = URL.createObjectURL(glbBlob);
-          const modelConfig: INGVCesiumModel = {
-            type: 'model',
-            options: Object.assign({}, config.options?.modelOptions, {
-              url: glbURL,
-            }),
-          };
-          return instantiateModel(modelConfig, cesiumContext.layerOptions[name])
-            .then(
-              (model) => {
-                modelCallback(name, model);
-                console.log('Got IFC!', config, modelConfig);
-                viewer.scene.primitives.add(model);
-              },
-              (e) => {
-                console.error('o', e);
-              },
-            )
-            .finally(() => {
-              URL.revokeObjectURL(glbURL);
-            });
+        },
+      });
+      // FIXME: we are missing a mechnism to place the model at a particular place
+      console.log('IFC transformed to glTF', metadata, coordinationMatrix);
+      const glbBlob = new Blob([glb]);
+      toRevokeUrl = URL.createObjectURL(glbBlob);
+      const modelConfig: INGVCesiumModel = {
+        type: 'model',
+        options: Object.assign({}, modelOptions, {
+          url: toRevokeUrl,
         }),
+      };
+      config = modelConfig;
+    }
+    if (isModelConfig(config)) {
+      const bmConfig: Omit<INGVCesiumModel['options'], 'url'> = {
+        scene: viewer.scene,
+        gltfCallback(gltf) {
+          // FIXME: here we can enable animations, ...
+          // This should be exposed in some way to the apps
+          console.log('received glTF', gltf);
+        },
+        // heightReference: HeightReference.CLAMP_TO_GROUND,
+      };
+      stuffToDo.push(
+        instantiateModel(
+          config,
+          Object.assign(bmConfig, cesiumContext.layerOptions[name]),
+        )
+          .then(
+            (model) => {
+              console.log('Got model!', config);
+              modelCallback(name, model);
+              viewer.scene.primitives.add(model);
+            },
+            (e) => {
+              console.error('o', e);
+            },
+          )
+          .finally(() => {
+            if (toRevokeUrl) {
+              URL.revokeObjectURL(toRevokeUrl);
+            }
+          }),
       );
     } else {
       throw new Error(`Not a supported model config: ${config.type}`);
     }
   });
+  // Here we wait for all models to be loaded, before continuing.
+  // It pleases the linter, but is to be decided if this is really necessary / suitable.
+  await Promise.allSettled(modelPromises);
 
   cesiumContext.layers.imageries.map((name) => {
     const config = resolvedLayers[name];
