@@ -51,7 +51,7 @@ export class NgvAppPermits extends ABaseApp<IPermitsConfig> {
 
   render(): HTMLTemplateResult {
     const r = super.render();
-    if (r) {
+    if (r && !this.config) {
       return r;
     }
     return html`
