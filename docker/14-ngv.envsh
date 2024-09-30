@@ -1,0 +1,16 @@
+#! /usr/bin/env bash
+# This file will be sourced in the container before running the env substitution in the container.
+
+APP_NAME="${APP_NAME:-all}"
+
+APP_PATH="${APP_PATH:-/}"
+case "$APP_NAME" in
+"") ;;
+"/") ;;
+"all") ;;
+*) export APP_PATH="src/apps/${APP_NAME}" ;;
+esac
+
+entrypoint_log "APP_PATH=$APP_PATH"
+
+export APP_PATH
