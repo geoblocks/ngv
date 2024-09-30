@@ -1,0 +1,50 @@
+name: Publish docker image
+
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+  packages: write
+
+
+jobs:
+  build_and_publish:
+    runs-on: ubuntu-latest
+    name: Build and publish
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push ngv
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          tags: ghcr.io/camptocamp/ngv:latest
+      - name: Update images sha
+        run: echo "img_sha=$(docker inspect --format='{{index .RepoDigests 0}}' 'ghcr.io/camptocamp/sww_api:latest' | cut -d':' -f2)" >> $GITHUB_ENV;
+
+  trigger_deploy:
+    name: Trigger deploy on dev
+    runs-on: ubuntu-latest
+    needs: build_and_publish
+    steps:
+      - name: Deploy Stage
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GH_PAT }}
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: 'camptocamp',
+              repo: 'argocd-gs-plg-apps',
+              workflow_id: 'update-ngv-image.yaml',
+              ref: 'main'
+              inputs: {
+                environment: prod
+                img_sha: $img_sha
+              }
+            });
