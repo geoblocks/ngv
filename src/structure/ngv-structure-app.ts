@@ -2,7 +2,10 @@ import type {HTMLTemplateResult} from 'lit';
 import {LitElement, html} from 'lit';
 import {customElement, property} from 'lit/decorators.js';
 import type {Locale} from './helpers/localeHelper.js';
-import {getLocale, setLocale} from './helpers/localeHelper.js';
+import {getLocale} from './helpers/localeHelper.js';
+
+import './ngv-page.js';
+import './ngv-structure-header.js';
 
 export interface INgvStructureApp {
   languages: Locale[];
@@ -29,41 +32,27 @@ export class NgvStructureApp extends LitElement {
     // this.shadowRoot.adoptedStyleSheets.push(styles);
   }
 
+  shouldUpdate(): boolean {
+    return !!this.config;
+  }
+
   render(): HTMLTemplateResult {
-    if (!this.config) {
-      return undefined;
-    }
-    const {header, footer, languages} = this.config;
-    const currentLocale = getLocale();
     return html`
-      <header>
-        <img src="${header.logo}" />
-        <div>
-          <label for="language">Lang:</label>
-          <select
-            name="language"
-            id="language"
-            @change=${async (evt: Event) => {
-              const el = evt.target as HTMLSelectElement;
-              const locale = languages[el.selectedIndex];
-              await setLocale(locale);
-            }}
-          >
-            ${languages.map(
-              (l) =>
-                html`<option value="${l}" ?selected=${l === currentLocale}>
-                  ${l}
-                </option>`,
-            )}
-          </select>
+      <ngv-page>
+        <div slot="header">
+          <ngv-structure-header .config=${this.config}></ngv-structure-header>
         </div>
-      </header>
-      <main>
-        <slot></slot>
-      </main>
-      <footer>
-        <p>${footer.impressum[getLocale() as Locale]}</p>
-      </footer>
+        <div slot="menu"><slot name="menu"></slot></div>
+        <!-- <div slot="main-header">main-header</div> -->
+        <div slot="main-content" style="height: 100%"><slot></slot></div>
+        <div slot="main-footer">
+          <footer>
+            <p>${this.config.footer.impressum[getLocale() as Locale]}</p>
+          </footer>
+        </div>
+        <!-- <div slot="aside">aside</div> -->
+        <!-- <div slot="footer">footer</div> -->
+      </ngv-page>
     `;
   }
 }
