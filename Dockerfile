@@ -24,5 +24,5 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 COPY docker/*.conf.template /etc/nginx/templates/
 
 # Hooks for the entrypoint
-# env files are executed, envsh files are sources
+# env files are executed, envsh files are sourced
 COPY docker/*.envsh docker/*.sh /docker-entrypoint.d/
