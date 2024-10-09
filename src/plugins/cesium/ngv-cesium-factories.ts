@@ -5,6 +5,9 @@ import {
   CesiumWidget,
   Cartesian3,
   Model,
+  DataSourceCollection,
+  DataSourceDisplay,
+  CustomDataSource,
 } from '@cesium/engine';
 
 import type {
@@ -202,7 +205,7 @@ export async function initCesiumWidget(
   container: HTMLDivElement,
   cesiumContext: IngvCesiumContext,
   modelCallback: (name: string, model: Model) => void,
-): Promise<CesiumWidget> {
+): Promise<{viewer: CesiumWidget; dataSourceCollection: DataSourceCollection}> {
   modelCallback =
     modelCallback ||
     (() => {
@@ -247,6 +250,17 @@ export async function initCesiumWidget(
     container,
     Object.assign({}, cesiumContext.widgetOptions),
   );
+
+  const dataSourceCollection = new DataSourceCollection();
+  const dataSourceDisplay = new DataSourceDisplay({
+    scene: viewer.scene,
+    dataSourceCollection: dataSourceCollection,
+  });
+  const clock = viewer.clock;
+  // todo: check if OK
+  clock.onTick.addEventListener(() => {
+    dataSourceDisplay.update(clock.currentTime);
+  });
 
   const stuffToDo: Promise<void>[] = [];
   if (cesiumContext.layers.terrain) {
@@ -374,5 +388,5 @@ export async function initCesiumWidget(
     duration: 0,
   });
 
-  return viewer;
+  return {viewer, dataSourceCollection};
 }

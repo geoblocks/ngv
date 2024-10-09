@@ -1,6 +1,6 @@
 import type {HTMLTemplateResult} from 'lit';
 import {html} from 'lit';
-import {customElement} from 'lit/decorators.js';
+import {customElement, state} from 'lit/decorators.js';
 
 import '../../structure/ngv-structure-app.js';
 
@@ -11,19 +11,31 @@ import {ABaseApp} from '../../structure/BaseApp.js';
 
 import type {IPermitsConfig} from './ingv-config-permits.js';
 import '../../plugins/cesium/ngv-plugin-cesium-widget';
-import type {CesiumWidget, Model} from '@cesium/engine';
+import '../../plugins/cesium/ngv-plugin-cesium-upload';
+import '../../plugins/cesium/ngv-plugin-cesium-model-interact';
+import type {
+  CesiumWidget,
+  DataSource,
+  DataSourceCollection,
+  Model,
+} from '@cesium/engine';
 
 import {
   Math as CesiumMath,
   Ellipsoid,
   HeadingPitchRoll,
   Transforms,
+  PrimitiveCollection,
 } from '@cesium/engine';
+import type {ViewerInitializedDetails} from '../../plugins/cesium/ngv-plugin-cesium-widget.js';
 
 @customElement('ngv-app-permits')
 @localized()
 export class NgvAppPermits extends ABaseApp<IPermitsConfig> {
+  @state()
   private viewer: CesiumWidget;
+  private primitiveCollection: PrimitiveCollection = new PrimitiveCollection();
+  private dataSourceCollection: DataSourceCollection;
 
   constructor() {
     super(() => import('./demoPermitConfig.js'));
@@ -56,13 +68,28 @@ export class NgvAppPermits extends ABaseApp<IPermitsConfig> {
     }
     return html`
       <ngv-structure-app .config=${this.config}>
-        <ngv-plugin-cesium-widget
-          .cesiumContext=${this.config.app.cesiumContext}
-          .modelCallback=${this.modelCallback.bind(this)}
-          @viewerInitialized=${(evt: CustomEvent<CesiumWidget>) => {
-            this.viewer = evt.detail;
-          }}
-        ></ngv-plugin-cesium-widget>
+        <div style="display: flex; flex-direction: column">
+          <ngv-plugin-cesium-upload
+            .viewer="${this.viewer}"
+            .primitiveCollection="${this.primitiveCollection}"
+          ></ngv-plugin-cesium-upload>
+          <ngv-plugin-cesium-widget
+            .cesiumContext=${this.config.app.cesiumContext}
+            .modelCallback=${this.modelCallback.bind(this)}
+            @viewerInitialized=${(
+              evt: CustomEvent<ViewerInitializedDetails>,
+            ) => {
+              this.viewer = evt.detail.viewer;
+              this.viewer.scene.primitives.add(this.primitiveCollection);
+              this.dataSourceCollection = evt.detail.dataSourceCollection;
+            }}
+          ></ngv-plugin-cesium-widget>
+          <ngv-plugin-cesium-model-interact
+            .viewer="${this.viewer}"
+            .dataSourceCollection="${this.dataSourceCollection}"
+            .primitiveCollection="${this.primitiveCollection}"
+          ></ngv-plugin-cesium-model-interact>
+        </div>
       </ngv-structure-app>
     `;
   }

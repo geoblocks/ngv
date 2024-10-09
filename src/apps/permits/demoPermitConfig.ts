@@ -28,7 +28,7 @@ export const config: IPermitsConfig = {
       },
       layers: {
         // tilesets: ['@cesium/googlePhotorealistic'],
-        models: ['@demo/sofa', '@demo/thatopensmall'],
+        // models: ['@demo/sofa', '@demo/thatopensmall'],
         imageries: ['@geoadmin/pixel-karte-farbe'],
         // terrain: '@geoadmin/terrain',
       },

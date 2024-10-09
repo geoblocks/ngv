@@ -7,6 +7,7 @@ import type {IIlluminationConfig} from './ingv-config-illumination.js';
 import '../../plugins/cesium/ngv-plugin-cesium-widget.js';
 import '../../plugins/ui/ngv-colored-slider.js';
 import type {SliderInputEventData} from '../../plugins/ui/ngv-colored-slider.js';
+import {ViewerInitializedDetails} from '../../plugins/cesium/ngv-plugin-cesium-widget.js';
 
 const YEAR = new Date().getFullYear();
 const BASE_DATE = new Date(`${YEAR}-01-01T00:00:00`);
@@ -109,8 +110,8 @@ export class NgvMainIllumination extends LitElement {
         </div>
         <ngv-plugin-cesium-widget
           .cesiumContext=${this.config.cesiumContext}
-          @viewerInitialized=${(evt: CustomEvent<CesiumWidget>) => {
-            this.viewer = evt.detail;
+          @viewerInitialized=${(evt: CustomEvent<ViewerInitializedDetails>) => {
+            this.viewer = evt.detail.viewer;
             this.updateDayAndHour();
           }}
         ></ngv-plugin-cesium-widget>
