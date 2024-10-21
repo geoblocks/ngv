@@ -14,7 +14,7 @@ RUN npm run build # && npm run doc
 
 FROM nginxinc/nginx-unprivileged:1.27-bookworm-perl AS server
 
-LABEL org.opencontainers.image.source = "https://github.com/geoblocks/ngv"
+LABEL org.opencontainers.image.source="https://github.com/geoblocks/ngv"
 
 COPY --from=builder /app/dist /usr/share/nginx/html
 
