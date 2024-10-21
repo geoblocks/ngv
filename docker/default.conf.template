@@ -1,3 +1,6 @@
+# Nginx config file
+#
+
 server {
   listen 8080;
   server_name localhost;
@@ -12,14 +15,12 @@ server {
 
   gzip_types application/javascript text/css application/json;
 
+
   location / {
-    try_files $uri $uri/ =404;
-  }
-
-  location = / {
+# root and alias cannot be use here, because we need to access common files at the root
     index $APP_PATH/index.html;
+    try_files $uri $uri/ =404;
+    expires -1;
   }
-
-
 
 }
