@@ -3,7 +3,6 @@
 
 APP_NAME="${APP_NAME:-all}"
 
-APP_PATH="${APP_PATH:-/}"
 case "$APP_NAME" in
 "") ;;
 "/") ;;
