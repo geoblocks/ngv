@@ -36,7 +36,7 @@ jobs:
           tags: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_IMG_NAME }}:${{ env.DOCKER_TAG }}
       - name: Update images sha
         id: get_image_sha
-        run: echo "img_sha=$(docker inspect --format='{{index .RepoDigests 0}}' '${DOCKER_REGISTRY}/${DOCKER_IMG_NAME}:${DOCKER_TAG}' | cut -d':' -f2)" >> $GITHUB_OUTPUT;
+        run: echo "img_sha=$(docker inspect --format='{{index .RepoDigests 0}}' '${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_IMG_NAME }}:${{ env.DOCKER_TAG }}' | cut -d':' -f2)" >> $GITHUB_OUTPUT;
     outputs:
       image_sha: ${{ steps.get_image_sha.outputs.img_sha }}
 
