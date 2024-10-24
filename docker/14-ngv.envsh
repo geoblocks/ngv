@@ -3,11 +3,12 @@
 
 APP_NAME="${APP_NAME:-all}"
 
+APP_PATH=""
 case "$APP_NAME" in
 "") ;;
 "/") ;;
 "all") ;;
-*) export APP_PATH="src/apps/${APP_NAME}" ;;
+*) APP_PATH="src/apps/${APP_NAME}" ;;
 esac
 
 entrypoint_log "APP_PATH=$APP_PATH"
