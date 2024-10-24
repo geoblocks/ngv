@@ -10,6 +10,10 @@ function daysInYear(year: number): number {
   return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 366 : 365;
 }
 
+export interface MenuIlluminationChangeDetail {
+  date: JulianDate;
+}
+
 @customElement('ngv-menu-illumination')
 export class NgvMenuIllumination extends LitElement {
   @property({type: Object}) date: Date;
@@ -83,7 +87,8 @@ export class NgvMenuIllumination extends LitElement {
   dispatchChangeEvent(): void {
     const date = JulianDate.fromDate(this.dateFrom);
     JulianDate.addHours(date, (this.day - 1) * 24 + this.hour, date);
+    const detail: MenuIlluminationChangeDetail = {date: date};
 
-    this.dispatchEvent(new CustomEvent('change', {detail: {date: date}}));
+    this.dispatchEvent(new CustomEvent('change', {detail}));
   }
 }

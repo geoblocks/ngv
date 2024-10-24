@@ -11,6 +11,7 @@ import {ABaseApp} from '../../structure/BaseApp.js';
 
 import './ngv-main-illumination.js';
 import './ngv-menu-illumination.js';
+import type {MenuIlluminationChangeDetail} from './ngv-menu-illumination.js';
 
 import type {IIlluminationConfig} from './ingv-config-illumination.js';
 import {JulianDate} from '@cesium/engine';
@@ -36,7 +37,7 @@ export class NgvAppIllumination extends ABaseApp<IIlluminationConfig> {
         <ngv-menu-illumination
           .date=${this.initialDate}
           slot="menu"
-          @change=${(evt) => {
+          @change=${(evt: CustomEvent<MenuIlluminationChangeDetail>) => {
             this.date = evt.detail.date;
           }}
         ></ngv-menu-illumination>
