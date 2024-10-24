@@ -57,6 +57,6 @@ jobs:
               workflow_id: 'update-ngv-image.yaml',
               ref: 'main',
               inputs: {
-                img_sha: ${{ needs.build_and_publish.outputs.img_sha }}
+                img_sha: '${{ needs.build_and_publish.outputs.img_sha }}'
               }
             });
