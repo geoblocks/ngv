@@ -44,11 +44,8 @@ export class NgvAppPermits extends ABaseApp<IPermitsConfig> {
       return r;
     }
     return html`
-      <ngv-structure-app .config=${this.config}>
-        <div
-          slot="menu"
-          style="display: flex; flex-direction: column; row-gap: 10px;"
-        >
+      <ngv-structure-app exportparts="language-chooser" .config=${this.config}>
+        <div part="menu" slot="menu">
           ${this.viewer
             ? html`
                 <ngv-plugin-cesium-model-interact

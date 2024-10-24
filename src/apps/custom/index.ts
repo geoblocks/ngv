@@ -27,7 +27,7 @@ export class NgvAppCustom extends ABaseApp<CustomConfig> {
       return r;
     }
     return html`
-      <ngv-structure-app .config=${this.config}>
+      <ngv-structure-app exportparts="language-chooser" .config=${this.config}>
         <ngv-main-custom .config=${this.config?.app}></ngv-main-custom>
       </ngv-structure-app>
     `;
