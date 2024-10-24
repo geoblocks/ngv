@@ -25,7 +25,7 @@ LABEL maintainer="Guillaume Beraudo <guillaume.beraudo@camptocamp.com>"
 
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# The nginx.conf.template file is used to configure the nginx server.
+# The .conf.template files are used to configure the nginx server.
 # In the entrypoint, the environment variables are automatically replaced.
 # See docs for more information: https://hub.docker.com/_/nginx
 COPY docker/*.conf.template /etc/nginx/templates/
