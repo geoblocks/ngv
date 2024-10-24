@@ -1,6 +1,7 @@
 ---
 services:
   viewer:
+    image: ghcr.io/geoblocks/ngv-ui
     build:
       context: .
     env_file: .env
