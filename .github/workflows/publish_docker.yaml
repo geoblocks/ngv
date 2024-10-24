@@ -55,7 +55,7 @@ jobs:
               owner: 'camptocamp',
               repo: 'argocd-gs-plg-apps',
               workflow_id: 'update-ngv-image.yaml',
-              ref: 'main'
+              ref: 'main',
               inputs: {
                 img_sha: ${{ needs.build_and_publish.outputs.img_sha }}
               }
