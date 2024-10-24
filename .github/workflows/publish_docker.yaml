@@ -36,9 +36,9 @@ jobs:
           tags: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_IMG_NAME }}:${{ env.DOCKER_TAG }}
       - name: Update images sha
         id: get_image_sha
-        run: echo "img_sha=$(docker inspect --format='{{index .RepoDigests 0}}' '${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_IMG_NAME }}:${{ env.DOCKER_TAG }}' | cut -d':' -f2)" >> $GITHUB_OUTPUT;
+        run: echo "img_sha=$(docker inspect --format='{{index .RepoDigests 0}}' '${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_IMG_NAME }}:${{ env.DOCKER_TAG }}' | cut -d':' -f2)" >> "$GITHUB_OUTPUT";
     outputs:
-      image_sha: ${{ steps.get_image_sha.outputs.img_sha }}
+      docker_image_sha: ${{ steps.get_image_sha.outputs.img_sha }}
 
   trigger_deploy:
     name: Trigger deploy on lab
@@ -57,6 +57,6 @@ jobs:
               workflow_id: 'update-ngv-image.yaml',
               ref: 'main',
               inputs: {
-                img_sha: '${{ needs.build_and_publish.outputs.img_sha }}'
+                img_sha: '${{ needs.build_and_publish.outputs.docker_image_sha }}'
               }
             });
