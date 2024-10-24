@@ -7,6 +7,8 @@ import {getLocale} from './helpers/localeHelper.js';
 import './ngv-page.js';
 import './ngv-structure-header.js';
 
+import './index.css';
+
 export interface INgvStructureApp {
   languages: Locale[];
   header: {

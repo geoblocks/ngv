@@ -4,6 +4,10 @@ import {customElement, property} from 'lit/decorators.js';
 import type {INgvStructureApp} from './ngv-structure-app.js';
 import {getLocale, setLocale} from './helpers/localeHelper.js';
 
+import '@shoelace-style/shoelace/dist/components/select/select.js';
+import '@shoelace-style/shoelace/dist/components/option/option.js';
+import type SlSelect from '@shoelace-style/shoelace/dist/components/select/select.js';
+
 @customElement('ngv-structure-header')
 export class NgvStructureHeader extends LitElement {
   @property({type: Object})
@@ -19,28 +23,23 @@ export class NgvStructureHeader extends LitElement {
   `;
 
   render(): HTMLTemplateResult {
-    const currentLocale = getLocale();
     return html`
       <header>
         <img src="${this.config.header.logo}" />
         <div>
-          <label for="language">Lang:</label>
-          <select
-            name="language"
-            id="language"
-            @change=${async (evt: Event) => {
-              const el = evt.target as HTMLSelectElement;
-              const locale = this.config.languages[el.selectedIndex];
-              await setLocale(locale);
+          <sl-select
+            label="Language"
+            size="small"
+            value="${getLocale()}"
+            @sl-change=${async (evt: Event) => {
+              const el = evt.target as SlSelect;
+              await setLocale(el.value as string);
             }}
           >
             ${this.config.languages.map(
-              (l) =>
-                html`<option value="${l}" ?selected=${l === currentLocale}>
-                  ${l}
-                </option>`,
+              (l) => html`<sl-option value="${l}">${l}</sl-option>`,
             )}
-          </select>
+          </sl-select>
         </div>
       </header>
     `;
