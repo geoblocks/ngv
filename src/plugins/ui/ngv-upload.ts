@@ -1,7 +1,6 @@
 import {customElement, property, query, state} from 'lit/decorators.js';
 import type {HTMLTemplateResult} from 'lit';
 import {css, html, LitElement} from 'lit';
-import {classMap} from 'lit/directives/class-map.js';
 
 export type NgvUploadOptions = {
   accept?: string;
@@ -21,6 +20,11 @@ const defaultOptions: NgvUploadOptions = {
   accept: '*/*',
 };
 
+export type FileUploadDetails = {
+  url: string;
+  name: string;
+};
+
 /**
  * TODO
  *  * type check
@@ -33,46 +37,16 @@ const defaultOptions: NgvUploadOptions = {
 export class NgvUpload extends LitElement {
   @property({type: Object}) options: NgvUploadOptions;
   @state() showPopup = false;
-  @state() fileUrl: string | undefined;
+  @state() fileDetails: FileUploadDetails | undefined;
   @query('input[type="file"]') fileInput: HTMLInputElement;
 
   static styles = css`
-    .main-btn {
-      margin: 10px;
-    }
-
-    .upload-container {
-      width: 100vw;
-      height: 100vh;
-      top: 0;
-      left: 0;
-      z-index: 1;
-      position: absolute;
-    }
-
-    .upload-container.hidden {
-      display: none;
-    }
-
-    .upload-backdrop {
-      background-color: black;
-      opacity: 50%;
-      position: absolute;
-      width: 100%;
-      height: 100%;
-    }
-
     .upload-popup {
-      position: absolute;
       background-color: white;
       display: flex;
       flex-direction: column;
-      z-index: 2;
       margin-left: auto;
       margin-right: auto;
-      top: 10%;
-      left: 50%;
-      transform: translate(-50%, -10%);
       padding: 10px;
       gap: 10px;
       border-radius: 4px;
@@ -111,12 +85,17 @@ export class NgvUpload extends LitElement {
   async onFileUpload(file: File): Promise<void> {
     const arrayBufer = await file.arrayBuffer();
     const blob = new Blob([arrayBufer]);
-    this.fileUrl = URL.createObjectURL(blob);
+    this.fileDetails = {
+      url: URL.createObjectURL(blob),
+      name: file.name,
+    };
   }
 
   upload(): void {
     this.dispatchEvent(
-      new CustomEvent<string>('uploaded', {detail: this.fileUrl}),
+      new CustomEvent<FileUploadDetails>('uploaded', {
+        detail: this.fileDetails,
+      }),
     );
     this.fileInput.value = '';
     this.showPopup = false;
@@ -135,38 +114,26 @@ export class NgvUpload extends LitElement {
   }
 
   render(): HTMLTemplateResult {
-    return html`<button
-        class="main-btn"
-        @click="${() => (this.showPopup = true)}"
-      >
-        ${this.options.mainBtnText}
-      </button>
-      <div class="upload-container ${classMap({hidden: !this.showPopup})}">
-        <div class="upload-popup">
-          <input
-            type="file"
-            accept="${this.options.accept}"
-            @change=${async (e: Event) => {
-              const target = <HTMLInputElement>e.target;
-              if (!target || !target.files?.length) return;
-              await this.onFileUpload(target.files[0]);
-            }}
-          />
-          <!-- <input
+    return html` <div class="upload-popup">
+      <input
+        type="file"
+        accept="${this.options.accept}"
+        @change=${async (e: Event) => {
+          const target = <HTMLInputElement>e.target;
+          if (!target || !target.files?.length) return;
+          await this.onFileUpload(target.files[0]);
+        }}
+      />
+      <!-- <input
             type="text"
             placeholder="${this.options.urlPlaceholderText}"
-            .value="${this.fileUrl}"
+            .value="${this.fileDetails}"
             @input="${(e: InputEvent) => {}}"
           /> -->
-          <button @click="${() => this.upload()}">
-            ${this.options.uploadBtnText}
-          </button>
-        </div>
-        <div
-          class="upload-backdrop"
-          @click="${() => (this.showPopup = false)}"
-        ></div>
-      </div>`;
+      <button @click="${() => this.upload()}">
+        ${this.options.uploadBtnText}
+      </button>
+    </div>`;
   }
 }
 

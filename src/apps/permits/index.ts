@@ -13,12 +13,7 @@ import type {IPermitsConfig} from './ingv-config-permits.js';
 import '../../plugins/cesium/ngv-plugin-cesium-widget';
 import '../../plugins/cesium/ngv-plugin-cesium-upload';
 import '../../plugins/cesium/ngv-plugin-cesium-model-interact';
-import type {
-  CesiumWidget,
-  DataSource,
-  DataSourceCollection,
-  Model,
-} from '@cesium/engine';
+import type {CesiumWidget, DataSourceCollection, Model} from '@cesium/engine';
 
 import {
   Math as CesiumMath,
@@ -68,28 +63,29 @@ export class NgvAppPermits extends ABaseApp<IPermitsConfig> {
     }
     return html`
       <ngv-structure-app .config=${this.config}>
-        <div style="display: flex; flex-direction: column">
+        <div
+          slot="menu"
+          style="display: flex; flex-direction: column; row-gap: 10px;"
+        >
           <ngv-plugin-cesium-upload
             .viewer="${this.viewer}"
             .primitiveCollection="${this.primitiveCollection}"
           ></ngv-plugin-cesium-upload>
-          <ngv-plugin-cesium-widget
-            .cesiumContext=${this.config.app.cesiumContext}
-            .modelCallback=${this.modelCallback.bind(this)}
-            @viewerInitialized=${(
-              evt: CustomEvent<ViewerInitializedDetails>,
-            ) => {
-              this.viewer = evt.detail.viewer;
-              this.viewer.scene.primitives.add(this.primitiveCollection);
-              this.dataSourceCollection = evt.detail.dataSourceCollection;
-            }}
-          ></ngv-plugin-cesium-widget>
           <ngv-plugin-cesium-model-interact
             .viewer="${this.viewer}"
             .dataSourceCollection="${this.dataSourceCollection}"
             .primitiveCollection="${this.primitiveCollection}"
           ></ngv-plugin-cesium-model-interact>
         </div>
+        <ngv-plugin-cesium-widget
+          .cesiumContext=${this.config.app.cesiumContext}
+          .modelCallback=${this.modelCallback.bind(this)}
+          @viewerInitialized=${(evt: CustomEvent<ViewerInitializedDetails>) => {
+            this.viewer = evt.detail.viewer;
+            this.viewer.scene.primitives.add(this.primitiveCollection);
+            this.dataSourceCollection = evt.detail.dataSourceCollection;
+          }}
+        ></ngv-plugin-cesium-widget>
       </ngv-structure-app>
     `;
   }

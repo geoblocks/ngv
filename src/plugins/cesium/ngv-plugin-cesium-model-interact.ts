@@ -8,7 +8,6 @@ import type {
   PrimitiveCollection,
   Entity,
   DataSourceCollection,
-  Scene,
 } from '@cesium/engine';
 import {
   Axis,
@@ -73,6 +72,8 @@ export class NgvPluginCesiumModelInteract extends LitElement {
   private chosenModel: Model | undefined;
   @state()
   private position: Cartesian3 = new Cartesian3();
+  @state()
+  private models: Model[] = [];
   private eventHandler: ScreenSpaceEventHandler | undefined;
   private sidePlanesDataSource: DataSource | undefined;
   private topDownPlanesDataSource: DataSource | undefined;
@@ -86,22 +87,31 @@ export class NgvPluginCesiumModelInteract extends LitElement {
 
   // todo move in UI plugin
   static styles = css`
-    .model-info-overlay {
-      position: absolute;
+    .model-list,
+    .model-info {
       background-color: white;
       display: flex;
       flex-direction: column;
       z-index: 1;
       margin-left: auto;
       margin-right: auto;
-      top: 10%;
-      left: 10%;
-      transform: translate(-10%, -10%);
       padding: 10px;
       gap: 10px;
       border-radius: 4px;
       border: 1px solid rgba(0, 0, 0, 0.16);
       box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05);
+    }
+
+    .model-item {
+      text-overflow: ellipsis;
+      display: flex;
+      align-items: center;
+      column-gap: 10px;
+    }
+
+    .model-item span {
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     button,
@@ -113,7 +123,6 @@ export class NgvPluginCesiumModelInteract extends LitElement {
       background-color: white;
       border: 1px solid rgba(0, 0, 0, 0.16);
       box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05);
-      margin-right: 16px;
       transition: background-color 200ms;
     }
 
@@ -140,6 +149,13 @@ export class NgvPluginCesiumModelInteract extends LitElement {
       (evt: ScreenSpaceEventHandler.PositionedEvent) => this.onLeftUp(evt),
       ScreenSpaceEventType.LEFT_UP,
     );
+
+    this.primitiveCollection.primitiveAdded.addEventListener(() =>
+      this.onPrimitivesChanged(),
+    );
+    this.primitiveCollection.primitiveRemoved.addEventListener(() =>
+      this.onPrimitivesChanged(),
+    );
   }
 
   removeEvents(): void {
@@ -149,6 +165,13 @@ export class NgvPluginCesiumModelInteract extends LitElement {
     if (this.eventHandler) {
       this.eventHandler.destroy();
       this.eventHandler = null;
+    }
+  }
+
+  onPrimitivesChanged(): void {
+    this.models = [];
+    for (let i = 0; i < this.primitiveCollection.length; i++) {
+      this.models.push(this.primitiveCollection.get(i));
     }
   }
 
@@ -492,21 +515,38 @@ export class NgvPluginCesiumModelInteract extends LitElement {
     return !!this.viewer && !!this.primitiveCollection;
   }
   render(): HTMLTemplateResult | string {
-    if (!this.chosenModel) return '';
+    if (!this.chosenModel && !this.models?.length) return '';
     // todo move in UI plugin
-    return html` <div class="model-info-overlay">
-      ${JSON.stringify(this.position)}
-      <button
-        @click="${() => {
-          this.chosenModel = undefined;
-          this.sidePlanesDataSource.entities.removeAll();
-          this.topDownPlanesDataSource.entities.removeAll();
-          this.edgeLinesDataSource.entities.removeAll();
-        }}"
-      >
-        Done
-      </button>
-    </div>`;
+    return this.chosenModel
+      ? html` <div class="model-info">
+          ${this.chosenModel.id.name}
+          <button
+            @click="${() => {
+              this.chosenModel = undefined;
+              this.sidePlanesDataSource.entities.removeAll();
+              this.topDownPlanesDataSource.entities.removeAll();
+              this.edgeLinesDataSource.entities.removeAll();
+            }}"
+          >
+            Done
+          </button>
+        </div>`
+      : html` <p>Uploaded models:</p>
+          <div class="model-list">
+            ${this.models.map(
+              (m) =>
+                html`<div class="model-item">
+                  <span>${m.id.name}</span>
+                  <button
+                    @click=${() => {
+                      this.primitiveCollection.remove(m);
+                    }}
+                  >
+                    &#x2718;
+                  </button>
+                </div>`,
+            )}
+          </div>`;
   }
 
   disconnectedCallback(): void {

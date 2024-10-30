@@ -17,6 +17,7 @@ import {html, LitElement} from 'lit';
 import {customElement, property} from 'lit/decorators.js';
 import '../ui/ngv-upload.js';
 import {instantiateModel} from './ngv-cesium-factories.js';
+import {FileUploadDetails} from '../ui/ngv-upload.js';
 
 const cartographicScratch = new Cartographic();
 
@@ -29,8 +30,8 @@ export class NgvPluginCesiumUpload extends LitElement {
   private eventHandler: ScreenSpaceEventHandler | null = null;
   private uploadedModel: Model | undefined;
 
-  async upload(url: string): Promise<void> {
-    const response = await fetch(url);
+  async upload(fileDetails: FileUploadDetails): Promise<void> {
+    const response = await fetch(fileDetails.url);
     const arrayBuffer = await response.arrayBuffer();
     const glb = new Uint8Array(arrayBuffer);
 
@@ -85,9 +86,6 @@ export class NgvPluginCesiumUpload extends LitElement {
 
     // Compute dimensions (width, height, depth)
     const dimensions = Cartesian3.subtract(max, min, new Cartesian3());
-    console.log('AABB Min:', min);
-    console.log('AABB Max:', max);
-    console.log('Dimensions (Width, Height, Depth):', dimensions);
 
     const modelOrientation = [90, 0, 0];
     const modelMatrix = Matrix4.fromTranslationRotationScale(
@@ -110,10 +108,11 @@ export class NgvPluginCesiumUpload extends LitElement {
     this.uploadedModel = await instantiateModel({
       type: 'model',
       options: {
-        url,
+        url: fileDetails.url,
         scene: this.viewer.scene,
         modelMatrix,
         id: {
+          name: fileDetails.name,
           dimensions,
           min,
           max,
@@ -165,7 +164,7 @@ export class NgvPluginCesiumUpload extends LitElement {
 
   render(): HTMLTemplateResult {
     return html` <ngv-upload
-      @uploaded="${(evt: {detail: string}): void => {
+      @uploaded="${(evt: {detail: FileUploadDetails}): void => {
         this.upload(evt.detail);
       }}"
     ></ngv-upload>`;
