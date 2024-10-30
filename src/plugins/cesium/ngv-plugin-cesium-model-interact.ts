@@ -32,7 +32,16 @@ import {
   ArcType,
   TranslationRotationScale,
   HeadingPitchRoll,
+  Math as CesiumMath,
 } from '@cesium/engine';
+import {instantiateModel} from './ngv-cesium-factories.js';
+import {
+  deleteFromIndexedDB,
+  getBlobFromIndexedDB,
+  getStoredModels,
+  StoredModel,
+  updateModelsInLocalStore,
+} from '../../apps/permits/localStore.js';
 
 const SIDE_PLANES: Plane[] = [
   new Plane(new Cartesian3(0, 0, 1), 0.5),
@@ -150,12 +159,14 @@ export class NgvPluginCesiumModelInteract extends LitElement {
       ScreenSpaceEventType.LEFT_UP,
     );
 
-    this.primitiveCollection.primitiveAdded.addEventListener(() =>
-      this.onPrimitivesChanged(),
-    );
-    this.primitiveCollection.primitiveRemoved.addEventListener(() =>
-      this.onPrimitivesChanged(),
-    );
+    this.primitiveCollection.primitiveAdded.addEventListener(() => {
+      console.log('primitiveAdded');
+      this.onPrimitivesChanged();
+    });
+    this.primitiveCollection.primitiveRemoved.addEventListener((p) => {
+      deleteFromIndexedDB(p.id.name);
+      this.onPrimitivesChanged();
+    });
   }
 
   removeEvents(): void {
@@ -173,9 +184,10 @@ export class NgvPluginCesiumModelInteract extends LitElement {
     for (let i = 0; i < this.primitiveCollection.length; i++) {
       this.models.push(this.primitiveCollection.get(i));
     }
+    updateModelsInLocalStore(this.models);
   }
 
-  createPlaneEntity(planeLocal: Plane, model: Model, color: Color) {
+  createPlaneEntity(planeLocal: Plane, model: Model, color: Color): void {
     const modelMatrix = model.modelMatrix;
 
     const normalAxis = planeLocal.normal.x
@@ -493,8 +505,42 @@ export class NgvPluginCesiumModelInteract extends LitElement {
     }
   }
 
-  protected firstUpdated(_changedProperties: PropertyValues): void {
-    this.initEvents();
+  async firstUpdated(_changedProperties: PropertyValues): Promise<void> {
+    // todo improve code
+    const models = getStoredModels();
+    if (models) {
+      await Promise.all(
+        models.map(async (m: StoredModel) => {
+          const blob = await getBlobFromIndexedDB(m.name);
+          const model = await instantiateModel({
+            type: 'model',
+            options: {
+              url: URL.createObjectURL(blob),
+              scene: this.viewer.scene,
+              modelMatrix: Matrix4.fromTranslationRotationScale(
+                new TranslationRotationScale(
+                  new Cartesian3(...m.translation),
+                  new Quaternion(...m.rotation),
+                  new Cartesian3(...m.scale),
+                ),
+              ),
+              id: {
+                name: m.name,
+                min: new Cartesian3(...Object.values(m.min)),
+                max: new Cartesian3(...Object.values(m.max)),
+                dimensions: new Cartesian3(...Object.values(m.dimensions)),
+              },
+            },
+          });
+          this.primitiveCollection.add(model);
+        }),
+      );
+      this.onPrimitivesChanged();
+      this.initEvents();
+      this.viewer.scene.requestRender();
+    } else {
+      this.initEvents();
+    }
     // todo improve
     this.dataSourceCollection
       .add(new CustomDataSource())
@@ -526,6 +572,7 @@ export class NgvPluginCesiumModelInteract extends LitElement {
               this.sidePlanesDataSource.entities.removeAll();
               this.topDownPlanesDataSource.entities.removeAll();
               this.edgeLinesDataSource.entities.removeAll();
+              this.onPrimitivesChanged();
             }}"
           >
             Done

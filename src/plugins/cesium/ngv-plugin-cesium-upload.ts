@@ -18,6 +18,10 @@ import {customElement, property} from 'lit/decorators.js';
 import '../ui/ngv-upload.js';
 import {instantiateModel} from './ngv-cesium-factories.js';
 import {FileUploadDetails} from '../ui/ngv-upload.js';
+import {
+  storeBlobInIndexedDB,
+  updateModelsInLocalStore,
+} from '../../apps/permits/localStore.js';
 
 const cartographicScratch = new Cartographic();
 
@@ -41,7 +45,6 @@ export class NgvPluginCesiumUpload extends LitElement {
       glb.subarray(20, 20 + jsonLength),
     );
     const json = JSON.parse(jsonChunk);
-    console.log(json);
 
     // Now access the binary data buffer view for vertex positions
     const bufferView =
@@ -119,6 +122,7 @@ export class NgvPluginCesiumUpload extends LitElement {
         },
       },
     });
+    await storeBlobInIndexedDB(new Blob([arrayBuffer]), fileDetails.name);
     this.primitiveCollection.add(this.uploadedModel);
     this.viewer.scene.requestRender();
     this.showControls();
@@ -141,6 +145,12 @@ export class NgvPluginCesiumUpload extends LitElement {
     this.viewer.canvas.style.cursor = 'default';
     this.eventHandler.destroy();
     this.eventHandler = null;
+    // todo improve
+    const models: Model[] = [];
+    for (let i = 0; i < this.primitiveCollection.length; i++) {
+      models.push(<Model>this.primitiveCollection.get(i));
+    }
+    updateModelsInLocalStore(models);
   }
 
   onMouseMove(event: ScreenSpaceEventHandler.MotionEvent): void {
