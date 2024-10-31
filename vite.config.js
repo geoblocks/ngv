@@ -1,5 +1,6 @@
 import {resolve} from 'path';
 import {defineConfig} from 'vite';
+import {viteStaticCopy} from 'vite-plugin-static-copy';
 
 const __dirname = import.meta.dirname;
 
@@ -8,7 +9,16 @@ export default defineConfig({
     strictPort: true,
     port: 1234,
   },
-
+  plugins: [
+    viteStaticCopy({
+      targets: [
+        {
+          src: 'node_modules/@shoelace-style/shoelace/dist/assets/icons',
+          dest: 'assets',
+        },
+      ],
+    }),
+  ],
   build: {
     assetsDir: 'vassets',
     rollupOptions: {

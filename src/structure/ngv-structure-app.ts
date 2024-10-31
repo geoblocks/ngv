@@ -4,8 +4,12 @@ import {customElement, property} from 'lit/decorators.js';
 import type {Locale} from './helpers/localeHelper.js';
 import {getLocale} from './helpers/localeHelper.js';
 
+import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
+
 import './ngv-page.js';
 import './ngv-structure-header.js';
+
+import './index.css';
 
 export interface INgvStructureApp {
   languages: Locale[];
@@ -43,6 +47,9 @@ export class NgvStructureApp extends LitElement {
           <ngv-structure-header .config=${this.config}></ngv-structure-header>
         </div>
         <div slot="menu"><slot name="menu"></slot></div>
+        <div slot="divider">
+          <sl-icon-button name="arrow-left-circle"></sl-icon-button>
+        </div>
         <!-- <div slot="main-header">main-header</div> -->
         <div slot="main-content" style="height: 100%"><slot></slot></div>
         <div slot="main-footer">
