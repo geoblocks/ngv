@@ -1,4 +1,4 @@
-import type {INGVCatalog} from '../interfaces/ingv-catalog.js';
+import type {INGVCatalog} from '../interfaces/cesium/ingv-catalog.js';
 
 export const catalog: INGVCatalog = {
   id: '@cesium',

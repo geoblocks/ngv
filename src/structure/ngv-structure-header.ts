@@ -3,6 +3,7 @@ import {LitElement, html, css} from 'lit';
 import {customElement, property} from 'lit/decorators.js';
 import type {INgvStructureApp} from './ngv-structure-app.js';
 import {getLocale, setLocale} from './helpers/localeHelper.js';
+import '../plugins/search/ngv-plugin-search.js';
 
 @customElement('ngv-structure-header')
 export class NgvStructureHeader extends LitElement {
@@ -20,9 +21,14 @@ export class NgvStructureHeader extends LitElement {
 
   render(): HTMLTemplateResult {
     const currentLocale = getLocale();
+    const headerConfig = this.config.header;
     return html`
       <header>
-        <img src="${this.config.header.logo}" />
+        <img src="${headerConfig.logo}" />
+
+        <ngv-plugin-search
+          .searchContext=${headerConfig.searchContext}
+        ></ngv-plugin-search>
         <div>
           <label for="language">Lang:</label>
           <select

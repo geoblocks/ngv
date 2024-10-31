@@ -14,7 +14,7 @@ import type {
   INGVCesiumImageryTypes,
   INGVCesiumTerrain,
   INGVIFC,
-} from 'src/interfaces/ingv-layers.js';
+} from '../../interfaces/cesium/ingv-layers.js';
 import {
   Cesium3DTileset,
   CesiumTerrainProvider,
@@ -22,8 +22,8 @@ import {
   WebMapServiceImageryProvider,
   WebMapTileServiceImageryProvider,
 } from '@cesium/engine';
-import type {IngvCesiumContext} from 'src/interfaces/ingv-cesium-context.js';
-import type {INGVCatalog} from 'src/interfaces/ingv-catalog.js';
+import type {IngvCesiumContext} from '../../interfaces/cesium/ingv-cesium-context.js';
+import type {INGVCatalog} from '../../interfaces/cesium/ingv-catalog.js';
 
 function withExtra<T>(options: T, extra: Record<string, any>): T {
   if (!extra) {
