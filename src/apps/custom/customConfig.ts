@@ -16,6 +16,12 @@ export const config: CustomConfig = {
             limit: 10,
           },
         },
+        {
+          type: 'osm',
+          options: {
+            limit: 10,
+          },
+        },
       ],
     },
   },

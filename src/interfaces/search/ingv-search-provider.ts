@@ -37,8 +37,12 @@ export interface INGVOsmSearchProviderConfig {
     /** URL to the OSM search API. The following placeholders are supported:
      * - `{input}`: the search query
      * - `{lang}`: the language code
+     * - `{limit}`: see below
      */
-    url: string;
+    url?: string;
+
+    /** Maximum number of results to return */
+    limit?: number;
   };
 }
 export function isOsmSearchProvider(

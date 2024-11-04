@@ -6,7 +6,7 @@ import type {
 } from '../../../interfaces/search/ingv-search-provider.js';
 
 const nominatimSearchUrl =
-  'https://nominatim.openstreetmap.org/search?q={input}&accept-language={lang}&format=jsonv2';
+  'https://nominatim.openstreetmap.org/search?q={input}&accept-language={lang}&limit={limit}&format=jsonv2';
 
 interface OSMFeature {
   display_name: string;
@@ -17,15 +17,18 @@ interface OSMFeature {
 export class NGVOsmSearchProvider implements INGVSearchProvider {
   public name: 'osm';
   private searchUrl: string;
+  private limit: number;
 
   constructor(config: INGVOsmSearchProviderConfig['options'] | undefined) {
     this.searchUrl = config?.url ?? nominatimSearchUrl;
+    this.limit = config?.limit ?? 10;
   }
   async search(input: string, lang: string): Promise<INGVSearchResult[]> {
     const searchUrl = this.searchUrl
       .replace('{lang}', lang)
+      .replace('{limit}', this.limit.toString())
       .replace('{input}', input);
-    const response = await fetch(searchUrl);
+    const response = await fetch(encodeURI(searchUrl));
     const features = (await response.json()) as OSMFeature[];
     return features.map((feature: OSMFeature): INGVSearchResult => {
       const geom = {
