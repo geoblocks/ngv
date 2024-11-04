@@ -1,16 +1,17 @@
-import type {INGVSearchProvider} from '../../interfaces/search/ingv-search-provider.js';
+import {
+  isGeoAdminSearchProvider,
+  type INGVSearchProvider,
+  type INGVSearchProviderConfigs,
+} from '../../interfaces/search/ingv-search-provider.js';
 
-const factories: Record<string, () => Promise<{provider: INGVSearchProvider}>> =
-  {
-    // Here we register singletons for builtin providers
-    geoadmin: () => import('./ngv-geoadmin-provider.js'),
-    // add custom singletons here or through the setter
-  };
-
-export async function getProvider(name: string): Promise<INGVSearchProvider> {
-  if (name in factories) {
-    const {provider} = await factories[name]();
-    return provider;
+export async function getProvider(
+  config: INGVSearchProviderConfigs,
+): Promise<INGVSearchProvider> {
+  if (isGeoAdminSearchProvider(config)) {
+    const {NGVGeoAdminSearchProvider} = await import(
+      './providers/ngv-geoadmin-provider.js'
+    );
+    return new NGVGeoAdminSearchProvider(config.options);
   }
-  return Promise.reject(new Error('No known provider with name ' + name));
+  throw new Error(`Unhandled search provider type`);
 }

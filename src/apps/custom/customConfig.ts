@@ -8,7 +8,15 @@ export const config: CustomConfig = {
       en: 'My custom app',
     },
     searchContext: {
-      providers: ['geoadmin'],
+      providers: [
+        {
+          type: 'geoadmin',
+          options: {
+            sr: '2056',
+            limit: 10,
+          },
+        },
+      ],
     },
   },
   footer: {
