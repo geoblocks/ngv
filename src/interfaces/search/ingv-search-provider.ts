@@ -30,8 +30,27 @@ export function isGeoAdminSearchProvider(
   return config.type === 'geoadmin';
 }
 
+export interface INGVOsmSearchProviderConfig {
+  type: 'osm';
+
+  options?: {
+    /** URL to the OSM search API. The following placeholders are supported:
+     * - `{input}`: the search query
+     * - `{lang}`: the language code
+     */
+    url: string;
+  };
+}
+export function isOsmSearchProvider(
+  config: INGVSearchProviderConfigs,
+): config is INGVOsmSearchProviderConfig {
+  return config.type === 'osm';
+}
+
 // Unions of all possible configs
-export type INGVSearchProviderConfigs = INGVGeoAdminSearchProviderConfig;
+export type INGVSearchProviderConfigs =
+  | INGVGeoAdminSearchProviderConfig
+  | INGVOsmSearchProviderConfig;
 
 export interface INGVSearchProvider {
   search: (input: string, lang: string) => Promise<INGVSearchResult[]>;
