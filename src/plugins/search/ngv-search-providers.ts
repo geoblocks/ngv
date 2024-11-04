@@ -1,6 +1,6 @@
 import {
   isGeoAdminSearchProvider,
-  isOsmSearchProvider,
+  isNominatimSearchProvider,
   type INGVSearchProvider,
   type INGVSearchProviderConfigs,
 } from '../../interfaces/search/ingv-search-provider.js';
@@ -13,11 +13,11 @@ export async function getProvider(
       './providers/ngv-geoadmin-provider.js'
     );
     return new NGVGeoAdminSearchProvider(config.options);
-  } else if (isOsmSearchProvider(config)) {
-    const {NGVOsmSearchProvider} = await import(
-      './providers/ngv-osm-provider.js'
+  } else if (isNominatimSearchProvider(config)) {
+    const {NGVNominatimSearchProvider} = await import(
+      './providers/ngv-nominatim-provider.js'
     );
-    return new NGVOsmSearchProvider(config.options);
+    return new NGVNominatimSearchProvider(config.options);
   }
   throw new Error(`Unhandled search provider type`);
 }

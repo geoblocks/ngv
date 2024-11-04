@@ -37,11 +37,11 @@ export function isGeoAdminSearchProvider(
   return config.type === 'geoadmin';
 }
 
-export interface INGVOsmSearchProviderConfig {
-  type: 'osm';
+export interface INGVNominatimSearchProviderConfig {
+  type: 'nominatim';
 
   options?: {
-    /** URL to the OSM search API. The following placeholders are supported:
+    /** URL to the Nominatim search API. The following placeholders are supported:
      * - `{input}`: the search query
      * - `{lang}`: the language code
      * - `{limit}`: see below
@@ -52,16 +52,16 @@ export interface INGVOsmSearchProviderConfig {
     limit?: number;
   };
 }
-export function isOsmSearchProvider(
+export function isNominatimSearchProvider(
   config: INGVSearchProviderConfigs,
-): config is INGVOsmSearchProviderConfig {
-  return config.type === 'osm';
+): config is INGVNominatimSearchProviderConfig {
+  return config.type === 'nominatim';
 }
 
 // Unions of all possible configs
 export type INGVSearchProviderConfigs =
   | INGVGeoAdminSearchProviderConfig
-  | INGVOsmSearchProviderConfig;
+  | INGVNominatimSearchProviderConfig;
 
 export interface INGVSearchProvider {
   search: (input: string, lang: string) => Promise<INGVSearchResult[]>;

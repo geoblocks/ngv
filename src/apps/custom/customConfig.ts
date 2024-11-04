@@ -17,7 +17,7 @@ export const config: CustomConfig = {
           },
         },
         {
-          type: 'osm',
+          type: 'nominatim',
           options: {
             limit: 10,
           },

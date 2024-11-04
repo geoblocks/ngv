@@ -1,6 +1,6 @@
 import type {Geometry} from 'geojson';
 import type {
-  INGVOsmSearchProviderConfig,
+  INGVNominatimSearchProviderConfig,
   INGVSearchProvider,
   INGVSearchResult,
 } from '../../../interfaces/search/ingv-search-provider.js';
@@ -14,12 +14,14 @@ interface OSMFeature {
   lon: string;
 }
 
-export class NGVOsmSearchProvider implements INGVSearchProvider {
-  public name: 'osm';
+export class NGVNominatimSearchProvider implements INGVSearchProvider {
+  public name: 'nominatim';
   private searchUrl: string;
   private limit: number;
 
-  constructor(config: INGVOsmSearchProviderConfig['options'] | undefined) {
+  constructor(
+    config: INGVNominatimSearchProviderConfig['options'] | undefined,
+  ) {
     this.searchUrl = config?.url ?? nominatimSearchUrl;
     this.limit = config?.limit ?? 10;
   }
