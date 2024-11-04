@@ -4,7 +4,7 @@ import {customElement, property, query} from 'lit/decorators.js';
 
 // @ts-expect-error Vite specific ?inline parameter
 import style from '@cesium/engine/Source/Widget/CesiumWidget.css?inline';
-import type {IngvCesiumContext} from 'src/interfaces/ingv-cesium-context.js';
+import type {IngvCesiumContext} from '../../interfaces/cesium/ingv-cesium-context.js';
 import type {CesiumWidget, Model} from '@cesium/engine';
 import {initCesiumWidget} from './ngv-cesium-factories.js';
 
@@ -12,22 +12,23 @@ import {initCesiumWidget} from './ngv-cesium-factories.js';
 export class NgvPluginCesiumWidget extends LitElement {
   public viewer: CesiumWidget;
 
-  static styles = css`
-    ${unsafeCSS(style)}
+  static styles = [
+    unsafeCSS(style),
+    css`
+      #globe {
+        width: 100%;
+        height: 100%;
+      }
 
-    #globe {
-      width: 100%;
-      height: 100%;
-    }
+      .cesium-widget canvas {
+        position: absolute;
+      }
 
-    .cesium-widget canvas {
-      position: absolute;
-    }
-
-    .cesium-credit-logoContainer {
-      display: none !important;
-    }
-  `;
+      .cesium-credit-logoContainer {
+        display: none !important;
+      }
+    `,
+  ];
 
   @property({type: Object})
   cesiumContext: IngvCesiumContext;

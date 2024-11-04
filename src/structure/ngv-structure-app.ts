@@ -6,15 +6,17 @@ import {getLocale} from './helpers/localeHelper.js';
 
 import './ngv-page.js';
 import './ngv-structure-header.js';
+import type {IngvSearchContext} from '../interfaces/search/ingv-search-context.js';
 
 export interface INgvStructureApp {
-  languages: Locale[];
+  languages: Partial<Locale>[];
   header: {
     logo?: string;
-    title: Record<Locale, string>;
+    title: Partial<Record<Locale, string>>;
+    searchContext?: IngvSearchContext;
   };
   footer: {
-    impressum: Record<Locale, string>;
+    impressum: Partial<Record<Locale, string>>;
     contact: string;
   };
 }
