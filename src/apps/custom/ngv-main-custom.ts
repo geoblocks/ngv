@@ -5,7 +5,7 @@ import type {CustomConfig} from './ingv-config-custom.js';
 
 import '../../plugins/cesium/ngv-plugin-cesium-widget.js';
 
-@customElement('ngv-main-illumination')
+@customElement('ngv-main-custom')
 export class NgvMainCustom extends LitElement {
   @property({type: Object})
   config: CustomConfig['app'];
