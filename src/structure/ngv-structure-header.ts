@@ -26,9 +26,11 @@ export class NgvStructureHeader extends LitElement {
       <header>
         <img src="${headerConfig.logo}" />
 
-        <ngv-plugin-search
-          .searchContext=${headerConfig.searchContext}
-        ></ngv-plugin-search>
+        ${headerConfig.searchContext
+          ? html`<ngv-plugin-search
+              .searchContext=${headerConfig.searchContext}
+            ></ngv-plugin-search>`
+          : ''}
         <div>
           <label for="language">Lang:</label>
           <select
