@@ -7,13 +7,6 @@ const factories: Record<string, () => Promise<{provider: INGVSearchProvider}>> =
     // add custom singletons here or through the setter
   };
 
-export function setProviderFunction(
-  key: string,
-  fn: () => Promise<{provider: INGVSearchProvider}>,
-): void {
-  factories[key] = fn;
-}
-
 export async function getProvider(name: string): Promise<INGVSearchProvider> {
   if (name in factories) {
     const {provider} = await factories[name]();
