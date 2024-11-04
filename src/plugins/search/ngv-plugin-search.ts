@@ -7,6 +7,7 @@ import type {
   INGVSearchResult,
 } from '../../interfaces/search/ingv-search-provider.js';
 import {getProvider} from './ngv-search-providers.js';
+import {getLocale} from '../../structure/helpers/localeHelper.js';
 
 @customElement('ngv-plugin-search')
 export class NgvPluginSearch extends LitElement {
@@ -35,8 +36,9 @@ export class NgvPluginSearch extends LitElement {
         id="search"
         @change=${async (evt: Event) => {
           const text = (evt.target as HTMLInputElement).value;
+          const lang = getLocale();
           const results = await Promise.all(
-            this.providers.map((p) => p.search(text, '')),
+            this.providers.map((p) => p.search(text, lang)),
           );
           this.results = results.flat();
         }}
