@@ -1,5 +1,12 @@
 import type {Geometry} from 'geojson';
 
+/**
+ * To add a providers, you need to:
+ * 1. Create a new provider file in src/plugins/search/providers/ that implements the INGVSearchProvider interface
+ * 2. Add the provider to the getProvider function in src/plugins/search/ngv-search-providers.ts
+ * 3. Add the provider to the IngvSearchContext in src/interfaces/search/ingv-search-context.ts
+ */
+
 export interface INGVSearchResult {
   title: string;
 
