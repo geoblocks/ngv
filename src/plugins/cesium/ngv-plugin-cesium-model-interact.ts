@@ -27,19 +27,17 @@ import {
   Ellipsoid,
   IntersectionTests,
   Ray,
-  JulianDate,
-  BoundingSphere,
   ArcType,
   TranslationRotationScale,
   HeadingPitchRoll,
-  Math as CesiumMath,
+  JulianDate,
 } from '@cesium/engine';
 import {instantiateModel} from './ngv-cesium-factories.js';
+import type {StoredModel} from '../../apps/permits/localStore.js';
 import {
   deleteFromIndexedDB,
   getBlobFromIndexedDB,
   getStoredModels,
-  StoredModel,
   updateModelsInLocalStore,
 } from '../../apps/permits/localStore.js';
 
@@ -58,6 +56,20 @@ const CORNER_POINT_VECTORS = [
   new Cartesian3(-0.5, -0.5, 0.5),
   new Cartesian3(-0.5, 0.5, 0.5),
 ];
+
+const LOCAL_EDGES: [Cartesian3, Cartesian3][] = [];
+CORNER_POINT_VECTORS.forEach((vector, i) => {
+  const upPoint = vector;
+  const downPoint = Cartesian3.clone(upPoint, new Cartesian3());
+  downPoint.z *= -1;
+  const nextUpPoint = CORNER_POINT_VECTORS[(i + 1) % 4];
+  const nextDownPoint = Cartesian3.clone(nextUpPoint, new Cartesian3());
+  nextDownPoint.z *= -1;
+  const verticalEdge: [Cartesian3, Cartesian3] = [upPoint, downPoint];
+  const topEdge: [Cartesian3, Cartesian3] = [nextUpPoint, upPoint];
+  const bottomEdge: [Cartesian3, Cartesian3] = [nextDownPoint, downPoint];
+  LOCAL_EDGES.push(verticalEdge, topEdge, bottomEdge);
+});
 
 const FACE_POINT_VECTORS = [
   new Cartesian3(0.5, 0.0, 0.0),
@@ -160,7 +172,6 @@ export class NgvPluginCesiumModelInteract extends LitElement {
     );
 
     this.primitiveCollection.primitiveAdded.addEventListener(() => {
-      console.log('primitiveAdded');
       this.onPrimitivesChanged();
     });
     this.primitiveCollection.primitiveRemoved.addEventListener((p) => {
@@ -188,8 +199,6 @@ export class NgvPluginCesiumModelInteract extends LitElement {
   }
 
   createPlaneEntity(planeLocal: Plane, model: Model, color: Color): void {
-    const modelMatrix = model.modelMatrix;
-
     const normalAxis = planeLocal.normal.x
       ? Axis.X
       : planeLocal.normal.y
@@ -226,8 +235,12 @@ export class NgvPluginCesiumModelInteract extends LitElement {
         () => this.chosenModel.boundingSphere.center,
         false,
       ),
-      orientation: Quaternion.fromRotationMatrix(
-        Matrix4.getRotation(modelMatrix, new Matrix3()),
+      orientation: new CallbackProperty(
+        () =>
+          Quaternion.fromRotationMatrix(
+            Matrix4.getRotation(this.chosenModel.modelMatrix, new Matrix3()),
+          ),
+        false,
       ),
       plane: {
         plane: plane,
@@ -239,79 +252,49 @@ export class NgvPluginCesiumModelInteract extends LitElement {
     });
   }
 
+  createEdge(localEdge: Cartesian3[]): void {
+    // todo improve
+    const positions = [new Cartesian3(), new Cartesian3()];
+    this.edgeLinesDataSource.entities.add({
+      polyline: {
+        show: true,
+        positions: new CallbackProperty(() => {
+          const modelMatrix = this.chosenModel.modelMatrix;
+          const matrix = Matrix4.fromTranslationRotationScale(
+            new TranslationRotationScale(
+              Matrix4.getTranslation(modelMatrix, new Cartesian3()),
+              Quaternion.fromRotationMatrix(
+                Matrix4.getRotation(modelMatrix, new Matrix3()),
+              ),
+              this.chosenModel.id.dimensions,
+            ),
+          );
+          Matrix4.multiplyByPoint(matrix, localEdge[0], positions[0]);
+          Matrix4.multiplyByPoint(matrix, localEdge[1], positions[1]);
+          const centerDiff = Cartesian3.subtract(
+            this.chosenModel.boundingSphere.center,
+            this.position,
+            new Cartesian3(),
+          );
+          Cartesian3.add(positions[0], centerDiff, positions[0]);
+          Cartesian3.add(positions[1], centerDiff, positions[1]);
+          return positions;
+        }, false),
+        width: 10,
+        material: Color.WHITE,
+        arcType: ArcType.NONE,
+      },
+    });
+  }
+
   async onClick(evt: ScreenSpaceEventHandler.PositionedEvent): Promise<void> {
     const model: Model | undefined = this.pickModel(evt.position);
     if (model) {
       if (!this.chosenModel) {
         this.chosenModel = model;
-        Cartesian3.add(
-          Cartesian3.ZERO,
-          Matrix4.getTranslation(
-            this.chosenModel.modelMatrix,
-            new Cartesian3(),
-          ),
-          this.position,
-        );
-        const centerDiff = Cartesian3.subtract(
-          model.boundingSphere.center,
-          this.position,
-          new Cartesian3(),
-        );
+        Matrix4.getTranslation(this.chosenModel.modelMatrix, this.position);
         SIDE_PLANES.forEach((p) => this.createPlaneEntity(p, model, Color.RED));
-
-        const localEdges: [Cartesian3, Cartesian3][] = [];
-        CORNER_POINT_VECTORS.forEach((vector, i) => {
-          const upPoint = vector;
-          const downPoint = Cartesian3.clone(upPoint, new Cartesian3());
-          downPoint.z *= -1;
-
-          const nextUpPoint = CORNER_POINT_VECTORS[(i + 1) % 4];
-          const nextDownPoint = Cartesian3.clone(nextUpPoint, new Cartesian3());
-          nextDownPoint.z *= -1;
-
-          const verticalEdge: [Cartesian3, Cartesian3] = [upPoint, downPoint];
-          const topEdge: [Cartesian3, Cartesian3] = [nextUpPoint, upPoint];
-          const bottomEdge: [Cartesian3, Cartesian3] = [
-            nextDownPoint,
-            downPoint,
-          ];
-          localEdges.push(verticalEdge, topEdge, bottomEdge);
-        });
-        localEdges.forEach((localEdge) => {
-          const positions = [new Cartesian3(), new Cartesian3()];
-          this.edgeLinesDataSource.entities.add({
-            polyline: {
-              show: true,
-              positions: new CallbackProperty(() => {
-                // todo improve
-                const modelMatrix = model.modelMatrix;
-                const matrix = Matrix4.fromTranslationRotationScale(
-                  new TranslationRotationScale(
-                    Matrix4.getTranslation(modelMatrix, new Cartesian3()),
-                    Quaternion.fromRotationMatrix(
-                      Matrix4.getRotation(modelMatrix, new Matrix3()),
-                    ),
-                    this.chosenModel.id.dimensions,
-                  ),
-                );
-                Cartesian3.add(
-                  Matrix4.multiplyByPoint(matrix, localEdge[0], positions[0]),
-                  centerDiff,
-                  positions[0],
-                );
-                Cartesian3.add(
-                  Matrix4.multiplyByPoint(matrix, localEdge[1], positions[1]),
-                  centerDiff,
-                  positions[1],
-                );
-                return positions;
-              }, false),
-              width: 2,
-              material: Color.WHITE,
-              arcType: ArcType.NONE,
-            },
-          });
-        });
+        LOCAL_EDGES.forEach((localEdge) => this.createEdge(localEdge));
       }
     }
   }
@@ -348,29 +331,17 @@ export class NgvPluginCesiumModelInteract extends LitElement {
         const sensitivity = 0.05;
         const hpr = new HeadingPitchRoll();
         hpr.heading = -dx * sensitivity;
-        hpr.pitch = 0;
-        hpr.roll = 0;
 
-        const quaternion = new Quaternion();
-        Quaternion.multiply(
-          Quaternion.fromRotationMatrix(
-            Matrix4.getRotation(this.chosenModel.modelMatrix, new Matrix3()),
-            quaternion,
-          ),
+        const rotation = Matrix3.fromQuaternion(
           Quaternion.fromHeadingPitchRoll(hpr),
-          quaternion,
         );
 
-        this.chosenModel.modelMatrix = Matrix4.fromTranslationRotationScale(
-          new TranslationRotationScale(
-            Matrix4.getTranslation(
-              this.chosenModel.modelMatrix,
-              new Cartesian3(),
-            ),
-            quaternion,
-            Matrix4.getScale(this.chosenModel.modelMatrix, new Cartesian3()),
-          ),
+        Matrix4.multiplyByMatrix3(
+          this.chosenModel.modelMatrix,
+          rotation,
+          this.chosenModel.modelMatrix,
         );
+
         return;
       }
       if (this.dragStart) {
@@ -457,8 +428,15 @@ export class NgvPluginCesiumModelInteract extends LitElement {
 
       Cartesian3.add(this.position, this.moveStep, this.position);
 
-      this.chosenModel.modelMatrix = Transforms.eastNorthUpToFixedFrame(
-        this.position,
+      Matrix4.fromTranslationRotationScale(
+        new TranslationRotationScale(
+          this.position,
+          Quaternion.fromRotationMatrix(
+            Matrix4.getRotation(this.chosenModel.modelMatrix, new Matrix3()),
+          ),
+          Matrix4.getScale(this.chosenModel.modelMatrix, new Cartesian3()),
+        ),
+        this.chosenModel.modelMatrix,
       );
       return;
     }
