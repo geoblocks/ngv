@@ -7,9 +7,11 @@ import {getLocale} from './helpers/localeHelper.js';
 import './ngv-page.js';
 import './ngv-structure-header.js';
 import type {IngvSearchContext} from '../interfaces/search/ingv-search-context.js';
+import { IngvAuthContext } from '../interfaces/auth/ingv-auth-context.js';
 
 export interface INgvStructureApp {
   languages: Partial<Locale>[];
+  authContext?: IngvAuthContext;
   header: {
     logo?: string;
     title: Partial<Record<Locale, string>>;
