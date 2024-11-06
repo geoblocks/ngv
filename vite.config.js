@@ -16,6 +16,7 @@ export default defineConfig({
         main: resolve(__dirname, 'index.html'),
         permits: resolve(__dirname, 'src/apps/permits/index.html'),
         illumination: resolve(__dirname, 'src/apps/illumination/index.html'),
+        custom: resolve(__dirname, 'src/apps/custom/index.html'),
         // other: resolve(__dirname, "src/apps/ngv-something-else.html"),
       },
     },

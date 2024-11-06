@@ -4,6 +4,7 @@ import {customElement, property} from 'lit/decorators.js';
 import type {INgvStructureApp} from './ngv-structure-app.js';
 import {getLocale, setLocale} from './helpers/localeHelper.js';
 import '../plugins/search/ngv-plugin-search.js';
+import '../plugins/auth/ngv-plugin-auth';
 
 @customElement('ngv-structure-header')
 export class NgvStructureHeader extends LitElement {
@@ -31,6 +32,11 @@ export class NgvStructureHeader extends LitElement {
               .searchContext=${headerConfig.searchContext}
             ></ngv-plugin-search>`
           : ''}
+
+        <ngv-plugin-auth
+          .authContext=${this.config.authContext}
+        ></ngv-plugin-auth>
+
         <div>
           <label for="language">Lang:</label>
           <select
