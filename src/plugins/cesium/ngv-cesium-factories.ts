@@ -251,6 +251,10 @@ export async function initCesiumWidget(
     Object.assign({}, cesiumContext.widgetOptions),
   );
 
+  if (cesiumContext.globeOptions) {
+    Object.assign(viewer.scene.globe, cesiumContext.globeOptions);
+  }
+
   const dataSourceCollection = new DataSourceCollection();
   const dataSourceDisplay = new DataSourceDisplay({
     scene: viewer.scene,

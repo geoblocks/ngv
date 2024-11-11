@@ -1,4 +1,4 @@
-import type {CesiumWidget} from '@cesium/engine';
+import type {CesiumWidget, Globe} from '@cesium/engine';
 import type {INGVCatalog} from './ingv-catalog.js';
 
 export interface IngvCesiumContext {
@@ -32,4 +32,5 @@ export interface IngvCesiumContext {
     };
   };
   widgetOptions?: ConstructorParameters<typeof CesiumWidget>[1];
+  globeOptions?: Partial<Globe>;
 }
