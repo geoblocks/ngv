@@ -6,7 +6,6 @@ import type {
   DataSource,
   Model,
   PrimitiveCollection,
-  Entity,
   DataSourceCollection,
 } from '@cesium/engine';
 import {
@@ -17,7 +16,6 @@ import {
   Plane,
   ScreenSpaceEventHandler,
   ScreenSpaceEventType,
-  Transforms,
   Cartographic,
   Cartesian2,
   Quaternion,
@@ -30,7 +28,8 @@ import {
   ArcType,
   TranslationRotationScale,
   HeadingPitchRoll,
-  JulianDate,
+  Entity,
+  ColorMaterialProperty,
 } from '@cesium/engine';
 import {instantiateModel} from './ngv-cesium-factories.js';
 import type {StoredModel} from '../../apps/permits/localStore.js';
@@ -66,18 +65,12 @@ CORNER_POINT_VECTORS.forEach((vector, i) => {
   const nextDownPoint = Cartesian3.clone(nextUpPoint, new Cartesian3());
   nextDownPoint.z *= -1;
   const verticalEdge: [Cartesian3, Cartesian3] = [upPoint, downPoint];
-  const topEdge: [Cartesian3, Cartesian3] = [nextUpPoint, upPoint];
-  const bottomEdge: [Cartesian3, Cartesian3] = [nextDownPoint, downPoint];
-  LOCAL_EDGES.push(verticalEdge, topEdge, bottomEdge);
+  // const topEdge: [Cartesian3, Cartesian3] = [nextUpPoint, upPoint];
+  // const bottomEdge: [Cartesian3, Cartesian3] = [nextDownPoint, downPoint];
+  LOCAL_EDGES.push(verticalEdge);
 });
 
-const FACE_POINT_VECTORS = [
-  new Cartesian3(0.5, 0.0, 0.0),
-  new Cartesian3(0.0, 0.5, 0.0),
-  new Cartesian3(0.0, 0.0, 0.5),
-];
-
-type GrabType = 'side' | 'top' | 'edge' | undefined;
+type GrabType = 'side' | 'top' | 'edge' | 'corner' | undefined;
 
 @customElement('ngv-plugin-cesium-model-interact')
 export class NgvPluginCesiumModelInteract extends LitElement {
@@ -88,7 +81,13 @@ export class NgvPluginCesiumModelInteract extends LitElement {
   @property({type: Object})
   private dataSourceCollection: DataSourceCollection;
   @state()
-  private cursor: 'default' | 'grab' | 'grabbing' | 'pointer' = 'default';
+  private cursor:
+    | 'default'
+    | 'move'
+    | 'pointer'
+    | 'ns-resize'
+    | 'ew-resize'
+    | 'nesw-resize' = 'default';
   @state()
   private chosenModel: Model | undefined;
   @state()
@@ -99,12 +98,14 @@ export class NgvPluginCesiumModelInteract extends LitElement {
   private sidePlanesDataSource: DataSource | undefined;
   private topDownPlanesDataSource: DataSource | undefined;
   private edgeLinesDataSource: DataSource | undefined;
+  private cornerPointsDataSource: DataSource | undefined;
   private moveStart: Cartesian3 = new Cartesian3();
   private moveStep: Cartesian3 = new Cartesian3();
   private pickedPointOffset: Cartesian3 = new Cartesian3();
   private dragStart: boolean = false;
   private movePlane: Plane | undefined;
   private grabType: GrabType;
+  private hoveredEdge: Entity | undefined;
 
   // todo move in UI plugin
   static styles = css`
@@ -167,7 +168,7 @@ export class NgvPluginCesiumModelInteract extends LitElement {
       ScreenSpaceEventType.LEFT_DOWN,
     );
     this.eventHandler.setInputAction(
-      (evt: ScreenSpaceEventHandler.PositionedEvent) => this.onLeftUp(evt),
+      () => this.onLeftUp(),
       ScreenSpaceEventType.LEFT_UP,
     );
 
@@ -175,8 +176,9 @@ export class NgvPluginCesiumModelInteract extends LitElement {
       this.onPrimitivesChanged();
     });
     this.primitiveCollection.primitiveRemoved.addEventListener((p) => {
-      deleteFromIndexedDB(p.id.name);
-      this.onPrimitivesChanged();
+      deleteFromIndexedDB(<string>p.id.name)
+        .then(() => this.onPrimitivesChanged())
+        .catch((e) => console.error(e));
     });
   }
 
@@ -204,26 +206,36 @@ export class NgvPluginCesiumModelInteract extends LitElement {
       : planeLocal.normal.y
         ? Axis.Y
         : Axis.Z;
-    const planeDimensions = new Cartesian2();
-    const dimensions: Cartesian3 = model.id.dimensions;
-    let scale = new Cartesian3();
 
-    if (normalAxis === Axis.X) {
-      planeDimensions.x = dimensions.y;
-      planeDimensions.y = dimensions.z;
-      scale = new Cartesian3(dimensions.x, dimensions.y, dimensions.z);
-    } else if (normalAxis === Axis.Y) {
-      planeDimensions.x = dimensions.x;
-      planeDimensions.y = dimensions.z;
-      dimensions.clone(scale);
-    } else if (normalAxis === Axis.Z) {
-      planeDimensions.x = dimensions.x;
-      planeDimensions.y = dimensions.y;
-      scale = new Cartesian3(dimensions.y, dimensions.x, dimensions.z);
-    }
+    const getDimensionsAndScale = () => {
+      const planeDimensions = new Cartesian2();
+      const dimensions: Cartesian3 = Cartesian3.clone(model.id.dimensions);
+      Cartesian3.multiplyComponents(
+        Matrix4.getScale(this.chosenModel.modelMatrix, new Cartesian3()),
+        dimensions,
+        dimensions,
+      );
+      let scale = new Cartesian3();
 
-    const scaleMatrix = Matrix4.fromScale(scale, new Matrix4());
-    const plane = Plane.transform(planeLocal, scaleMatrix);
+      if (normalAxis === Axis.X) {
+        planeDimensions.x = dimensions.y;
+        planeDimensions.y = dimensions.z;
+        scale = new Cartesian3(dimensions.x, dimensions.y, dimensions.z);
+      } else if (normalAxis === Axis.Y) {
+        planeDimensions.x = dimensions.x;
+        planeDimensions.y = dimensions.z;
+        dimensions.clone(scale);
+      } else if (normalAxis === Axis.Z) {
+        planeDimensions.x = dimensions.x;
+        planeDimensions.y = dimensions.y;
+        scale = new Cartesian3(dimensions.y, dimensions.x, dimensions.z);
+      }
+      const scaleMatrix = Matrix4.fromScale(scale, new Matrix4());
+      return {
+        scaleMatrix,
+        planeDimensions,
+      };
+    };
 
     const dataSource =
       normalAxis === Axis.Z
@@ -243,8 +255,14 @@ export class NgvPluginCesiumModelInteract extends LitElement {
         false,
       ),
       plane: {
-        plane: plane,
-        dimensions: planeDimensions,
+        plane: new CallbackProperty(() => {
+          const {scaleMatrix} = getDimensionsAndScale();
+          return Plane.transform(planeLocal, scaleMatrix);
+        }, false),
+        dimensions: new CallbackProperty(() => {
+          const {planeDimensions} = getDimensionsAndScale();
+          return planeDimensions;
+        }, false),
         material: color.withAlpha(0.5),
         outline: true,
         outlineColor: Color.WHITE,
@@ -266,7 +284,14 @@ export class NgvPluginCesiumModelInteract extends LitElement {
               Quaternion.fromRotationMatrix(
                 Matrix4.getRotation(modelMatrix, new Matrix3()),
               ),
-              this.chosenModel.id.dimensions,
+              Cartesian3.multiplyComponents(
+                Matrix4.getScale(
+                  this.chosenModel.modelMatrix,
+                  new Cartesian3(),
+                ),
+                this.chosenModel.id.dimensions,
+                new Cartesian3(),
+              ),
             ),
           );
           Matrix4.multiplyByPoint(matrix, localEdge[0], positions[0]);
@@ -281,13 +306,54 @@ export class NgvPluginCesiumModelInteract extends LitElement {
           return positions;
         }, false),
         width: 10,
-        material: Color.WHITE,
+        material: Color.WHITE.withAlpha(0.3),
         arcType: ArcType.NONE,
       },
     });
   }
 
-  async onClick(evt: ScreenSpaceEventHandler.PositionedEvent): Promise<void> {
+  createCornerPoint(localEdges: Cartesian3[]): void {
+    // todo improve
+    const position = new Cartesian3();
+    localEdges.forEach((localEdge) => {
+      this.cornerPointsDataSource.entities.add({
+        position: new CallbackProperty(() => {
+          const modelMatrix = this.chosenModel.modelMatrix;
+          const matrix = Matrix4.fromTranslationRotationScale(
+            new TranslationRotationScale(
+              Matrix4.getTranslation(modelMatrix, new Cartesian3()),
+              Quaternion.fromRotationMatrix(
+                Matrix4.getRotation(modelMatrix, new Matrix3()),
+              ),
+              Cartesian3.multiplyComponents(
+                Matrix4.getScale(
+                  this.chosenModel.modelMatrix,
+                  new Cartesian3(),
+                ),
+                this.chosenModel.id.dimensions,
+                new Cartesian3(),
+              ),
+            ),
+          );
+          Matrix4.multiplyByPoint(matrix, localEdge, position);
+          const centerDiff = Cartesian3.subtract(
+            this.chosenModel.boundingSphere.center,
+            this.position,
+            new Cartesian3(),
+          );
+          Cartesian3.add(position, centerDiff, position);
+          return position;
+        }, false),
+        ellipsoid: {
+          show: true,
+          radii: new Cartesian3(10, 10, 10),
+          material: Color.BROWN,
+        },
+      });
+    });
+  }
+
+  onClick(evt: ScreenSpaceEventHandler.PositionedEvent): void {
     const model: Model | undefined = this.pickModel(evt.position);
     if (model) {
       if (!this.chosenModel) {
@@ -295,14 +361,14 @@ export class NgvPluginCesiumModelInteract extends LitElement {
         Matrix4.getTranslation(this.chosenModel.modelMatrix, this.position);
         SIDE_PLANES.forEach((p) => this.createPlaneEntity(p, model, Color.RED));
         LOCAL_EDGES.forEach((localEdge) => this.createEdge(localEdge));
+        LOCAL_EDGES.forEach((localEdge) => this.createCornerPoint(localEdge));
       }
     }
   }
 
   onLeftDown(evt: ScreenSpaceEventHandler.PositionedEvent): void {
     this.grabType = this.pickGrabType(evt.position);
-    if (this.grabType && this.cursor !== 'grabbing') {
-      this.viewer.canvas.style.cursor = this.cursor = 'grabbing';
+    if (this.grabType) {
       this.viewer.scene.screenSpaceCameraController.enableInputs = false;
       this.viewer.scene.pickPosition(evt.position, this.moveStart);
       this.dragStart = true;
@@ -312,8 +378,7 @@ export class NgvPluginCesiumModelInteract extends LitElement {
     }
   }
   onLeftUp(): void {
-    if (this.cursor === 'grabbing') {
-      this.viewer.canvas.style.cursor = this.cursor = 'grab';
+    if (this.grabType) {
       this.viewer.scene.screenSpaceCameraController.enableInputs = true;
       this.grabType = undefined;
     }
@@ -344,6 +409,22 @@ export class NgvPluginCesiumModelInteract extends LitElement {
 
         return;
       }
+      if (this.grabType === 'corner') {
+        const dx = evt.endPosition.x - evt.startPosition.x;
+        const sensitivity = 0.01;
+        const scaleAmount = 1 + dx * sensitivity;
+
+        // Apply scale to the model matrix of the primitive
+        const scaleMatrix = Matrix4.fromScale(
+          new Cartesian3(scaleAmount, scaleAmount, scaleAmount),
+        );
+        Matrix4.multiply(
+          this.chosenModel.modelMatrix,
+          scaleMatrix,
+          this.chosenModel.modelMatrix,
+        );
+        return;
+      }
       if (this.dragStart) {
         Cartesian3.subtract(
           endPosition,
@@ -365,11 +446,6 @@ export class NgvPluginCesiumModelInteract extends LitElement {
       if (this.grabType === 'top') {
         const cartPickedPosition = Cartographic.fromCartesian(pickedPosition);
         const topPos = pickedPosition.clone();
-        //   Cartesian3.fromRadians(
-        //   cartPickedPosition.longitude,
-        //   cartPickedPosition.latitude,
-        //   cartPickedPosition.height + this.chosenModel.id.max.y,
-        // );
         const bottomPos = Cartesian3.fromRadians(
           cartPickedPosition.longitude,
           cartPickedPosition.latitude,
@@ -440,20 +516,52 @@ export class NgvPluginCesiumModelInteract extends LitElement {
       );
       return;
     }
+    this.updateCursor(evt.endPosition);
+  }
 
-    const model: Model | undefined = this.pickModel(evt.endPosition);
-    if (this.grabType || model) {
-      if (this.cursor !== 'pointer' && !this.chosenModel) {
+  updateCursor(position: Cartesian2): void {
+    const model: Model | undefined = this.pickModel(position);
+    const isSidePlane = !!this.pickEntity(position, this.sidePlanesDataSource);
+    const isTopPlane = !!this.pickEntity(
+      position,
+      this.topDownPlanesDataSource,
+    );
+    const edgeEntity = this.pickEntity(position, this.edgeLinesDataSource);
+    const isCorner = !!this.pickEntity(position, this.cornerPointsDataSource);
+    if (model && !this.chosenModel) {
+      if (this.cursor !== 'pointer') {
         this.viewer.canvas.style.cursor = this.cursor = 'pointer';
-      } else if (this.chosenModel) {
-        if (this.cursor !== 'grab' && this.cursor !== 'grabbing') {
-          this.viewer.canvas.style.cursor = this.cursor = 'grab';
-        }
       }
-    } else {
-      if (this.cursor !== 'default') {
-        this.viewer.canvas.style.cursor = this.cursor = 'default';
+    } else if (isSidePlane) {
+      if (this.cursor !== 'move') {
+        this.viewer.canvas.style.cursor = this.cursor = 'move';
       }
+    } else if (isTopPlane) {
+      if (this.cursor !== 'ns-resize') {
+        this.viewer.canvas.style.cursor = this.cursor = 'ns-resize';
+      }
+    } else if (isCorner) {
+      if (this.cursor !== 'nesw-resize') {
+        this.viewer.canvas.style.cursor = this.cursor = 'nesw-resize';
+      }
+    } else if (edgeEntity) {
+      if (this.cursor !== 'ew-resize') {
+        this.viewer.canvas.style.cursor = this.cursor = 'ew-resize';
+      }
+      if (!this.hoveredEdge) {
+        this.hoveredEdge = edgeEntity;
+        this.hoveredEdge.polyline.material = new ColorMaterialProperty(
+          Color.WHITE.withAlpha(0.9),
+        );
+      }
+    } else if (this.cursor !== 'default') {
+      this.viewer.canvas.style.cursor = this.cursor = 'default';
+    }
+    if (this.hoveredEdge && !edgeEntity) {
+      this.hoveredEdge.polyline.material = new ColorMaterialProperty(
+        Color.WHITE.withAlpha(0.3),
+      );
+      this.hoveredEdge = undefined;
     }
   }
 
@@ -464,6 +572,17 @@ export class NgvPluginCesiumModelInteract extends LitElement {
     return pickedObject?.primitive &&
       this.primitiveCollection.contains(pickedObject.primitive)
       ? pickedObject.primitive
+      : undefined;
+  }
+
+  pickEntity(position: Cartesian2, dataSource: DataSource): Entity | undefined {
+    const obj: {id: Entity | undefined} = <{id: Entity | undefined}>(
+      this.viewer.scene.pick(position)
+    );
+    return obj?.id &&
+      obj.id instanceof Entity &&
+      dataSource.entities.contains(obj.id)
+      ? obj?.id
       : undefined;
   }
 
@@ -480,6 +599,8 @@ export class NgvPluginCesiumModelInteract extends LitElement {
       return 'top';
     } else if (this.edgeLinesDataSource.entities.contains(pickedObject.id)) {
       return 'edge';
+    } else if (this.cornerPointsDataSource.entities.contains(pickedObject.id)) {
+      return 'corner';
     }
   }
 
@@ -532,6 +653,10 @@ export class NgvPluginCesiumModelInteract extends LitElement {
       .add(new CustomDataSource())
       .then((dataSource) => (this.edgeLinesDataSource = dataSource))
       .catch((e) => console.error(e));
+    this.dataSourceCollection
+      .add(new CustomDataSource())
+      .then((dataSource) => (this.cornerPointsDataSource = dataSource))
+      .catch((e) => console.error(e));
     super.firstUpdated(_changedProperties);
   }
 
@@ -550,6 +675,7 @@ export class NgvPluginCesiumModelInteract extends LitElement {
               this.sidePlanesDataSource.entities.removeAll();
               this.topDownPlanesDataSource.entities.removeAll();
               this.edgeLinesDataSource.entities.removeAll();
+              this.cornerPointsDataSource.entities.removeAll();
               this.onPrimitivesChanged();
             }}"
           >
