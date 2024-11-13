@@ -1,14 +1,7 @@
 // todo Just for easier testing. Better place should be find and structure improved.
 
-import {
-  Cartesian3,
-  Matrix3,
-  Matrix4,
-  Model,
-  Quaternion,
-  TranslationRotationScale,
-} from '@cesium/engine';
-import {instantiateModel} from '../../plugins/cesium/ngv-cesium-factories.js';
+import {Cartesian3, Matrix3, Matrix4, Quaternion} from '@cesium/engine';
+import type {UploadedModel} from '../../plugins/cesium/ngv-plugin-cesium-upload.js';
 
 const DB_NAME = 'uploadedModelsStore';
 
@@ -105,8 +98,6 @@ export function deleteFromIndexedDB(name: string): Promise<void> {
 
 export type StoredModel = {
   name: string;
-  min: number[];
-  max: number[];
   dimensions: number[];
   translation: number[];
   rotation: number[];
@@ -115,7 +106,7 @@ export type StoredModel = {
 
 export const STORE_KEY = 'localStoreModels';
 
-export function updateModelsInLocalStore(models: Model[]): void {
+export function updateModelsInLocalStore(models: UploadedModel[]): void {
   const localStoreModels: StoredModel[] = [];
   models.forEach((model) => {
     const translation = Matrix4.getTranslation(
@@ -128,8 +119,6 @@ export function updateModelsInLocalStore(models: Model[]): void {
     );
     localStoreModels.push({
       name: model.id.name,
-      min: [model.id.min.x, model.id.min.y, model.id.min.z],
-      max: [model.id.max.x, model.id.max.y, model.id.max.z],
       dimensions: [
         model.id.dimensions.x,
         model.id.dimensions.y,

@@ -25,14 +25,6 @@ export type FileUploadDetails = {
   name: string;
 };
 
-/**
- * TODO
- *  * type check
- *  * error handling
- *  * multiple files upload
- *  * drag & drop ?
- *  * URL input
- */
 @customElement('ngv-upload')
 export class NgvUpload extends LitElement {
   @property({type: Object}) options: NgvUploadOptions;
@@ -102,13 +94,9 @@ export class NgvUpload extends LitElement {
   }
 
   override willUpdate(): void {
-    const options: NgvUploadOptions = {...defaultOptions};
+    let options: NgvUploadOptions = {...defaultOptions};
     if (this.options) {
-      Object.keys((key: keyof NgvUploadOptions) => {
-        if (this.options[key] !== undefined && this.options[key] !== null) {
-          options[key] = this.options[key];
-        }
-      });
+      options = {...options, ...this.options};
     }
     this.options = options;
   }
@@ -124,12 +112,18 @@ export class NgvUpload extends LitElement {
           await this.onFileUpload(target.files[0]);
         }}
       />
-      <!-- <input
-            type="text"
-            placeholder="${this.options.urlPlaceholderText}"
-            .value="${this.fileDetails}"
-            @input="${(e: InputEvent) => {}}"
-          /> -->
+      <input
+        type="text"
+        placeholder="${this.options.urlPlaceholderText}"
+        .value="${this.fileDetails?.url || ''}"
+        @input="${(e: InputEvent) => {
+          const value = (<HTMLInputElement>e.target).value;
+          this.fileDetails = {
+            url: value,
+            name: value,
+          };
+        }}"
+      />
       <button @click="${() => this.upload()}">
         ${this.options.uploadBtnText}
       </button>

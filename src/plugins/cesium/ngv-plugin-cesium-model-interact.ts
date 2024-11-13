@@ -4,11 +4,11 @@ import {customElement, property, state} from 'lit/decorators.js';
 import type {
   CesiumWidget,
   DataSource,
-  Model,
   PrimitiveCollection,
   DataSourceCollection,
 } from '@cesium/engine';
 import {
+  Model,
   Axis,
   Cartesian3,
   Color,
@@ -39,6 +39,7 @@ import {
   getStoredModels,
   updateModelsInLocalStore,
 } from '../../apps/permits/localStore.js';
+import type {UploadedModel} from './ngv-plugin-cesium-upload.js';
 
 const SIDE_PLANES: Plane[] = [
   new Plane(new Cartesian3(0, 0, 1), 0.5),
@@ -89,11 +90,11 @@ export class NgvPluginCesiumModelInteract extends LitElement {
     | 'ew-resize'
     | 'nesw-resize' = 'default';
   @state()
-  private chosenModel: Model | undefined;
+  private chosenModel: UploadedModel | undefined;
   @state()
   private position: Cartesian3 = new Cartesian3();
   @state()
-  private models: Model[] = [];
+  private models: UploadedModel[] = [];
   private eventHandler: ScreenSpaceEventHandler | undefined;
   private sidePlanesDataSource: DataSource | undefined;
   private topDownPlanesDataSource: DataSource | undefined;
@@ -175,11 +176,13 @@ export class NgvPluginCesiumModelInteract extends LitElement {
     this.primitiveCollection.primitiveAdded.addEventListener(() => {
       this.onPrimitivesChanged();
     });
-    this.primitiveCollection.primitiveRemoved.addEventListener((p) => {
-      deleteFromIndexedDB(<string>p.id.name)
-        .then(() => this.onPrimitivesChanged())
-        .catch((e) => console.error(e));
-    });
+    this.primitiveCollection.primitiveRemoved.addEventListener(
+      (p: UploadedModel) => {
+        deleteFromIndexedDB(p.id.name)
+          .then(() => this.onPrimitivesChanged())
+          .catch((e) => console.error(e));
+      },
+    );
   }
 
   removeEvents(): void {
@@ -195,12 +198,19 @@ export class NgvPluginCesiumModelInteract extends LitElement {
   onPrimitivesChanged(): void {
     this.models = [];
     for (let i = 0; i < this.primitiveCollection.length; i++) {
-      this.models.push(this.primitiveCollection.get(i));
+      const model = this.primitiveCollection.get(i) as UploadedModel;
+      if (model instanceof Model) {
+        this.models.push(model);
+      }
     }
     updateModelsInLocalStore(this.models);
   }
 
-  createPlaneEntity(planeLocal: Plane, model: Model, color: Color): void {
+  createPlaneEntity(
+    planeLocal: Plane,
+    model: UploadedModel,
+    color: Color,
+  ): void {
     const normalAxis = planeLocal.normal.x
       ? Axis.X
       : planeLocal.normal.y
@@ -586,7 +596,7 @@ export class NgvPluginCesiumModelInteract extends LitElement {
       : undefined;
   }
 
-  pickGrabType(position: Cartesian2): GrabType {
+  pickGrabType(position: Cartesian2): GrabType | undefined {
     const pickedObject: {id: Entity | undefined} = <{id: Entity | undefined}>(
       this.viewer.scene.pick(position)
     );
@@ -602,13 +612,14 @@ export class NgvPluginCesiumModelInteract extends LitElement {
     } else if (this.cornerPointsDataSource.entities.contains(pickedObject.id)) {
       return 'corner';
     }
+    return undefined;
   }
 
-  async firstUpdated(_changedProperties: PropertyValues): Promise<void> {
+  firstUpdated(_changedProperties: PropertyValues): void {
     // todo improve code
     const models = getStoredModels();
     if (models) {
-      await Promise.all(
+      Promise.all(
         models.map(async (m: StoredModel) => {
           const blob = await getBlobFromIndexedDB(m.name);
           const model = await instantiateModel({
@@ -625,18 +636,19 @@ export class NgvPluginCesiumModelInteract extends LitElement {
               ),
               id: {
                 name: m.name,
-                min: new Cartesian3(...Object.values(m.min)),
-                max: new Cartesian3(...Object.values(m.max)),
                 dimensions: new Cartesian3(...Object.values(m.dimensions)),
               },
             },
           });
           this.primitiveCollection.add(model);
         }),
-      );
-      this.onPrimitivesChanged();
-      this.initEvents();
-      this.viewer.scene.requestRender();
+      )
+        .then(() => {
+          this.onPrimitivesChanged();
+          this.initEvents();
+          this.viewer.scene.requestRender();
+        })
+        .catch((e) => console.error(e));
     } else {
       this.initEvents();
     }

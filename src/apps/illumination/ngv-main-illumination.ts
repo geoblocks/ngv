@@ -6,7 +6,7 @@ import {type CesiumWidget} from '@cesium/engine';
 import type {IIlluminationConfig} from './ingv-config-illumination.js';
 
 import '../../plugins/cesium/ngv-plugin-cesium-widget.js';
-import {ViewerInitializedDetails} from '../../plugins/cesium/ngv-plugin-cesium-widget.js';
+import type {ViewerInitializedDetails} from '../../plugins/cesium/ngv-plugin-cesium-widget.js';
 
 @customElement('ngv-main-illumination')
 export class NgvMainIllumination extends LitElement {

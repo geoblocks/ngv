@@ -3,7 +3,6 @@ import {
   Cartesian3,
   Cartographic,
   HeadingPitchRoll,
-  HeightReference,
   Math as CesiumMath,
   Matrix4,
   Quaternion,
@@ -17,13 +16,32 @@ import {html, LitElement} from 'lit';
 import {customElement, property} from 'lit/decorators.js';
 import '../ui/ngv-upload.js';
 import {instantiateModel} from './ngv-cesium-factories.js';
-import {FileUploadDetails} from '../ui/ngv-upload.js';
+import type {FileUploadDetails} from '../ui/ngv-upload.js';
 import {
   storeBlobInIndexedDB,
   updateModelsInLocalStore,
 } from '../../apps/permits/localStore.js';
 
 const cartographicScratch = new Cartographic();
+
+type GlbJson = {
+  bufferViews: {byteOffset: number; byteLength: number}[];
+  accessors: {bufferView: number}[];
+  meshes: {
+    primitives: {
+      attributes: {
+        POSITION: number;
+      };
+    }[];
+  }[];
+};
+
+export interface UploadedModel extends Model {
+  id: {
+    dimensions?: Cartesian3;
+    name: string;
+  };
+}
 
 @customElement('ngv-plugin-cesium-upload')
 export class NgvPluginCesiumUpload extends LitElement {
@@ -37,76 +55,16 @@ export class NgvPluginCesiumUpload extends LitElement {
   async upload(fileDetails: FileUploadDetails): Promise<void> {
     const response = await fetch(fileDetails.url);
     const arrayBuffer = await response.arrayBuffer();
-    const glb = new Uint8Array(arrayBuffer);
+    const dimensions = parseGlbModelDimensions(arrayBuffer);
 
-    // Extract JSON chunk and binary chunk
-    const jsonLength = new DataView(arrayBuffer, 12, 4).getUint32(0, true);
-    const jsonChunk = new TextDecoder().decode(
-      glb.subarray(20, 20 + jsonLength),
-    );
-    const json = JSON.parse(jsonChunk);
-
-    // Now access the binary data buffer view for vertex positions
-    const bufferView =
-      json.bufferViews[
-        json.accessors[json.meshes[0].primitives[0].attributes.POSITION]
-          .bufferView
-      ];
-    const byteOffset = bufferView.byteOffset;
-    const byteLength = bufferView.byteLength;
-
-    // Extract the vertex data from the binary chunk (after JSON chunk)
-    const binaryData = new Float32Array(
-      arrayBuffer,
-      byteOffset + 20 + jsonLength,
-      byteLength / Float32Array.BYTES_PER_ELEMENT,
-    );
-
-    // Initialize AABB min/max values
-    const min = new Cartesian3(
-      Number.POSITIVE_INFINITY,
-      Number.POSITIVE_INFINITY,
-      Number.POSITIVE_INFINITY,
-    );
-    const max = new Cartesian3(
-      Number.NEGATIVE_INFINITY,
-      Number.NEGATIVE_INFINITY,
-      Number.NEGATIVE_INFINITY,
-    );
-
-    // Iterate over the vertex positions and compute the AABB
-    for (let i = 0; i < binaryData.length; i += 3) {
-      const vertex = new Cartesian3(
-        binaryData[i],
-        binaryData[i + 2],
-        binaryData[i + 1],
-      );
-
-      // Update AABB min and max
-      Cartesian3.minimumByComponent(min, vertex, min);
-      Cartesian3.maximumByComponent(max, vertex, max);
-    }
-
-    // Compute dimensions (width, height, depth)
-    const dimensions = Cartesian3.subtract(max, min, new Cartesian3());
-
-    const modelOrientation = [90, 0, 0];
     const modelMatrix = Matrix4.fromTranslationRotationScale(
       new TranslationRotationScale(
         Cartesian3.ZERO,
         Quaternion.fromHeadingPitchRoll(
-          new HeadingPitchRoll(...modelOrientation.map(CesiumMath.toRadians)),
+          new HeadingPitchRoll(CesiumMath.toRadians(90), 0, 0),
         ),
       ),
     );
-
-    // const modelMatrix = new Matrix4();
-    //
-    // json.nodes.forEach((node) => {
-    //   if (!node.matrix) return;
-    //   const matrix = new Matrix4(...node.matrix);
-    //   Matrix4.add(modelMatrix, matrix, modelMatrix);
-    // });
 
     this.uploadedModel = await instantiateModel({
       type: 'model',
@@ -117,8 +75,6 @@ export class NgvPluginCesiumUpload extends LitElement {
         id: {
           name: fileDetails.name,
           dimensions,
-          min,
-          max,
         },
       },
     });
@@ -174,11 +130,60 @@ export class NgvPluginCesiumUpload extends LitElement {
 
   render(): HTMLTemplateResult {
     return html` <ngv-upload
+      .options="${{accept: '.glb,.GLB'}}"
       @uploaded="${(evt: {detail: FileUploadDetails}): void => {
-        this.upload(evt.detail);
+        this.upload(evt.detail).catch((e) =>
+          console.error(`Upload error: ${e}`),
+        );
       }}"
     ></ngv-upload>`;
   }
+}
+
+function parseGlbModelDimensions(arrayBuffer: ArrayBuffer): Cartesian3 {
+  const glb = new Uint8Array(arrayBuffer);
+
+  const jsonLength = new DataView(arrayBuffer, 12, 4).getUint32(0, true);
+  const jsonChunk = new TextDecoder().decode(glb.subarray(20, 20 + jsonLength));
+  const json: GlbJson = JSON.parse(jsonChunk) as GlbJson;
+
+  const bufferView =
+    json.bufferViews[
+      json.accessors[json.meshes[0].primitives[0].attributes.POSITION]
+        .bufferView
+    ];
+  const byteOffset = bufferView.byteOffset;
+  const byteLength = bufferView.byteLength;
+
+  const binaryData = new Float32Array(
+    arrayBuffer,
+    byteOffset + 20 + jsonLength,
+    byteLength / Float32Array.BYTES_PER_ELEMENT,
+  );
+
+  const min = new Cartesian3(
+    Number.POSITIVE_INFINITY,
+    Number.POSITIVE_INFINITY,
+    Number.POSITIVE_INFINITY,
+  );
+  const max = new Cartesian3(
+    Number.NEGATIVE_INFINITY,
+    Number.NEGATIVE_INFINITY,
+    Number.NEGATIVE_INFINITY,
+  );
+
+  for (let i = 0; i < binaryData.length; i += 3) {
+    const vertex = new Cartesian3(
+      binaryData[i],
+      binaryData[i + 2],
+      binaryData[i + 1],
+    );
+
+    Cartesian3.minimumByComponent(min, vertex, min);
+    Cartesian3.maximumByComponent(max, vertex, max);
+  }
+
+  return Cartesian3.subtract(max, min, new Cartesian3());
 }
 
 declare global {

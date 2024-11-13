@@ -7,7 +7,6 @@ import {
   Model,
   DataSourceCollection,
   DataSourceDisplay,
-  CustomDataSource,
 } from '@cesium/engine';
 
 import type {
