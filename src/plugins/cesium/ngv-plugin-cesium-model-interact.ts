@@ -1,4 +1,4 @@
-import {css, html, LitElement} from 'lit';
+import {html, LitElement} from 'lit';
 import type {HTMLTemplateResult, PropertyValues} from 'lit';
 import {customElement, property, state} from 'lit/decorators.js';
 import type {
@@ -40,6 +40,8 @@ import {
   updateModelsInLocalStore,
 } from '../../apps/permits/localStore.js';
 import type {UploadedModel} from './ngv-plugin-cesium-upload.js';
+import '../ui/ngv-layer-details.js';
+import '../ui/ngv-layers-list.js';
 
 const SIDE_PLANES: Plane[] = [
   new Plane(new Cartesian3(0, 0, 1), 0.5),
@@ -107,52 +109,6 @@ export class NgvPluginCesiumModelInteract extends LitElement {
   private movePlane: Plane | undefined;
   private grabType: GrabType;
   private hoveredEdge: Entity | undefined;
-
-  // todo move in UI plugin
-  static styles = css`
-    .model-list,
-    .model-info {
-      background-color: white;
-      display: flex;
-      flex-direction: column;
-      z-index: 1;
-      margin-left: auto;
-      margin-right: auto;
-      padding: 10px;
-      gap: 10px;
-      border-radius: 4px;
-      border: 1px solid rgba(0, 0, 0, 0.16);
-      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05);
-    }
-
-    .model-item {
-      text-overflow: ellipsis;
-      display: flex;
-      align-items: center;
-      column-gap: 10px;
-    }
-
-    .model-item span {
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    button,
-    input[type='text'] {
-      border-radius: 4px;
-      padding: 0 16px;
-      height: 40px;
-      cursor: pointer;
-      background-color: white;
-      border: 1px solid rgba(0, 0, 0, 0.16);
-      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05);
-      transition: background-color 200ms;
-    }
-
-    input[type='text'] {
-      cursor: text;
-    }
-  `;
 
   initEvents(): void {
     this.eventHandler = new ScreenSpaceEventHandler(this.viewer.canvas);
@@ -677,39 +633,43 @@ export class NgvPluginCesiumModelInteract extends LitElement {
   }
   render(): HTMLTemplateResult | string {
     if (!this.chosenModel && !this.models?.length) return '';
-    // todo move in UI plugin
     return this.chosenModel
-      ? html` <div class="model-info">
-          ${this.chosenModel.id.name}
-          <button
-            @click="${() => {
-              this.chosenModel = undefined;
-              this.sidePlanesDataSource.entities.removeAll();
-              this.topDownPlanesDataSource.entities.removeAll();
-              this.edgeLinesDataSource.entities.removeAll();
-              this.cornerPointsDataSource.entities.removeAll();
-              this.onPrimitivesChanged();
-            }}"
-          >
-            Done
-          </button>
-        </div>`
-      : html` <p>Uploaded models:</p>
-          <div class="model-list">
-            ${this.models.map(
-              (m) =>
-                html`<div class="model-item">
-                  <span>${m.id.name}</span>
-                  <button
-                    @click=${() => {
-                      this.primitiveCollection.remove(m);
-                    }}
-                  >
-                    &#x2718;
-                  </button>
-                </div>`,
-            )}
-          </div>`;
+      ? html` <ngv-layer-details
+          .layer="${{name: this.chosenModel.id.name}}"
+          @done="${() => {
+            this.chosenModel = undefined;
+            this.sidePlanesDataSource.entities.removeAll();
+            this.topDownPlanesDataSource.entities.removeAll();
+            this.edgeLinesDataSource.entities.removeAll();
+            this.cornerPointsDataSource.entities.removeAll();
+            this.onPrimitivesChanged();
+          }}"
+        ></ngv-layer-details>`
+      : html` <ngv-layers-list
+          .options="${{
+            title: 'Uploaded models:',
+            showDeleteBtns: true,
+            showZoomBtns: true,
+          }}"
+          .layers=${this.models.map((m) => {
+            return {name: m.id.name};
+          })}
+          @remove="${(evt: {detail: number}) => {
+            const model = this.primitiveCollection.get(
+              evt.detail,
+            ) as UploadedModel;
+            if (model) this.primitiveCollection.remove(model);
+          }}"
+          @zoom="${(evt: {detail: number}) => {
+            const model = this.primitiveCollection.get(
+              evt.detail,
+            ) as UploadedModel;
+            if (model)
+              this.viewer.camera.flyToBoundingSphere(model.boundingSphere, {
+                duration: 2,
+              });
+          }}"
+        ></ngv-layers-list>`;
   }
 
   disconnectedCallback(): void {
