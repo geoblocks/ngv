@@ -1,8 +1,8 @@
 import type {CustomDataSource, Model, Scene} from '@cesium/engine';
 import {
-  BoundingSphere,
   ArcType,
   Axis,
+  BoundingSphere,
   CallbackProperty,
   Cartesian2,
   Cartesian3,
@@ -18,7 +18,7 @@ import {
   Ray,
   TranslationRotationScale,
 } from '@cesium/engine';
-import type {UploadedModel} from './ngv-plugin-cesium-upload.js';
+import type {INGVCesiumModel} from '../../interfaces/cesium/ingv-layers.js';
 
 export type PlaneColorOptions = {
   material?: Color;
@@ -82,7 +82,7 @@ CORNER_POINT_VECTORS.forEach((vector, i) => {
   const nextUpPoint = CORNER_POINT_VECTORS[(i + 1) % 4];
   const nextDownPoint = Cartesian3.clone(nextUpPoint, new Cartesian3());
   nextDownPoint.z *= -1;
-  const verticalEdge: [Cartesian3, Cartesian3] = [upPoint, downPoint];
+  const verticalEdge: [Cartesian3, Cartesian3] = [downPoint, upPoint];
   // const topEdge: [Cartesian3, Cartesian3] = [nextUpPoint, upPoint];
   // const bottomEdge: [Cartesian3, Cartesian3] = [nextDownPoint, downPoint];
   LOCAL_EDGES.push(verticalEdge);
@@ -94,7 +94,7 @@ export function getScaleFromMatrix(matrix: Matrix4): Cartesian3 {
 }
 
 const dimensionsScratch = new Cartesian3();
-function getScaledDimensions(model: UploadedModel): Cartesian3 {
+function getScaledDimensions(model: INGVCesiumModel): Cartesian3 {
   Cartesian3.clone(model.id.dimensions, dimensionsScratch);
   Cartesian3.multiplyComponents(
     getScaleFromMatrix(model.modelMatrix),
@@ -120,7 +120,7 @@ export function getTranslationFromMatrix(matrix: Matrix4): Cartesian3 {
 
 const scratchTranslationRotationDimensionsMatrix = new Matrix4();
 export function getTranslationRotationDimensionsMatrix(
-  model: UploadedModel,
+  model: INGVCesiumModel,
   result = scratchTranslationRotationDimensionsMatrix,
 ): Matrix4 {
   return Matrix4.fromTranslationRotationScale(
@@ -159,25 +159,19 @@ export function getModelCenterDiff(model: Model): Cartesian3 {
 
 const scaleMatrixScratch = new Matrix4();
 const planeScaleScratch = new Cartesian3();
-function getPlaneScale(model: UploadedModel, normalAxis: Axis) {
+function getPlaneScale(model: INGVCesiumModel) {
   const dimensions = getScaledDimensions(model);
-  if (normalAxis === Axis.Y) {
-    dimensions.clone(planeScaleScratch);
-  } else {
-    let scaleArray: number[] = [];
-    if (normalAxis === Axis.X) {
-      scaleArray = [dimensions.x, dimensions.y, dimensions.z];
-    } else if (normalAxis === Axis.Z) {
-      scaleArray = [dimensions.y, dimensions.x, dimensions.z];
-    }
-    Cartesian3.fromArray(scaleArray, 0, planeScaleScratch);
-  }
+  Cartesian3.fromArray(
+    [dimensions.x, dimensions.y, dimensions.z],
+    0,
+    planeScaleScratch,
+  );
 
   return Matrix4.fromScale(planeScaleScratch, scaleMatrixScratch);
 }
 
 const planeDimensionsScratch = new Cartesian2();
-function getPlaneDimensions(model: UploadedModel, normalAxis: Axis) {
+function getPlaneDimensions(model: INGVCesiumModel, normalAxis: Axis) {
   const dimensions = getScaledDimensions(model);
   let dimensionsArray: number[] = [];
 
@@ -195,7 +189,7 @@ function getPlaneDimensions(model: UploadedModel, normalAxis: Axis) {
 export function createPlaneEntity(
   dataSource: CustomDataSource,
   plane: Plane,
-  model: UploadedModel,
+  model: INGVCesiumModel,
   colorOptions: PlaneColorOptions = DefaultPlaneColorOptions,
 ): void {
   const normalAxis: Axis = plane.normal.x
@@ -212,7 +206,7 @@ export function createPlaneEntity(
     ),
     plane: {
       plane: new CallbackProperty(
-        () => Plane.transform(plane, getPlaneScale(model, normalAxis)),
+        () => Plane.transform(plane, getPlaneScale(model)),
         false,
       ),
       dimensions: new CallbackProperty(
@@ -225,7 +219,7 @@ export function createPlaneEntity(
 }
 export function createEdge(
   dataSource: CustomDataSource,
-  model: UploadedModel,
+  model: INGVCesiumModel,
   edge: Cartesian3[],
   styles: EdgeStyleOptions = DefaultEdgeStyles,
 ): void {
@@ -251,7 +245,7 @@ export function createEdge(
 
 export function createCornerPoint(
   dataSource: CustomDataSource,
-  model: UploadedModel,
+  model: INGVCesiumModel,
   edges: Cartesian3[],
   scene: Scene,
   styles: CornerPointStyleOptions = DefaultCornerPointStyles,
@@ -288,7 +282,7 @@ export function showModelBBox(
     edgeLinesDataSource?: CustomDataSource;
     cornerPointsDataSource?: CustomDataSource;
   },
-  model: UploadedModel,
+  model: INGVCesiumModel,
   scene: Scene,
   styles: BBoxStyles = {
     planeColorOptions: DefaultPlaneColorOptions,
@@ -394,7 +388,7 @@ export function getVerticalMoveVector(
   scene: Scene,
   pickedPosition: Cartesian3,
   endPosition: Cartesian2,
-  model: UploadedModel,
+  model: INGVCesiumModel,
   result: Cartesian3 = new Cartesian3(),
 ): Cartesian3 {
   const cartPickedPosition = Cartographic.fromCartesian(
@@ -436,10 +430,10 @@ export function getHorizontalMoveVector(
   endPosition: Cartesian2,
   movePlane: Plane,
   result: Cartesian3 = new Cartesian3(),
-): Cartesian3 {
+): Cartesian3 | undefined {
   const cameraRay = scene.camera.getPickRay(endPosition, scratchCameraRay);
   if (!cameraRay) {
-    return;
+    return undefined;
   }
   const nextPosition = IntersectionTests.rayPlane(
     cameraRay,
@@ -448,7 +442,7 @@ export function getHorizontalMoveVector(
   );
 
   if (!nextPosition) {
-    return;
+    return undefined;
   }
 
   return Cartesian3.subtract(nextPosition, pickedPosition, result);
@@ -463,4 +457,51 @@ export function getPixelSize(
     scene.drawingBufferWidth,
     scene.drawingBufferHeight,
   );
+}
+
+type GltfJson = {
+  bufferViews: {byteOffset: number; byteLength: number}[];
+  accessors: Record<number, {min: number[]; max: number[]}>;
+  meshes: {
+    primitives: {
+      attributes: {
+        POSITION: number;
+      };
+    }[];
+  }[];
+};
+
+export function getDimensions(model: Model): Cartesian3 {
+  // @ts-expect-error loader is not part of API
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment
+  const json: GltfJson = model.loader.gltfJson;
+
+  const diameter = model.boundingSphere.radius * 2;
+  const min = new Cartesian3(diameter, diameter, diameter);
+  const max = new Cartesian3(
+    -Number.MAX_VALUE,
+    -Number.MAX_VALUE,
+    -Number.MAX_VALUE,
+  );
+
+  json.meshes.forEach(function (mesh) {
+    mesh.primitives.forEach(function (primitive) {
+      const positionAccessor = json.accessors[primitive.attributes.POSITION];
+
+      if (positionAccessor) {
+        if (positionAccessor.min) {
+          min.x = Math.min(min.x, positionAccessor.min[1]);
+          min.y = Math.min(min.y, positionAccessor.min[0]);
+          min.z = Math.min(min.z, positionAccessor.min[2]);
+        }
+        if (positionAccessor.max) {
+          max.x = Math.max(max.x, positionAccessor.max[1]);
+          max.y = Math.max(max.y, positionAccessor.max[0]);
+          max.z = Math.max(max.z, positionAccessor.max[2]);
+        }
+      }
+    });
+  });
+
+  return Cartesian3.subtract(max, min, new Cartesian3());
 }

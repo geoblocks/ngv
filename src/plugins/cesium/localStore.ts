@@ -1,7 +1,7 @@
 // todo Just for easier testing. Better place should be find and structure improved.
 
 import {Cartesian3, Matrix3, Matrix4, Quaternion} from '@cesium/engine';
-import type {UploadedModel} from './ngv-plugin-cesium-upload.js';
+import type {INGVCesiumModel} from '../../interfaces/cesium/ingv-layers.js';
 
 export function storeBlobInIndexedDB(
   dbName: string,
@@ -114,7 +114,7 @@ export type StoredModel = {
 
 export function updateModelsInLocalStore(
   storeKey: string,
-  models: UploadedModel[],
+  models: INGVCesiumModel[],
 ): void {
   const localStoreModels: StoredModel[] = [];
   models.forEach((model) => {

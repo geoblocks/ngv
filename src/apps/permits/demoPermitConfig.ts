@@ -1,4 +1,5 @@
 import type {IPermitsConfig} from './ingv-config-permits.js';
+import {PrimitiveCollection} from '@cesium/engine';
 
 export const config: IPermitsConfig = {
   languages: ['de', 'fr', 'en', 'it'],
@@ -28,9 +29,12 @@ export const config: IPermitsConfig = {
       },
       layers: {
         // tilesets: ['@cesium/googlePhotorealistic'],
-        // models: ['@demo/sofa', '@demo/thatopensmall'],
+        models: ['@demo/sofa', '@demo/thatopensmall'],
         imageries: ['@geoadmin/pixel-karte-farbe'],
         // terrain: '@geoadmin/terrain',
+      },
+      collections: {
+        models: new PrimitiveCollection(),
       },
       camera: {
         position: [6.628484, 46.5, 100],

@@ -31,7 +31,6 @@ import {
   getStoredModels,
   updateModelsInLocalStore,
 } from './localStore.js';
-import type {UploadedModel} from './ngv-plugin-cesium-upload.js';
 import '../ui/ngv-layer-details.js';
 import '../ui/ngv-layers-list.js';
 import type {BBoxStyles} from './interactionHelpers.js';
@@ -43,6 +42,7 @@ import {
   scale,
   showModelBBox,
 } from './interactionHelpers.js';
+import type {INGVCesiumModel} from '../../interfaces/cesium/ingv-layers.js';
 
 type GrabType = 'side' | 'top' | 'edge' | 'corner' | undefined;
 
@@ -61,6 +61,10 @@ export class NgvPluginCesiumModelInteract extends LitElement {
     localStoreKey: string;
     indexDbName: string;
   };
+  @property({type: Object})
+  private options?: {
+    listTitle: string;
+  };
   @state()
   private cursor:
     | 'default'
@@ -70,11 +74,11 @@ export class NgvPluginCesiumModelInteract extends LitElement {
     | 'ew-resize'
     | 'nesw-resize' = 'default';
   @state()
-  private chosenModel: UploadedModel | undefined;
+  private chosenModel: INGVCesiumModel | undefined;
   @state()
   private position: Cartesian3 = new Cartesian3();
   @state()
-  private models: UploadedModel[] = [];
+  private models: INGVCesiumModel[] = [];
   private eventHandler: ScreenSpaceEventHandler | undefined;
   private sidePlanesDataSource: DataSource | undefined;
   private topDownPlanesDataSource: DataSource | undefined;
@@ -111,7 +115,7 @@ export class NgvPluginCesiumModelInteract extends LitElement {
       this.onPrimitivesChanged();
     });
     this.primitiveCollection.primitiveRemoved.addEventListener(
-      (p: UploadedModel) => {
+      (p: INGVCesiumModel) => {
         if (this.storeOptions) {
           deleteFromIndexedDB(this.storeOptions.indexDbName, p.id.name)
             .then(() => this.onPrimitivesChanged())
@@ -136,7 +140,7 @@ export class NgvPluginCesiumModelInteract extends LitElement {
   onPrimitivesChanged(): void {
     this.models = [];
     for (let i = 0; i < this.primitiveCollection.length; i++) {
-      const model = this.primitiveCollection.get(i) as UploadedModel;
+      const model = this.primitiveCollection.get(i) as INGVCesiumModel;
       if (model instanceof Model) {
         this.models.push(model);
       }
@@ -418,7 +422,7 @@ export class NgvPluginCesiumModelInteract extends LitElement {
         ></ngv-layer-details>`
       : html` <ngv-layers-list
           .options="${{
-            title: 'Uploaded models:',
+            title: this.options?.listTitle,
             showDeleteBtns: true,
             showZoomBtns: true,
           }}"
@@ -428,17 +432,16 @@ export class NgvPluginCesiumModelInteract extends LitElement {
           @remove="${(evt: {detail: number}) => {
             const model = this.primitiveCollection.get(
               evt.detail,
-            ) as UploadedModel;
+            ) as INGVCesiumModel;
             if (model) this.primitiveCollection.remove(model);
           }}"
           @zoom="${(evt: {detail: number}) => {
             const model = this.primitiveCollection.get(
               evt.detail,
-            ) as UploadedModel;
-            if (model)
-              this.viewer.camera.flyToBoundingSphere(model.boundingSphere, {
-                duration: 2,
-              });
+            ) as INGVCesiumModel;
+            this.viewer.camera.flyToBoundingSphere(model.boundingSphere, {
+              duration: 2,
+            });
           }}"
         ></ngv-layers-list>`;
   }

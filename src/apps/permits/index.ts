@@ -13,15 +13,9 @@ import type {IPermitsConfig} from './ingv-config-permits.js';
 import '../../plugins/cesium/ngv-plugin-cesium-widget';
 import '../../plugins/cesium/ngv-plugin-cesium-upload';
 import '../../plugins/cesium/ngv-plugin-cesium-model-interact';
-import type {CesiumWidget, DataSourceCollection, Model} from '@cesium/engine';
+import type {CesiumWidget, DataSourceCollection} from '@cesium/engine';
 
-import {
-  Math as CesiumMath,
-  Ellipsoid,
-  HeadingPitchRoll,
-  Transforms,
-  PrimitiveCollection,
-} from '@cesium/engine';
+import {PrimitiveCollection} from '@cesium/engine';
 import type {ViewerInitializedDetails} from '../../plugins/cesium/ngv-plugin-cesium-widget.js';
 
 @customElement('ngv-app-permits')
@@ -29,31 +23,12 @@ import type {ViewerInitializedDetails} from '../../plugins/cesium/ngv-plugin-ces
 export class NgvAppPermits extends ABaseApp<IPermitsConfig> {
   @state()
   private viewer: CesiumWidget;
-  private primitiveCollection: PrimitiveCollection = new PrimitiveCollection();
+  private uploadedModelsCollection: PrimitiveCollection =
+    new PrimitiveCollection();
   private dataSourceCollection: DataSourceCollection;
 
   constructor() {
     super(() => import('./demoPermitConfig.js'));
-  }
-
-  modelCallback(name: string, model: Model): void {
-    // This position the model where the camera is
-    console.log('positioning', name);
-    const positionClone = this.viewer.camera.position.clone();
-
-    const fixedFrameTransform = Transforms.localFrameToFixedFrameGenerator(
-      'north',
-      'west',
-    );
-
-    const modelOrientation = [90, 0, 0];
-    const modelMatrix = Transforms.headingPitchRollToFixedFrame(
-      positionClone,
-      new HeadingPitchRoll(...modelOrientation.map(CesiumMath.toRadians)),
-      Ellipsoid.WGS84,
-      fixedFrameTransform,
-    );
-    model.modelMatrix = modelMatrix;
   }
 
   render(): HTMLTemplateResult {
@@ -67,24 +42,34 @@ export class NgvAppPermits extends ABaseApp<IPermitsConfig> {
           slot="menu"
           style="display: flex; flex-direction: column; row-gap: 10px;"
         >
+          <ngv-plugin-cesium-model-interact
+            .viewer="${this.viewer}"
+            .dataSourceCollection="${this.dataSourceCollection}"
+            .primitiveCollection="${this.config.app.cesiumContext.collections
+              .models}"
+            .options="${{listTitle: 'Catalog'}}"
+          ></ngv-plugin-cesium-model-interact>
+          <div
+            style="width: 100%;border: 1px solid #E0E3E6;margin: 5px 0;"
+          ></div>
           <ngv-plugin-cesium-upload
             .viewer="${this.viewer}"
-            .primitiveCollection="${this.primitiveCollection}"
+            .primitiveCollection="${this.uploadedModelsCollection}"
             .storeOptions="${this.config.app.cesiumContext.storeOptions}"
           ></ngv-plugin-cesium-upload>
           <ngv-plugin-cesium-model-interact
             .viewer="${this.viewer}"
             .dataSourceCollection="${this.dataSourceCollection}"
-            .primitiveCollection="${this.primitiveCollection}"
+            .primitiveCollection="${this.uploadedModelsCollection}"
             .storeOptions="${this.config.app.cesiumContext.storeOptions}"
+            .options="${{listTitle: 'Uploaded models'}}"
           ></ngv-plugin-cesium-model-interact>
         </div>
         <ngv-plugin-cesium-widget
           .cesiumContext=${this.config.app.cesiumContext}
-          .modelCallback=${this.modelCallback.bind(this)}
           @viewerInitialized=${(evt: CustomEvent<ViewerInitializedDetails>) => {
             this.viewer = evt.detail.viewer;
-            this.viewer.scene.primitives.add(this.primitiveCollection);
+            this.viewer.scene.primitives.add(this.uploadedModelsCollection);
             this.dataSourceCollection = evt.detail.dataSourceCollection;
           }}
         ></ngv-plugin-cesium-widget>

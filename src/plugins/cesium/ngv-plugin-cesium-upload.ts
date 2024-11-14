@@ -1,4 +1,4 @@
-import type {CesiumWidget, Model, PrimitiveCollection} from '@cesium/engine';
+import type {CesiumWidget, PrimitiveCollection} from '@cesium/engine';
 import {
   Cartesian3,
   Cartographic,
@@ -18,27 +18,9 @@ import '../ui/ngv-upload.js';
 import {instantiateModel} from './ngv-cesium-factories.js';
 import type {FileUploadDetails} from '../ui/ngv-upload.js';
 import {storeBlobInIndexedDB, updateModelsInLocalStore} from './localStore.js';
+import type {INGVCesiumModel} from '../../interfaces/cesium/ingv-layers.js';
 
 const cartographicScratch = new Cartographic();
-
-type GlbJson = {
-  bufferViews: {byteOffset: number; byteLength: number}[];
-  accessors: {bufferView: number}[];
-  meshes: {
-    primitives: {
-      attributes: {
-        POSITION: number;
-      };
-    }[];
-  }[];
-};
-
-export interface UploadedModel extends Model {
-  id: {
-    dimensions?: Cartesian3;
-    name: string;
-  };
-}
 
 @customElement('ngv-plugin-cesium-upload')
 export class NgvPluginCesiumUpload extends LitElement {
@@ -52,12 +34,11 @@ export class NgvPluginCesiumUpload extends LitElement {
     indexDbName: string;
   };
   private eventHandler: ScreenSpaceEventHandler | null = null;
-  private uploadedModel: UploadedModel | undefined;
+  private uploadedModel: INGVCesiumModel | undefined;
 
   async upload(fileDetails: FileUploadDetails): Promise<void> {
     const response = await fetch(fileDetails.url);
     const arrayBuffer = await response.arrayBuffer();
-    const dimensions = parseGlbModelDimensions(arrayBuffer);
 
     const modelMatrix = Matrix4.fromTranslationRotationScale(
       new TranslationRotationScale(
@@ -76,7 +57,7 @@ export class NgvPluginCesiumUpload extends LitElement {
         modelMatrix,
         id: {
           name: fileDetails.name,
-          dimensions,
+          dimensions: Cartesian3.ZERO,
         },
       },
     });
@@ -109,9 +90,9 @@ export class NgvPluginCesiumUpload extends LitElement {
     this.viewer.canvas.style.cursor = 'default';
     this.eventHandler.destroy();
     this.eventHandler = null;
-    const models: UploadedModel[] = [];
+    const models: INGVCesiumModel[] = [];
     for (let i = 0; i < this.primitiveCollection.length; i++) {
-      models.push(<UploadedModel>this.primitiveCollection.get(i));
+      models.push(<INGVCesiumModel>this.primitiveCollection.get(i));
     }
     if (this.storeOptions) {
       updateModelsInLocalStore(this.storeOptions.localStoreKey, models);
@@ -147,52 +128,6 @@ export class NgvPluginCesiumUpload extends LitElement {
       }}"
     ></ngv-upload>`;
   }
-}
-
-function parseGlbModelDimensions(arrayBuffer: ArrayBuffer): Cartesian3 {
-  const glb = new Uint8Array(arrayBuffer);
-
-  const jsonLength = new DataView(arrayBuffer, 12, 4).getUint32(0, true);
-  const jsonChunk = new TextDecoder().decode(glb.subarray(20, 20 + jsonLength));
-  const json: GlbJson = JSON.parse(jsonChunk) as GlbJson;
-
-  const bufferView =
-    json.bufferViews[
-      json.accessors[json.meshes[0].primitives[0].attributes.POSITION]
-        .bufferView
-    ];
-  const byteOffset = bufferView.byteOffset;
-  const byteLength = bufferView.byteLength;
-
-  const binaryData = new Float32Array(
-    arrayBuffer,
-    byteOffset + 20 + jsonLength,
-    byteLength / Float32Array.BYTES_PER_ELEMENT,
-  );
-
-  const min = new Cartesian3(
-    Number.POSITIVE_INFINITY,
-    Number.POSITIVE_INFINITY,
-    Number.POSITIVE_INFINITY,
-  );
-  const max = new Cartesian3(
-    Number.NEGATIVE_INFINITY,
-    Number.NEGATIVE_INFINITY,
-    Number.NEGATIVE_INFINITY,
-  );
-
-  for (let i = 0; i < binaryData.length; i += 3) {
-    const vertex = new Cartesian3(
-      binaryData[i],
-      binaryData[i + 2],
-      binaryData[i + 1],
-    );
-
-    Cartesian3.minimumByComponent(min, vertex, min);
-    Cartesian3.maximumByComponent(max, vertex, max);
-  }
-
-  return Cartesian3.subtract(max, min, new Cartesian3());
 }
 
 declare global {
