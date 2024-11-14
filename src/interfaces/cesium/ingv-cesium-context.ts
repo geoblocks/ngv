@@ -33,4 +33,8 @@ export interface IngvCesiumContext {
   };
   widgetOptions?: ConstructorParameters<typeof CesiumWidget>[1];
   globeOptions?: Partial<Globe>;
+  storeOptions?: {
+    localStoreKey: string;
+    indexDbName: string;
+  };
 }

@@ -46,6 +46,10 @@ export const config: IPermitsConfig = {
       globeOptions: {
         depthTestAgainstTerrain: true,
       },
+      storeOptions: {
+        localStoreKey: 'localStoreModels',
+        indexDbName: 'uploadedModelsStore',
+      },
     },
   },
 };

@@ -1,13 +1,15 @@
 // todo Just for easier testing. Better place should be find and structure improved.
 
 import {Cartesian3, Matrix3, Matrix4, Quaternion} from '@cesium/engine';
-import type {UploadedModel} from '../../plugins/cesium/ngv-plugin-cesium-upload.js';
+import type {UploadedModel} from './ngv-plugin-cesium-upload.js';
 
-const DB_NAME = 'uploadedModelsStore';
-
-export function storeBlobInIndexedDB(blob: Blob, name: string): Promise<void> {
+export function storeBlobInIndexedDB(
+  dbName: string,
+  blob: Blob,
+  name: string,
+): Promise<void> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 2);
+    const request = indexedDB.open(dbName, 2);
 
     request.onupgradeneeded = () => {
       const db = request.result;
@@ -34,9 +36,12 @@ export function storeBlobInIndexedDB(blob: Blob, name: string): Promise<void> {
   });
 }
 
-export function getBlobFromIndexedDB(name: string): Promise<Blob> {
+export function getBlobFromIndexedDB(
+  dbName: string,
+  name: string,
+): Promise<Blob> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 2);
+    const request = indexedDB.open(dbName, 2);
 
     request.onupgradeneeded = () => {
       const db = request.result;
@@ -54,7 +59,7 @@ export function getBlobFromIndexedDB(name: string): Promise<Blob> {
       getRequest.onsuccess = () => {
         const blob = getRequest.result;
         if (blob) {
-          resolve(blob); // Return the Blob object directly
+          resolve(blob);
         } else {
           reject(new Error('Blob not found'));
         }
@@ -68,9 +73,12 @@ export function getBlobFromIndexedDB(name: string): Promise<Blob> {
   });
 }
 
-export function deleteFromIndexedDB(name: string): Promise<void> {
+export function deleteFromIndexedDB(
+  dbName: string,
+  name: string,
+): Promise<void> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 2);
+    const request = indexedDB.open(dbName, 2);
 
     request.onsuccess = () => {
       const db = request.result;
@@ -104,9 +112,10 @@ export type StoredModel = {
   scale: number[];
 };
 
-export const STORE_KEY = 'localStoreModels';
-
-export function updateModelsInLocalStore(models: UploadedModel[]): void {
+export function updateModelsInLocalStore(
+  storeKey: string,
+  models: UploadedModel[],
+): void {
   const localStoreModels: StoredModel[] = [];
   models.forEach((model) => {
     const translation = Matrix4.getTranslation(
@@ -129,13 +138,13 @@ export function updateModelsInLocalStore(models: UploadedModel[]): void {
       scale: [scale.x, scale.y, scale.z],
     });
   });
-  localStorage.setItem(STORE_KEY, JSON.stringify(localStoreModels));
+  localStorage.setItem(storeKey, JSON.stringify(localStoreModels));
 }
 
-export function getStoredModels(): StoredModel[] {
-  if (!localStorage.getItem(STORE_KEY)) return [];
+export function getStoredModels(storeKey: string): StoredModel[] {
+  if (!localStorage.getItem(storeKey)) return [];
   try {
-    return <StoredModel[]>JSON.parse(localStorage.getItem(STORE_KEY));
+    return <StoredModel[]>JSON.parse(localStorage.getItem(storeKey));
   } catch (e) {
     console.error('Not possible to parse models from local storage', e);
     return [];

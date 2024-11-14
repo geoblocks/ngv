@@ -17,10 +17,7 @@ import {customElement, property} from 'lit/decorators.js';
 import '../ui/ngv-upload.js';
 import {instantiateModel} from './ngv-cesium-factories.js';
 import type {FileUploadDetails} from '../ui/ngv-upload.js';
-import {
-  storeBlobInIndexedDB,
-  updateModelsInLocalStore,
-} from '../../apps/permits/localStore.js';
+import {storeBlobInIndexedDB, updateModelsInLocalStore} from './localStore.js';
 
 const cartographicScratch = new Cartographic();
 
@@ -49,8 +46,13 @@ export class NgvPluginCesiumUpload extends LitElement {
   private viewer: CesiumWidget;
   @property({type: Object})
   private primitiveCollection: PrimitiveCollection;
+  @property({type: Object})
+  private storeOptions?: {
+    localStoreKey: string;
+    indexDbName: string;
+  };
   private eventHandler: ScreenSpaceEventHandler | null = null;
-  private uploadedModel: Model | undefined;
+  private uploadedModel: UploadedModel | undefined;
 
   async upload(fileDetails: FileUploadDetails): Promise<void> {
     const response = await fetch(fileDetails.url);
@@ -78,7 +80,13 @@ export class NgvPluginCesiumUpload extends LitElement {
         },
       },
     });
-    await storeBlobInIndexedDB(new Blob([arrayBuffer]), fileDetails.name);
+    if (this.storeOptions) {
+      await storeBlobInIndexedDB(
+        this.storeOptions.indexDbName,
+        new Blob([arrayBuffer]),
+        fileDetails.name,
+      );
+    }
     this.primitiveCollection.add(this.uploadedModel);
     this.viewer.scene.requestRender();
     this.showControls();
@@ -101,12 +109,13 @@ export class NgvPluginCesiumUpload extends LitElement {
     this.viewer.canvas.style.cursor = 'default';
     this.eventHandler.destroy();
     this.eventHandler = null;
-    // todo improve
-    const models: Model[] = [];
+    const models: UploadedModel[] = [];
     for (let i = 0; i < this.primitiveCollection.length; i++) {
-      models.push(<Model>this.primitiveCollection.get(i));
+      models.push(<UploadedModel>this.primitiveCollection.get(i));
     }
-    updateModelsInLocalStore(models);
+    if (this.storeOptions) {
+      updateModelsInLocalStore(this.storeOptions.localStoreKey, models);
+    }
   }
 
   onMouseMove(event: ScreenSpaceEventHandler.MotionEvent): void {

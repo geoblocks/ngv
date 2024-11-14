@@ -70,11 +70,13 @@ export class NgvAppPermits extends ABaseApp<IPermitsConfig> {
           <ngv-plugin-cesium-upload
             .viewer="${this.viewer}"
             .primitiveCollection="${this.primitiveCollection}"
+            .storeOptions="${this.config.app.cesiumContext.storeOptions}"
           ></ngv-plugin-cesium-upload>
           <ngv-plugin-cesium-model-interact
             .viewer="${this.viewer}"
             .dataSourceCollection="${this.dataSourceCollection}"
             .primitiveCollection="${this.primitiveCollection}"
+            .storeOptions="${this.config.app.cesiumContext.storeOptions}"
           ></ngv-plugin-cesium-model-interact>
         </div>
         <ngv-plugin-cesium-widget
