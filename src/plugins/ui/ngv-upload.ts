@@ -1,6 +1,7 @@
 import {customElement, property, query, state} from 'lit/decorators.js';
 import type {HTMLTemplateResult} from 'lit';
 import {css, html, LitElement} from 'lit';
+import {msg} from '@lit/localize';
 
 export type NgvUploadOptions = {
   accept?: string;
@@ -9,15 +10,6 @@ export type NgvUploadOptions = {
   urlPlaceholderText?: string;
   fileInput?: boolean;
   uploadBtnText?: string;
-};
-
-const defaultOptions: NgvUploadOptions = {
-  mainBtnText: 'Upload',
-  uploadBtnText: 'Upload',
-  urlInput: true,
-  fileInput: true,
-  urlPlaceholderText: 'Put file URL here',
-  accept: '*/*',
 };
 
 export type FileUploadDetails = {
@@ -94,7 +86,14 @@ export class NgvUpload extends LitElement {
   }
 
   override willUpdate(): void {
-    let options: NgvUploadOptions = {...defaultOptions};
+    let options: NgvUploadOptions = {
+      mainBtnText: msg('Upload'),
+      uploadBtnText: msg('Upload'),
+      urlInput: true,
+      fileInput: true,
+      urlPlaceholderText: msg('Put file URL here'),
+      accept: '*/*',
+    };
     if (this.options) {
       options = {...options, ...this.options};
     }
