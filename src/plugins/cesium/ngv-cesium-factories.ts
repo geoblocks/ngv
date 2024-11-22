@@ -1,4 +1,4 @@
-import type {ImageryProvider} from '@cesium/engine';
+import {type ImageryProvider, PrimitiveCollection} from '@cesium/engine';
 import {
   Ion,
   Math as CesiumMath,
@@ -216,7 +216,14 @@ export async function initCesiumWidget(
   container: HTMLDivElement,
   cesiumContext: IngvCesiumContext,
   modelCallback: (name: string, model: Model) => void,
-): Promise<{viewer: CesiumWidget; dataSourceCollection: DataSourceCollection}> {
+): Promise<{
+  viewer: CesiumWidget;
+  dataSourceCollection: DataSourceCollection;
+  primitiveCollections: {
+    models: PrimitiveCollection;
+    tiles3d: PrimitiveCollection;
+  };
+}> {
   modelCallback =
     modelCallback ||
     (() => {
@@ -266,14 +273,13 @@ export async function initCesiumWidget(
     Object.assign(viewer.scene.globe, cesiumContext.globeOptions);
   }
 
-  if (cesiumContext.collections) {
-    if (cesiumContext.collections.models) {
-      viewer.scene.primitives.add(cesiumContext.collections.models);
-    }
-    if (cesiumContext.collections.tiles3d) {
-      viewer.scene.primitives.add(cesiumContext.collections.tiles3d);
-    }
-  }
+  const primitiveCollections = {
+    models: new PrimitiveCollection(),
+    tiles3d: new PrimitiveCollection(),
+  };
+
+  viewer.scene.primitives.add(primitiveCollections.models);
+  viewer.scene.primitives.add(primitiveCollections.tiles3d);
 
   const dataSourceCollection = new DataSourceCollection();
   const dataSourceDisplay = new DataSourceDisplay({
@@ -310,11 +316,7 @@ export async function initCesiumWidget(
     stuffToDo.push(
       instantiate3dTileset(config, cesiumContext.layerOptions[name]).then(
         (tileset) => {
-          if (cesiumContext.collections?.tiles3d) {
-            cesiumContext.collections.tiles3d.add(tileset);
-          } else {
-            viewer.scene.primitives.add(tileset);
-          }
+          primitiveCollections.tiles3d.add(tileset);
         },
       ),
     );
@@ -393,11 +395,7 @@ export async function initCesiumWidget(
           .then(
             (model) => {
               modelCallback(path, model);
-              if (cesiumContext.collections?.models) {
-                cesiumContext.collections.models.add(model);
-              } else {
-                viewer.scene.primitives.add(model);
-              }
+              primitiveCollections.models.add(model);
             },
             (e) => {
               console.error('o', e);
@@ -444,5 +442,5 @@ export async function initCesiumWidget(
     duration: 0,
   });
 
-  return {viewer, dataSourceCollection};
+  return {viewer, dataSourceCollection, primitiveCollections};
 }

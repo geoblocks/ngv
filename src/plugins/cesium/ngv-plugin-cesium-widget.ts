@@ -5,12 +5,21 @@ import {customElement, property, query} from 'lit/decorators.js';
 // @ts-expect-error Vite specific ?inline parameter
 import style from '@cesium/engine/Source/Widget/CesiumWidget.css?inline';
 import type {IngvCesiumContext} from '../../interfaces/cesium/ingv-cesium-context.js';
-import type {CesiumWidget, DataSourceCollection, Model} from '@cesium/engine';
+import type {
+  CesiumWidget,
+  DataSourceCollection,
+  Model,
+  PrimitiveCollection,
+} from '@cesium/engine';
 import {initCesiumWidget} from './ngv-cesium-factories.js';
 
 export type ViewerInitializedDetails = {
   viewer: CesiumWidget;
   dataSourceCollection: DataSourceCollection;
+  primitiveCollections: {
+    models: PrimitiveCollection;
+    tiles3d: PrimitiveCollection;
+  };
 };
 
 @customElement('ngv-plugin-cesium-widget')
@@ -47,11 +56,12 @@ export class NgvPluginCesiumWidget extends LitElement {
   private element: HTMLDivElement;
 
   private async initCesiumViewer(): Promise<void> {
-    const {viewer, dataSourceCollection} = await initCesiumWidget(
-      this.element,
-      this.cesiumContext,
-      this.modelCallback,
-    );
+    const {viewer, dataSourceCollection, primitiveCollections} =
+      await initCesiumWidget(
+        this.element,
+        this.cesiumContext,
+        this.modelCallback,
+      );
     this.viewer = viewer;
     this.dataSourceCollection = dataSourceCollection;
     this.dispatchEvent(
@@ -59,6 +69,7 @@ export class NgvPluginCesiumWidget extends LitElement {
         detail: {
           viewer,
           dataSourceCollection,
+          primitiveCollections,
         },
       }),
     );

@@ -1,5 +1,4 @@
 import type {IPermitsConfig} from './ingv-config-permits.js';
-import {PrimitiveCollection} from '@cesium/engine';
 
 export const config: IPermitsConfig = {
   languages: ['de', 'fr', 'en', 'it'],
@@ -33,9 +32,6 @@ export const config: IPermitsConfig = {
         imageries: ['@geoadmin/pixel-karte-farbe'],
         // terrain: '@geoadmin/terrain',
       },
-      collections: {
-        models: new PrimitiveCollection(),
-      },
       camera: {
         position: [6.628484, 46.5, 100],
         orientation: {
@@ -49,10 +45,6 @@ export const config: IPermitsConfig = {
       },
       globeOptions: {
         depthTestAgainstTerrain: true,
-      },
-      storeOptions: {
-        localStoreKey: 'localStoreModels',
-        indexDbName: 'uploadedModelsStore',
       },
     },
   },

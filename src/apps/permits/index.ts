@@ -27,6 +27,13 @@ export class NgvAppPermits extends ABaseApp<IPermitsConfig> {
     new PrimitiveCollection();
   private dataSourceCollection: DataSourceCollection;
 
+  private storeOptions = {
+    localStoreKey: 'permits-localStoreModels',
+    indexDbName: 'permits-uploadedModelsStore',
+  };
+
+  private collections: ViewerInitializedDetails['primitiveCollections'];
+
   constructor() {
     super(() => import('./demoPermitConfig.js'));
   }
@@ -42,35 +49,40 @@ export class NgvAppPermits extends ABaseApp<IPermitsConfig> {
           slot="menu"
           style="display: flex; flex-direction: column; row-gap: 10px;"
         >
-          <ngv-plugin-cesium-model-interact
-            .viewer="${this.viewer}"
-            .dataSourceCollection="${this.dataSourceCollection}"
-            .primitiveCollection="${this.config.app.cesiumContext.collections
-              .models}"
-            .options="${{listTitle: 'Catalog'}}"
-          ></ngv-plugin-cesium-model-interact>
-          <div
-            style="width: 100%;border: 1px solid #E0E3E6;margin: 5px 0;"
-          ></div>
-          <ngv-plugin-cesium-upload
-            .viewer="${this.viewer}"
-            .primitiveCollection="${this.uploadedModelsCollection}"
-            .storeOptions="${this.config.app.cesiumContext.storeOptions}"
-          ></ngv-plugin-cesium-upload>
-          <ngv-plugin-cesium-model-interact
-            .viewer="${this.viewer}"
-            .dataSourceCollection="${this.dataSourceCollection}"
-            .primitiveCollection="${this.uploadedModelsCollection}"
-            .storeOptions="${this.config.app.cesiumContext.storeOptions}"
-            .options="${{listTitle: 'Uploaded models'}}"
-          ></ngv-plugin-cesium-model-interact>
+          ${this.viewer
+            ? html`
+                <ngv-plugin-cesium-model-interact
+                  .viewer="${this.viewer}"
+                  .dataSourceCollection="${this.dataSourceCollection}"
+                  .primitiveCollection="${this.collections.models}"
+                  .options="${{listTitle: 'Catalog'}}"
+                ></ngv-plugin-cesium-model-interact>
+                <div
+                  style="width: 100%;border: 1px solid #E0E3E6;margin: 5px 0;"
+                ></div>
+                <ngv-plugin-cesium-upload
+                  .viewer="${this.viewer}"
+                  .primitiveCollection="${this.uploadedModelsCollection}"
+                  .storeOptions="${this.storeOptions}"
+                ></ngv-plugin-cesium-upload>
+                <ngv-plugin-cesium-model-interact
+                  .viewer="${this.viewer}"
+                  .dataSourceCollection="${this.dataSourceCollection}"
+                  .primitiveCollection="${this.uploadedModelsCollection}"
+                  .storeOptions="${this.storeOptions}"
+                  .options="${{listTitle: 'Uploaded models'}}"
+                ></ngv-plugin-cesium-model-interact>
+              `
+            : ''}
         </div>
+
         <ngv-plugin-cesium-widget
           .cesiumContext=${this.config.app.cesiumContext}
           @viewerInitialized=${(evt: CustomEvent<ViewerInitializedDetails>) => {
             this.viewer = evt.detail.viewer;
             this.viewer.scene.primitives.add(this.uploadedModelsCollection);
             this.dataSourceCollection = evt.detail.dataSourceCollection;
+            this.collections = evt.detail.primitiveCollections;
           }}
         ></ngv-plugin-cesium-widget>
       </ngv-structure-app>
