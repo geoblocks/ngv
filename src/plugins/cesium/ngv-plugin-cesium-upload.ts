@@ -120,7 +120,7 @@ export class NgvPluginCesiumUpload extends LitElement {
 
   render(): HTMLTemplateResult {
     return html` <ngv-upload
-      .options="${{accept: '.glb,.GLB'}}"
+      .options="${{accept: '.glb,.GLB,.gltf,.GLTF'}}"
       @uploaded="${(evt: {detail: FileUploadDetails}): void => {
         this.upload(evt.detail).catch((e) =>
           console.error(`Upload error: ${e}`),
