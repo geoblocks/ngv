@@ -1,19 +1,26 @@
-import type {ImageryProvider} from '@cesium/engine';
+import {type ImageryProvider, PrimitiveCollection} from '@cesium/engine';
 import {
   Ion,
   Math as CesiumMath,
   CesiumWidget,
   Cartesian3,
   Model,
+  DataSourceCollection,
+  DataSourceDisplay,
+  Cartographic,
+  HeadingPitchRoll,
+  Transforms,
+  Ellipsoid,
 } from '@cesium/engine';
 
 import type {
   INGVCesium3DTiles,
-  INGVCesiumModel,
+  INGVCesiumModelConfig,
   INGVCesiumAllTypes,
   INGVCesiumImageryTypes,
   INGVCesiumTerrain,
   INGVIFC,
+  INGVCesiumModel,
 } from '../../interfaces/cesium/ingv-layers.js';
 import {
   Cesium3DTileset,
@@ -24,6 +31,7 @@ import {
 } from '@cesium/engine';
 import type {IngvCesiumContext} from '../../interfaces/cesium/ingv-cesium-context.js';
 import type {INGVCatalog} from '../../interfaces/cesium/ingv-catalog.js';
+import {getDimensions} from './interactionHelpers.js';
 
 function withExtra<T>(options: T, extra: Record<string, any>): T {
   if (!extra) {
@@ -51,10 +59,16 @@ export async function instantiateTerrain(
 }
 
 export async function instantiateModel(
-  config: INGVCesiumModel,
+  config: INGVCesiumModelConfig,
   extraOptions?: Record<string, any>,
-): Promise<Model> {
-  return Model.fromGltfAsync(withExtra(config.options, extraOptions));
+): Promise<INGVCesiumModel> {
+  const model: INGVCesiumModel = await Model.fromGltfAsync(
+    withExtra(config.options, extraOptions),
+  );
+  model.readyEvent.addEventListener(() => {
+    model.id.dimensions = getDimensions(model);
+  });
+  return model;
 }
 
 export async function instantiate3dTileset(
@@ -151,7 +165,7 @@ export function is3dTilesetConfig(
 
 export function isModelConfig(
   config: INGVCesiumAllTypes,
-): config is INGVCesiumModel {
+): config is INGVCesiumModelConfig {
   return config?.type === 'model';
 }
 
@@ -202,7 +216,14 @@ export async function initCesiumWidget(
   container: HTMLDivElement,
   cesiumContext: IngvCesiumContext,
   modelCallback: (name: string, model: Model) => void,
-): Promise<CesiumWidget> {
+): Promise<{
+  viewer: CesiumWidget;
+  dataSourceCollection: DataSourceCollection;
+  primitiveCollections: {
+    models: PrimitiveCollection;
+    tiles3d: PrimitiveCollection;
+  };
+}> {
   modelCallback =
     modelCallback ||
     (() => {
@@ -248,6 +269,29 @@ export async function initCesiumWidget(
     Object.assign({}, cesiumContext.widgetOptions),
   );
 
+  if (cesiumContext.globeOptions) {
+    Object.assign(viewer.scene.globe, cesiumContext.globeOptions);
+  }
+
+  const primitiveCollections = {
+    models: new PrimitiveCollection(),
+    tiles3d: new PrimitiveCollection(),
+  };
+
+  viewer.scene.primitives.add(primitiveCollections.models);
+  viewer.scene.primitives.add(primitiveCollections.tiles3d);
+
+  const dataSourceCollection = new DataSourceCollection();
+  const dataSourceDisplay = new DataSourceDisplay({
+    scene: viewer.scene,
+    dataSourceCollection: dataSourceCollection,
+  });
+  const clock = viewer.clock;
+  // todo: check if OK
+  clock.onTick.addEventListener(() => {
+    dataSourceDisplay.update(clock.currentTime);
+  });
+
   const stuffToDo: Promise<void>[] = [];
   if (cesiumContext.layers.terrain) {
     const name = cesiumContext.layers.terrain;
@@ -272,14 +316,14 @@ export async function initCesiumWidget(
     stuffToDo.push(
       instantiate3dTileset(config, cesiumContext.layerOptions[name]).then(
         (tileset) => {
-          viewer.scene.primitives.add(tileset);
+          primitiveCollections.tiles3d.add(tileset);
         },
       ),
     );
   });
 
-  const modelPromises = cesiumContext.layers.models?.map(async (name) => {
-    let config = resolvedLayers[name];
+  const modelPromises = cesiumContext.layers.models?.map(async (path) => {
+    let config = resolvedLayers[path];
     let toRevokeUrl: string;
 
     if (isIFCConfig(config)) {
@@ -300,16 +344,27 @@ export async function initCesiumWidget(
       console.log('IFC transformed to glTF', metadata, coordinationMatrix);
       const glbBlob = new Blob([glb]);
       toRevokeUrl = URL.createObjectURL(glbBlob);
-      const modelConfig: INGVCesiumModel = {
+      const modelConfig: INGVCesiumModelConfig = {
         type: 'model',
         options: Object.assign({}, modelOptions, {
           url: toRevokeUrl,
+          id: {
+            name: ifcUrl,
+          },
         }),
+        height: config.height,
+        position: config.position,
+        rotation: config.rotation,
       };
       config = modelConfig;
+    } else if (isModelConfig(config)) {
+      config = {
+        ...config,
+        options: {...config.options, id: {name: config.options.url}},
+      };
     }
     if (isModelConfig(config)) {
-      const bmConfig: Omit<INGVCesiumModel['options'], 'url'> = {
+      const bmConfig: Omit<INGVCesiumModelConfig['options'], 'url'> = {
         scene: viewer.scene,
         gltfCallback(gltf) {
           // FIXME: here we can enable animations, ...
@@ -318,16 +373,29 @@ export async function initCesiumWidget(
         },
         // heightReference: HeightReference.CLAMP_TO_GROUND,
       };
+      const modelMatrix = Transforms.headingPitchRollToFixedFrame(
+        Cartographic.toCartesian(
+          Cartographic.fromDegrees(
+            config.position[0],
+            config.position[1],
+            config.height,
+          ),
+        ),
+        new HeadingPitchRoll(CesiumMath.toRadians(config.rotation)),
+        Ellipsoid.WGS84,
+        Transforms.localFrameToFixedFrameGenerator('north', 'west'),
+      );
       stuffToDo.push(
         instantiateModel(
           config,
-          Object.assign(bmConfig, cesiumContext.layerOptions[name]),
+          Object.assign(bmConfig, cesiumContext.layerOptions[path], {
+            modelMatrix,
+          }),
         )
           .then(
             (model) => {
-              console.log('Got model!', config);
-              modelCallback(name, model);
-              viewer.scene.primitives.add(model);
+              modelCallback(path, model);
+              primitiveCollections.models.add(model);
             },
             (e) => {
               console.error('o', e);
@@ -374,5 +442,5 @@ export async function initCesiumWidget(
     duration: 0,
   });
 
-  return viewer;
+  return {viewer, dataSourceCollection, primitiveCollections};
 }

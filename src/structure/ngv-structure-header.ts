@@ -32,10 +32,13 @@ export class NgvStructureHeader extends LitElement {
               .searchContext=${headerConfig.searchContext}
             ></ngv-plugin-search>`
           : ''}
-
-        <ngv-plugin-auth
-          .authContext=${this.config.authContext}
-        ></ngv-plugin-auth>
+        ${this.config.authContext
+          ? html`
+              <ngv-plugin-auth
+                .authContext=${this.config.authContext}
+              ></ngv-plugin-auth>
+            `
+          : ''}
 
         <div>
           <label for="language">Lang:</label>

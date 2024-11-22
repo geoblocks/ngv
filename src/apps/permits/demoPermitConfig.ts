@@ -43,6 +43,9 @@ export const config: IPermitsConfig = {
       widgetOptions: {
         scene3DOnly: true,
       },
+      globeOptions: {
+        depthTestAgainstTerrain: true,
+      },
     },
   },
 };

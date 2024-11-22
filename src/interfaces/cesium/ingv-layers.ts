@@ -6,6 +6,7 @@ import type {
 } from '@cesium/engine';
 
 import type {CesiumTerrainProvider, Model} from '@cesium/engine';
+import type {Cartesian3} from '@cesium/engine';
 
 export type INGVCesiumImageryTypes =
   | INGVCesiumWMSImagery
@@ -18,7 +19,7 @@ export type INGVCesiumAllTypes =
   | INGVCesiumImageryTypes;
 
 export type INGVCesiumAllPrimitiveTypes =
-  | INGVCesiumModel
+  | INGVCesiumModelConfig
   | INGVIFC
   | INGVCesium3DTiles;
 
@@ -29,17 +30,30 @@ export interface INGVCesium3DTiles {
   options?: ConstructorParameters<typeof Cesium3DTileset>[0];
 }
 
-export interface INGVCesiumModel {
+export interface INGVCesiumModelConfig {
   type: 'model';
   options?: Parameters<typeof Model.fromGltfAsync>[0];
+  position?: [number, number];
+  height?: number;
+  rotation?: number;
+}
+
+export interface INGVCesiumModel extends Model {
+  id: {
+    dimensions?: Cartesian3;
+    name: string;
+  };
 }
 
 export interface INGVIFC {
   type: 'ifc';
   url: string;
   options?: {
-    modelOptions: Omit<INGVCesiumModel['options'], 'url'>;
+    modelOptions: Omit<INGVCesiumModelConfig['options'], 'url'>;
   };
+  position: [number, number];
+  height: number;
+  rotation: number;
 }
 
 export interface INGVCesiumTerrain {

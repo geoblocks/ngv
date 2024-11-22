@@ -12,6 +12,9 @@ export const catalog: INGVCatalog = {
           credit: 'test',
         },
       },
+      position: [6.628484, 46.5],
+      height: 0,
+      rotation: 0,
     },
     sofa: {
       type: 'model',
@@ -19,6 +22,9 @@ export const catalog: INGVCatalog = {
         url: 'https://raw.GithubUserContent.com/KhronosGroup/glTF-Sample-Assets/main/./Models/SheenWoodLeatherSofa/glTF-Binary/SheenWoodLeatherSofa.glb',
         credit: 'Khonos',
       },
+      position: [6.628484, 46.5],
+      height: 0,
+      rotation: 0,
     },
     // to complete
   },
