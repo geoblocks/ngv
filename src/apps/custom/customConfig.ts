@@ -1,5 +1,26 @@
+import type {IngvAuthContext} from '../../interfaces/auth/ingv-auth-context.js';
 import type {CustomConfig} from './ingv-config-custom.js';
 
+// See https://developers.google.com/identity/openid-connect/openid-connect#discovery
+const wellknown = {
+  authorization_endpoint:
+    'https://sso.geomapfish-demo.prod.apps.gs-ch-prod.camptocamp.com/oauth/v2/authorize',
+  token_endpoint:
+    'https://sso.geomapfish-demo.prod.apps.gs-ch-prod.camptocamp.com/oauth/v2/token',
+};
+
+const authContext: IngvAuthContext = {
+  provider: {
+    type: 'oidc',
+    wellknown,
+    options: {
+      redirectUri: `${document.location.origin}/src/apps/custom/index.html`,
+      clientId: '294600834753305656',
+      scopes: ['openid', 'offline_access', 'profile', 'email'],
+      pkce: true,
+    },
+  },
+};
 export const config: CustomConfig = {
   languages: ['fr', 'en'],
   header: {
@@ -25,6 +46,7 @@ export const config: CustomConfig = {
       ],
     },
   },
+  authContext,
   footer: {
     contact: 'me@example.com',
     impressum: {
