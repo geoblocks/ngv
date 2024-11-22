@@ -4,5 +4,6 @@
   },
   "lit-plugin.strict": true,
   "javascript.preferGoToSourceDefinition": true,
-  "typescript.preferGoToSourceDefinition": true
+  "typescript.preferGoToSourceDefinition": true,
+  "typescript.preferences.importModuleSpecifier": "relative"
 }
