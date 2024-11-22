@@ -25,11 +25,11 @@ const cartographicScratch = new Cartographic();
 @customElement('ngv-plugin-cesium-upload')
 export class NgvPluginCesiumUpload extends LitElement {
   @property({type: Object})
-  private viewer: CesiumWidget;
+  public viewer: CesiumWidget;
   @property({type: Object})
-  private primitiveCollection: PrimitiveCollection;
+  public primitiveCollection: PrimitiveCollection;
   @property({type: Object})
-  private storeOptions?: {
+  public storeOptions?: {
     localStoreKey: string;
     indexDbName: string;
   };
