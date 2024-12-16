@@ -55,6 +55,7 @@ export class NgvAppPermits extends ABaseApp<IPermitsConfig> {
                   .viewer="${this.viewer}"
                   .dataSourceCollection="${this.dataSourceCollection}"
                   .primitiveCollection="${this.collections.models}"
+                  .tiles3dCollection="${this.collections.tiles3d}"
                   .options="${{listTitle: 'Catalog'}}"
                 ></ngv-plugin-cesium-model-interact>
                 <div
@@ -69,6 +70,7 @@ export class NgvAppPermits extends ABaseApp<IPermitsConfig> {
                   .viewer="${this.viewer}"
                   .dataSourceCollection="${this.dataSourceCollection}"
                   .primitiveCollection="${this.uploadedModelsCollection}"
+                  .tiles3dCollection="${this.collections.tiles3d}"
                   .storeOptions="${this.storeOptions}"
                   .options="${{listTitle: 'Uploaded models'}}"
                 ></ngv-plugin-cesium-model-interact>

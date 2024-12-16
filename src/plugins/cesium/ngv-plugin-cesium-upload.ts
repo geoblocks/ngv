@@ -3,6 +3,7 @@ import {
   Cartesian3,
   Cartographic,
   HeadingPitchRoll,
+  HeightReference,
   Math as CesiumMath,
   Matrix4,
   Quaternion,

@@ -1,4 +1,11 @@
-import type {CustomDataSource, Model, Scene} from '@cesium/engine';
+import {
+  Cesium3DTileset,
+  ClippingPolygonCollection,
+  CustomDataSource, Globe,
+  Model,
+  PrimitiveCollection,
+  Scene
+} from '@cesium/engine';
 import {
   ArcType,
   Axis,
@@ -7,6 +14,7 @@ import {
   Cartesian2,
   Cartesian3,
   Cartographic,
+  ClippingPolygon,
   Color,
   Ellipsoid,
   HeadingPitchRoll,
@@ -504,4 +512,94 @@ export function getDimensions(model: Model): Cartesian3 {
   });
 
   return Cartesian3.subtract(max, min, new Cartesian3());
+}
+
+export function getClippingPolygon(model: INGVCesiumModel): ClippingPolygon {
+  const positions = LOCAL_EDGES.map((edge) => {
+    const position = new Cartesian3();
+    const matrix = getTranslationRotationDimensionsMatrix(model);
+    Matrix4.multiplyByPoint(matrix, edge[0], position);
+    const centerDiff = getModelCenterDiff(model);
+    Cartesian3.add(position, centerDiff, position);
+    return position;
+  });
+  return new ClippingPolygon({
+    positions,
+  });
+}
+
+export function applyClippingTo3dTileset(tileset: Cesium3DTileset, models: INGVCesiumModel[]): void {
+  const polygons: ClippingPolygon[] = [];
+  models.forEach((m) => {
+    if (m.id.tilesClipping) {
+      polygons.push(getClippingPolygon(m));
+    }
+  });
+  tileset.clippingPolygons = new ClippingPolygonCollection({
+    polygons,
+  });
+}
+
+export function updateModelClipping(model: INGVCesiumModel, tiles3dCollection: PrimitiveCollection, globe: Globe): void {
+  if ((!tiles3dCollection?.length && !globe) || !model?.ready) return;
+  const polygon = model.id.clippingPolygon;
+  const newPolygon = getClippingPolygon(model);
+
+  // apply to 3d tiles
+  if (tiles3dCollection?.length) {
+    for (let i = 0; i < tiles3dCollection.length; i++) {
+      const tileset: Cesium3DTileset = tiles3dCollection.get(
+        i,
+      ) as Cesium3DTileset;
+      if (polygon && tileset.clippingPolygons?.contains(polygon)) {
+        tileset.clippingPolygons.remove(polygon);
+      }
+      if (model.id.tilesClipping) {
+        if (!tileset.clippingPolygons) {
+          tileset.clippingPolygons = new ClippingPolygonCollection({
+            polygons: [newPolygon],
+          });
+        } else {
+          tileset.clippingPolygons.add(newPolygon);
+        }
+      }
+    }
+  }
+
+  // apply to terrain
+  if (globe) {
+    if (polygon && globe?.clippingPolygons?.contains(polygon)) {
+      globe.clippingPolygons.remove(polygon);
+    }
+    if (model.id.terrainClipping) {
+      if (!globe.clippingPolygons) {
+        globe.clippingPolygons = new ClippingPolygonCollection({
+          polygons: [newPolygon],
+        });
+      } else {
+        globe.clippingPolygons.add(newPolygon);
+      }
+    }
+  }
+
+  model.id.clippingPolygon = newPolygon;
+}
+
+export function removeClippingFrom3dTilesets(model: INGVCesiumModel, tiles3dCollection: PrimitiveCollection, globe: Globe): void {
+  if ((!tiles3dCollection?.length && !globe) || !model.ready) return;
+  const polygon = model.id.clippingPolygon;
+  if (tiles3dCollection?.length) {
+    for (let i = 0; i < tiles3dCollection.length; i++) {
+      const tileset: Cesium3DTileset = tiles3dCollection.get(
+        i,
+      ) as Cesium3DTileset;
+      if (tileset.clippingPolygons?.contains(polygon)) {
+        tileset.clippingPolygons.remove(polygon);
+      }
+    }
+  }
+
+  if (globe?.clippingPolygons?.contains(polygon)) {
+    globe.clippingPolygons.remove(polygon);
+  }
 }

@@ -4,6 +4,16 @@ import {customElement, property} from 'lit/decorators.js';
 
 export type LayerDetails = {
   name: string;
+  type: 'model';
+  clippingOptions?: {
+    terrainClipping: boolean;
+    tilesClipping: boolean;
+  };
+};
+
+export type ClippingChangeDetail = {
+  terrainClipping: boolean;
+  tilesClipping: boolean;
 };
 
 @customElement('ngv-layer-details')
@@ -43,10 +53,56 @@ export class NgvLayerDetails extends LitElement {
     }
   `;
 
+  onClippingChange(): void {
+    const tilesClipping =
+      this.renderRoot.querySelector<HTMLInputElement>(
+        '#clipping-tiles',
+      ).checked;
+    const terrainClipping =
+      this.renderRoot.querySelector<HTMLInputElement>(
+        '#clipping-terrain',
+      ).checked;
+    this.dispatchEvent(
+      new CustomEvent<ClippingChangeDetail>('clippingChange', {
+        detail: {
+          tilesClipping,
+          terrainClipping,
+        },
+      }),
+    );
+  }
+
   render(): HTMLTemplateResult | string {
     if (!this.layer) return '';
     return html` <div class="info">
       ${this.layer.name}
+      ${this.layer.clippingOptions
+        ? html` <fieldset>
+            <legend>Clipping:</legend>
+
+            <div>
+              <input
+                type="checkbox"
+                id="clipping-tiles"
+                name="tiles"
+                .checked=${this.layer.clippingOptions.tilesClipping}
+                @change=${() => this.onClippingChange()}
+              />
+              <label for="clipping-tiles">Clipping 3D tiles</label>
+            </div>
+
+            <div>
+              <input
+                type="checkbox"
+                id="clipping-terrain"
+                name="terrain"
+                .checked=${this.layer.clippingOptions.terrainClipping}
+                @change=${() => this.onClippingChange()}
+              />
+              <label for="clipping-terrain">Clipping terrain</label>
+            </div>
+          </fieldset>`
+        : ''}
       <button
         @click="${() => {
           this.dispatchEvent(new CustomEvent('done'));

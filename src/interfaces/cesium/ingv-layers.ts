@@ -1,5 +1,6 @@
 import type {
   Cesium3DTileset,
+  ClippingPolygon,
   UrlTemplateImageryProvider,
   WebMapServiceImageryProvider,
   WebMapTileServiceImageryProvider,
@@ -42,6 +43,9 @@ export interface INGVCesiumModel extends Model {
   id: {
     dimensions?: Cartesian3;
     name: string;
+    terrainClipping?: boolean;
+    tilesClipping?: boolean;
+    clippingPolygon?: ClippingPolygon;
   };
 }
 

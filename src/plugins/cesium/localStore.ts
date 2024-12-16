@@ -110,6 +110,8 @@ export type StoredModel = {
   translation: number[];
   rotation: number[];
   scale: number[];
+  terrainClipping: boolean;
+  tilesClipping: boolean;
 };
 
 export function updateModelsInLocalStore(
@@ -136,6 +138,8 @@ export function updateModelsInLocalStore(
       translation: [translation.x, translation.y, translation.z],
       rotation: [rotation.x, rotation.y, rotation.z, rotation.w],
       scale: [scale.x, scale.y, scale.z],
+      tilesClipping: model.id.tilesClipping,
+      terrainClipping: model.id.terrainClipping,
     });
   });
   localStorage.setItem(storeKey, JSON.stringify(localStoreModels));
