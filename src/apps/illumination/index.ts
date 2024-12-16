@@ -33,10 +33,11 @@ export class NgvAppIllumination extends ABaseApp<IIlluminationConfig> {
       return r;
     }
     return html`
-      <ngv-structure-app .config=${this.config}>
+      <ngv-structure-app exportparts="language-chooser" .config=${this.config}>
         <ngv-menu-illumination
           .date=${this.initialDate}
           slot="menu"
+          part="menu"
           @change=${(evt: CustomEvent<MenuIlluminationChangeDetail>) => {
             this.date = evt.detail.date;
           }}

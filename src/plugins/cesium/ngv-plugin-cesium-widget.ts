@@ -30,13 +30,27 @@ export class NgvPluginCesiumWidget extends LitElement {
   static styles = [
     unsafeCSS(style),
     css`
+      :host {
+        display: block;
+        height: 100%;
+        width: 100%;
+      }
+
       #globe {
         width: 100%;
         height: 100%;
       }
 
+      .cesium-widget {
+        position: initial;
+      }
+
+      .cesium-widget-credits {
+        display: none;
+      }
+
       .cesium-widget canvas {
-        position: absolute;
+        display: block;
       }
 
       .cesium-credit-logoContainer {

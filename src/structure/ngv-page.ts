@@ -100,19 +100,12 @@ export class NgvPage extends LitElement {
       grid-area: footer;
     }
 
-    /* FIXME: outside of this component */
     .divider {
       position: absolute;
       z-index: 1;
       top: 30px;
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      background-color: red;
-      cursor: pointer;
     }
 
-    /* FIXME: outside of this component */
     sl-split-panel {
       --divider-width: 2px;
       --max: 300px;
@@ -149,7 +142,9 @@ export class NgvPage extends LitElement {
             class="divider"
             slot="divider"
             @click=${() => this.dividerClick()}
-          ></div>
+          >
+            <slot name="divider"></slot>
+          </div>
           <div class="main" slot="end">
             <div class="main-header">
               <slot name="main-header"></slot>
