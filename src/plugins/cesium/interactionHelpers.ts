@@ -1,10 +1,11 @@
 import {
   Cesium3DTileset,
   ClippingPolygonCollection,
-  CustomDataSource, Globe,
+  CustomDataSource,
+  Globe,
   Model,
   PrimitiveCollection,
-  Scene
+  Scene,
 } from '@cesium/engine';
 import {
   ArcType,
@@ -528,7 +529,10 @@ export function getClippingPolygon(model: INGVCesiumModel): ClippingPolygon {
   });
 }
 
-export function applyClippingTo3dTileset(tileset: Cesium3DTileset, models: INGVCesiumModel[]): void {
+export function applyClippingTo3dTileset(
+  tileset: Cesium3DTileset,
+  models: INGVCesiumModel[],
+): void {
   const polygons: ClippingPolygon[] = [];
   models.forEach((m) => {
     if (m.id.tilesClipping) {
@@ -540,7 +544,11 @@ export function applyClippingTo3dTileset(tileset: Cesium3DTileset, models: INGVC
   });
 }
 
-export function updateModelClipping(model: INGVCesiumModel, tiles3dCollection: PrimitiveCollection, globe: Globe): void {
+export function updateModelClipping(
+  model: INGVCesiumModel,
+  tiles3dCollection: PrimitiveCollection,
+  globe: Globe,
+): void {
   if ((!tiles3dCollection?.length && !globe) || !model?.ready) return;
   const polygon = model.id.clippingPolygon;
   const newPolygon = getClippingPolygon(model);
@@ -585,7 +593,11 @@ export function updateModelClipping(model: INGVCesiumModel, tiles3dCollection: P
   model.id.clippingPolygon = newPolygon;
 }
 
-export function removeClippingFrom3dTilesets(model: INGVCesiumModel, tiles3dCollection: PrimitiveCollection, globe: Globe): void {
+export function removeClippingFrom3dTilesets(
+  model: INGVCesiumModel,
+  tiles3dCollection: PrimitiveCollection,
+  globe: Globe,
+): void {
   if ((!tiles3dCollection?.length && !globe) || !model.ready) return;
   const polygon = model.id.clippingPolygon;
   if (tiles3dCollection?.length) {

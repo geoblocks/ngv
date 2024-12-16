@@ -7,7 +7,7 @@ import type {
   PrimitiveCollection,
   DataSourceCollection,
   Cartesian2,
-  Cesium3DTileset
+  Cesium3DTileset,
 } from '@cesium/engine';
 import {
   Model,
@@ -38,7 +38,7 @@ import type {BBoxStyles} from './interactionHelpers.js';
 import {
   applyClippingTo3dTileset,
   removeClippingFrom3dTilesets,
-  updateModelClipping
+  updateModelClipping,
 } from './interactionHelpers.js';
 import {
   getHorizontalMoveVector,
@@ -123,7 +123,11 @@ export class NgvPluginCesiumModelInteract extends LitElement {
     this.primitiveCollection.primitiveAdded.addEventListener(
       (model: INGVCesiumModel) => {
         this.onPrimitivesChanged();
-        updateModelClipping(model, this.tiles3dCollection, this.viewer.scene.globe);
+        updateModelClipping(
+          model,
+          this.tiles3dCollection,
+          this.viewer.scene.globe,
+        );
       },
     );
     this.primitiveCollection.primitiveRemoved.addEventListener(
@@ -198,15 +202,29 @@ export class NgvPluginCesiumModelInteract extends LitElement {
       const normal = Ellipsoid.WGS84.geodeticSurfaceNormal(this.moveStart);
       this.movePlane = Plane.fromPointNormal(this.moveStart, normal);
 
-      if (this.chosenModel?.id.tilesClipping || this.chosenModel?.id.terrainClipping) {
-        removeClippingFrom3dTilesets(this.chosenModel, this.tiles3dCollection, this.viewer.scene.globe);
+      if (
+        this.chosenModel?.id.tilesClipping ||
+        this.chosenModel?.id.terrainClipping
+      ) {
+        removeClippingFrom3dTilesets(
+          this.chosenModel,
+          this.tiles3dCollection,
+          this.viewer.scene.globe,
+        );
       }
     }
   }
   onLeftUp(): void {
     if (this.grabType) {
-      if (this.chosenModel?.id.tilesClipping || this.chosenModel?.id.terrainClipping) {
-        updateModelClipping(this.chosenModel, this.tiles3dCollection, this.viewer.scene.globe);
+      if (
+        this.chosenModel?.id.tilesClipping ||
+        this.chosenModel?.id.terrainClipping
+      ) {
+        updateModelClipping(
+          this.chosenModel,
+          this.tiles3dCollection,
+          this.viewer.scene.globe,
+        );
       }
       this.viewer.scene.screenSpaceCameraController.enableInputs = true;
       this.grabType = undefined;
@@ -414,7 +432,11 @@ export class NgvPluginCesiumModelInteract extends LitElement {
           });
           this.primitiveCollection.add(model);
           model.readyEvent.addEventListener(() =>
-            updateModelClipping(model, this.tiles3dCollection, this.viewer.scene.globe),
+            updateModelClipping(
+              model,
+              this.tiles3dCollection,
+              this.viewer.scene.globe,
+            ),
           );
         }),
       );
@@ -449,7 +471,11 @@ export class NgvPluginCesiumModelInteract extends LitElement {
           @clippingChange=${(evt: {detail: ClippingChangeDetail}) => {
             this.chosenModel.id.terrainClipping = evt.detail.terrainClipping;
             this.chosenModel.id.tilesClipping = evt.detail.tilesClipping;
-            updateModelClipping(this.chosenModel, this.tiles3dCollection, this.viewer.scene.globe);
+            updateModelClipping(
+              this.chosenModel,
+              this.tiles3dCollection,
+              this.viewer.scene.globe,
+            );
           }}
           @done="${() => {
             this.chosenModel = undefined;

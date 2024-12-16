@@ -13,9 +13,10 @@ import type {IPermitsConfig} from './ingv-config-permits.js';
 import '../../plugins/cesium/ngv-plugin-cesium-widget';
 import '../../plugins/cesium/ngv-plugin-cesium-upload';
 import '../../plugins/cesium/ngv-plugin-cesium-model-interact';
+import '../../plugins/cesium/ngv-plugin-cesium-slicing';
 import type {CesiumWidget, DataSourceCollection} from '@cesium/engine';
 
-import {PrimitiveCollection} from '@cesium/engine';
+import {PrimitiveCollection, CustomDataSource} from '@cesium/engine';
 import type {ViewerInitializedDetails} from '../../plugins/cesium/ngv-plugin-cesium-widget.js';
 
 @customElement('ngv-app-permits')
@@ -26,6 +27,7 @@ export class NgvAppPermits extends ABaseApp<IPermitsConfig> {
   private uploadedModelsCollection: PrimitiveCollection =
     new PrimitiveCollection();
   private dataSourceCollection: DataSourceCollection;
+  private slicingDataSource: CustomDataSource = new CustomDataSource();
 
   private storeOptions = {
     localStoreKey: 'permits-localStoreModels',
@@ -74,6 +76,11 @@ export class NgvAppPermits extends ABaseApp<IPermitsConfig> {
                   .storeOptions="${this.storeOptions}"
                   .options="${{listTitle: 'Uploaded models'}}"
                 ></ngv-plugin-cesium-model-interact>
+                <ngv-plugin-cesium-slicing
+                  .viewer="${this.viewer}"
+                  .tiles3dCollection="${this.collections.tiles3d}"
+                  .slicingDataSource="${this.slicingDataSource}"
+                ></ngv-plugin-cesium-slicing>
               `
             : ''}
         </div>
@@ -85,6 +92,9 @@ export class NgvAppPermits extends ABaseApp<IPermitsConfig> {
             this.viewer.scene.primitives.add(this.uploadedModelsCollection);
             this.dataSourceCollection = evt.detail.dataSourceCollection;
             this.collections = evt.detail.primitiveCollections;
+            this.dataSourceCollection
+              .add(this.slicingDataSource)
+              .catch((e) => console.error(e));
           }}
         ></ngv-plugin-cesium-widget>
       </ngv-structure-app>

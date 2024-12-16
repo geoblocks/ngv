@@ -27,7 +27,7 @@ export const config: IPermitsConfig = {
         '@demo': () => import('../../catalogs/demoCatalog.js'),
       },
       layers: {
-        tiles3d: ['@cesium/googlePhotorealistic'],
+        // tiles3d: ['@cesium/googlePhotorealistic'],
         // models: ['@demo/sofa', '@demo/thatopensmall'],
         imageries: ['@geoadmin/pixel-karte-farbe'],
         // terrain: '@geoadmin/terrain',
