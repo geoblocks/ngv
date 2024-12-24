@@ -615,3 +615,24 @@ export function removeClippingFrom3dTilesets(
     globe.clippingPolygons.remove(polygon);
   }
 }
+
+/**
+ * Sets height in meters for each cartesian3 position in array
+ */
+export function updateHeightForCartesianPositions(
+  positions: Cartesian3[],
+  height?: number,
+  scene?: Scene,
+  assignBack: boolean = false
+): Cartesian3[] {
+  return positions.map(p => {
+    const cartographicPosition = Cartographic.fromCartesian(p);
+    if (typeof height === 'number' && !isNaN(height))
+      cartographicPosition.height = height;
+    if (scene) {
+      const altitude = scene.globe.getHeight(cartographicPosition) || 0;
+      cartographicPosition.height += altitude;
+    }
+    return assignBack ? Cartographic.toCartesian(cartographicPosition, Ellipsoid.WGS84, p) : Cartographic.toCartesian(cartographicPosition);
+  });
+}

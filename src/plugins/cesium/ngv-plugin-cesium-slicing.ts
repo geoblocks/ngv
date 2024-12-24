@@ -1,7 +1,6 @@
 import {customElement, property, state} from 'lit/decorators.js';
 import {css, html, type HTMLTemplateResult, LitElement} from 'lit';
 import type {
-  Cartesian2,
   Cartesian3,
   Cesium3DTileset,
   CesiumWidget,
@@ -11,16 +10,20 @@ import type {
 } from '@cesium/engine';
 import {ClippingPolygon, ClippingPolygonCollection} from '@cesium/engine';
 import {
-  CallbackProperty,
   Color,
   ConstantProperty,
   PolygonHierarchy,
-  ScreenSpaceEventHandler,
-  ScreenSpaceEventType,
 } from '@cesium/engine';
 import '../ui/ngv-layer-details.js';
 import '../ui/ngv-layers-list.js';
 import type {ClippingChangeDetail} from '../ui/ngv-layer-details.js';
+import type { DrawEndDetails} from './draw.js';
+import {CesiumDraw} from './draw.js';
+
+export type ClippingData = {
+  clipping: ClippingPolygon;
+  entity: Entity;
+};
 
 @customElement('ngv-plugin-cesium-slicing')
 export class NgvPluginCesiumSlicing extends LitElement {
@@ -31,18 +34,11 @@ export class NgvPluginCesiumSlicing extends LitElement {
   @property({type: Object})
   private slicingDataSource: CustomDataSource;
   @state()
-  private slicingActive: boolean = false;
-  @state()
-  private clippingPolygons: {clipping: ClippingPolygon; entity: Entity}[] = [];
+  private clippingPolygons: ClippingData[] = [];
   @state()
   private activePolygon: Entity | undefined = undefined;
-  private editingClipping:
-    | {clipping: ClippingPolygon; entity: Entity}
-    | undefined = undefined;
-  private eventHandler: ScreenSpaceEventHandler | undefined;
-  private activePositions: Cartesian3[] = [];
-  private floatingPoint: Entity | undefined = undefined;
-  private points: Entity[] = [];
+  private editingClipping: ClippingData | undefined = undefined;
+  private draw: CesiumDraw;
 
   static styles = css`
     button {
@@ -73,158 +69,88 @@ export class NgvPluginCesiumSlicing extends LitElement {
     }
   `;
 
-  createPoint(position: Cartesian3 | CallbackProperty): Entity {
-    return this.slicingDataSource.entities.add({
-      position,
-      point: {
-        color: Color.RED,
-        pixelSize: 5,
-      },
-    });
+  firstUpdated(): void {
+    this.draw = new CesiumDraw(this.viewer, this.slicingDataSource)
+    this.draw.type = 'polygon';
+    this.draw.addEventListener('drawend', (e) => {
+      this.draw.active = false;
+      const details: DrawEndDetails = (<CustomEvent<DrawEndDetails>>e).detail
+      const clippingPolygon = new ClippingPolygon({
+        positions: details.positions,
+      });
+      if (this.editingClipping) {
+        this.editingClipping.clipping = clippingPolygon;
+        this.applyClipping(this.editingClipping);
+      } else {
+        this.activePolygon.polygon.hierarchy = new ConstantProperty(new PolygonHierarchy(details.positions));
+        const clipping = {
+          clipping: clippingPolygon,
+          entity: this.activePolygon,
+        };
+        this.clippingPolygons.push(clipping);
+        this.applyClipping(clipping);
+      }
+      this.activePolygon = undefined;
+    })
   }
 
-  drawPolygon(): Entity {
+  drawPolygon(positions: Cartesian3[]): Entity {
+    const date = new Date();
     return this.slicingDataSource.entities.add({
+      name: `Polygon ${date.toLocaleDateString()} ${date.toLocaleTimeString()}`,
+      // show: false,
       polygon: {
-        hierarchy: new CallbackProperty(() => {
-          return new PolygonHierarchy(this.activePositions);
-        }, false),
+        hierarchy: new PolygonHierarchy(positions),
         material: Color.RED.withAlpha(0.7),
       },
-    });
-  }
-
-  private pickPosition(position: Cartesian2): Cartesian3 {
-    const ray = this.viewer.camera.getPickRay(position);
-    return this.viewer.scene.globe.show
-      ? this.viewer.scene.globe.pick(ray, this.viewer.scene)
-      : this.viewer.scene.pickPosition(position);
-  }
-
-  private startDrawing(positions: Cartesian3[], polygon?: Entity) {
-    this.activePositions = [...positions];
-    this.floatingPoint = this.createPoint(
-      new CallbackProperty(() => {
-        return this.activePositions[this.activePositions.length - 1];
-      }, false),
-    );
-    if (polygon) {
-      polygon.polygon.hierarchy = new CallbackProperty(() => {
-        return new PolygonHierarchy(this.activePositions);
-      }, false);
-      polygon.show = true;
-    }
-    this.activePolygon = polygon ? polygon : this.drawPolygon();
-    if (!this.activePolygon.name?.length) {
-      const date = new Date();
-      this.activePolygon.name = `Polygon ${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
-    }
-    this.activePositions.forEach((position) => {
-      this.points.push(this.createPoint(position));
+      properties: {
+        terrainClipping: true,
+        tilesClipping: true,
+      },
     });
   }
 
   addClippingPolygon(): void {
-    this.eventHandler = new ScreenSpaceEventHandler(this.viewer.canvas);
-    this.eventHandler.setInputAction(
-      (event: ScreenSpaceEventHandler.PositionedEvent) => {
-        const position = this.pickPosition(event.position);
-        if (position) {
-          if (this.activePositions.length === 0) {
-            this.startDrawing([position]);
-          }
-          this.activePositions.push(position);
-          this.points.push(this.createPoint(position));
-        }
-      },
-      ScreenSpaceEventType.LEFT_CLICK,
-    );
-
-    this.eventHandler.setInputAction(
-      (event: ScreenSpaceEventHandler.MotionEvent) => {
-        if (this.floatingPoint) {
-          const ray = this.viewer.camera.getPickRay(event.endPosition);
-          const newPosition = this.viewer.scene.globe.show
-            ? this.viewer.scene.globe.pick(ray, this.viewer.scene)
-            : this.viewer.scene.pickPosition(event.endPosition);
-          if (newPosition) {
-            this.activePositions.pop();
-            this.activePositions.push(newPosition);
-          }
-        }
-      },
-      ScreenSpaceEventType.MOUSE_MOVE,
-    );
-    this.eventHandler.setInputAction(
-      (event: ScreenSpaceEventHandler.PositionedEvent) => {
-        const position = this.pickPosition(event.position);
-        this.activePositions.push(position);
-        this.finishSlicing();
-      },
-      ScreenSpaceEventType.LEFT_DOUBLE_CLICK,
-    );
-    this.eventHandler.setInputAction(() => {
-      if (this.activePositions.length > 1) {
-        this.activePositions.splice(this.activePositions.length - 2, 1);
-        this.slicingDataSource.entities.remove(this.points.pop());
-      }
-    }, ScreenSpaceEventType.RIGHT_CLICK);
-    this.slicingActive = true;
+    this.draw.active = true;
+    this.activePolygon = this.drawPolygon([])
   }
 
-  finishSlicing(): void {
-    this.eventHandler?.destroy();
-    if (this.activePositions.length > 2) {
-      // replace callback property
-      this.activePolygon.polygon.hierarchy = new ConstantProperty(
-        new PolygonHierarchy(this.activePositions),
-      );
-      this.activePolygon.show = false;
-      const clippingPolygon = new ClippingPolygon({
-        positions: this.activePositions,
-      });
-      if (this.editingClipping) {
-        this.editingClipping.clipping = clippingPolygon;
-      } else {
-        this.clippingPolygons.push({
-          clipping: clippingPolygon,
-          entity: this.activePolygon,
-        });
-      }
-      this.applyClipping(clippingPolygon);
-    } else {
-      this.slicingDataSource.entities.remove(this.activePolygon);
-    }
-    this.slicingDataSource.entities.remove(this.floatingPoint);
-    this.points.forEach((p) => this.slicingDataSource.entities.remove(p));
-    this.activePositions = [];
-    this.points = [];
-    this.floatingPoint = undefined;
-    this.activePolygon = undefined;
-    this.slicingActive = false;
-    this.editingClipping = undefined;
-  }
-
-  applyClipping(clippingPolygon: ClippingPolygon): void {
+  applyClipping(clippingData: ClippingData): void {
     if (!this.viewer.scene.globe.clippingPolygons) {
       this.viewer.scene.globe.clippingPolygons =
         new ClippingPolygonCollection();
     }
-    this.viewer.scene.globe.clippingPolygons.add(clippingPolygon);
+    if (
+      (<ConstantProperty>(
+        clippingData.entity.properties.terrainClipping
+      )).getValue()
+    ) {
+      this.viewer.scene.globe.clippingPolygons.add(clippingData.clipping);
+    } else {
+      this.removeTerrainClipping(clippingData.clipping);
+    }
     if (this.tiles3dCollection) {
-      for (let i = 0; i < this.tiles3dCollection.length; i++) {
-        const tileset: Cesium3DTileset = this.tiles3dCollection.get(
-          i,
-        ) as Cesium3DTileset;
-        if (!tileset.clippingPolygons) {
-          tileset.clippingPolygons = new ClippingPolygonCollection();
+      if (
+        (<ConstantProperty>(
+          clippingData.entity.properties.tilesClipping
+        )).getValue()
+      ) {
+        for (let i = 0; i < this.tiles3dCollection.length; i++) {
+          const tileset: Cesium3DTileset = this.tiles3dCollection.get(
+            i,
+          ) as Cesium3DTileset;
+          if (!tileset.clippingPolygons) {
+            tileset.clippingPolygons = new ClippingPolygonCollection();
+          }
+          tileset.clippingPolygons.add(clippingData.clipping);
         }
-        tileset.clippingPolygons.add(clippingPolygon);
+      } else {
+        this.removeTilesClipping(clippingData.clipping);
       }
     }
   }
 
-  removeClipping(clippingPolygon: ClippingPolygon): void {
+  removeTerrainClipping(clippingPolygon: ClippingPolygon): void {
     const globeClippingPolygons = this.viewer.scene.globe.clippingPolygons;
     if (
       globeClippingPolygons &&
@@ -232,20 +158,26 @@ export class NgvPluginCesiumSlicing extends LitElement {
     ) {
       globeClippingPolygons.remove(clippingPolygon);
     }
+  }
 
-    if (this.tiles3dCollection) {
-      for (let i = 0; i < this.tiles3dCollection.length; i++) {
-        const tileset: Cesium3DTileset = this.tiles3dCollection.get(
-          i,
-        ) as Cesium3DTileset;
-        if (
-          tileset.clippingPolygons &&
-          tileset.clippingPolygons.contains(clippingPolygon)
-        ) {
-          tileset.clippingPolygons.remove(clippingPolygon);
-        }
+  removeTilesClipping(clippingPolygon: ClippingPolygon): void {
+    if (!this.tiles3dCollection) return;
+    for (let i = 0; i < this.tiles3dCollection.length; i++) {
+      const tileset: Cesium3DTileset = this.tiles3dCollection.get(
+        i,
+      ) as Cesium3DTileset;
+      if (
+        tileset.clippingPolygons &&
+        tileset.clippingPolygons.contains(clippingPolygon)
+      ) {
+        tileset.clippingPolygons.remove(clippingPolygon);
       }
     }
+  }
+
+  removeClipping(clippingPolygon: ClippingPolygon): void {
+    this.removeTerrainClipping(clippingPolygon);
+    this.removeTilesClipping(clippingPolygon);
   }
 
   render(): HTMLTemplateResult | string {
@@ -253,20 +185,35 @@ export class NgvPluginCesiumSlicing extends LitElement {
       <button class="add-slicing-btn" @click=${() => this.addClippingPolygon()}>
         Choose region to hide
       </button>
-      ${this.slicingActive
+      ${this.draw?.active
         ? html` <ngv-layer-details
             .layer="${{
               name: this.activePolygon?.name,
               clippingOptions: {
-                terrainClipping: true,
-                tilesClipping: true,
+                terrainClipping: this.activePolygon
+                  ? <boolean>(
+                      (<ConstantProperty>(
+                        this.activePolygon.properties.terrainClipping
+                      )).getValue()
+                    )
+                  : true,
+                tilesClipping: this.activePolygon
+                  ? <boolean>(
+                      (<ConstantProperty>(
+                        this.activePolygon.properties.tilesClipping
+                      )).getValue()
+                    )
+                  : true,
               },
             }}"
             @clippingChange=${(evt: {detail: ClippingChangeDetail}) => {
-              // todo
+              this.activePolygon.properties.terrainClipping =
+                new ConstantProperty(evt.detail.terrainClipping);
+              this.activePolygon.properties.tilesClipping =
+                new ConstantProperty(evt.detail.tilesClipping);
             }}
             @done="${() => {
-              this.finishSlicing();
+              // todo
             }}"
           ></ngv-layer-details>`
         : html` <ngv-layers-list
@@ -307,10 +254,6 @@ export class NgvPluginCesiumSlicing extends LitElement {
               if (polToEdit) {
                 this.editingClipping = polToEdit;
                 this.removeClipping(polToEdit.clipping);
-                const positions = (<{positions: Cartesian3[]}>(
-                  polToEdit.entity.polygon.hierarchy.getValue()
-                )).positions;
-                this.startDrawing(positions, polToEdit.entity);
                 this.addClippingPolygon();
               }
             }}
