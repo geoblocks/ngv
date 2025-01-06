@@ -1,6 +1,7 @@
 import {css, html, LitElement} from 'lit';
 import type {HTMLTemplateResult} from 'lit';
 import {customElement, property} from 'lit/decorators.js';
+import {msg} from '@lit/localize';
 
 export type LayerDetails = {
   name: string;
@@ -20,6 +21,10 @@ export type ClippingChangeDetail = {
 export class NgvLayerDetails extends LitElement {
   @property({type: Object})
   private layer: LayerDetails;
+  @property({type: Boolean})
+  private showDone: boolean;
+  @property({type: Boolean})
+  private showCancel: boolean;
 
   static styles = css`
     .info {
@@ -78,7 +83,7 @@ export class NgvLayerDetails extends LitElement {
       ${this.layer.name}
       ${this.layer.clippingOptions
         ? html` <fieldset>
-            <legend>Clipping:</legend>
+            <legend>${msg('Clipping:')}</legend>
 
             <div>
               <input
@@ -88,7 +93,7 @@ export class NgvLayerDetails extends LitElement {
                 .checked=${this.layer.clippingOptions.tilesClipping}
                 @change=${() => this.onClippingChange()}
               />
-              <label for="clipping-tiles">Clipping 3D tiles</label>
+              <label for="clipping-tiles">${msg('Clipping 3D tiles')}</label>
             </div>
 
             <div>
@@ -99,16 +104,25 @@ export class NgvLayerDetails extends LitElement {
                 .checked=${this.layer.clippingOptions.terrainClipping}
                 @change=${() => this.onClippingChange()}
               />
-              <label for="clipping-terrain">Clipping terrain</label>
+              <label for="clipping-terrain">${msg('Clipping terrain')}</label>
             </div>
           </fieldset>`
         : ''}
       <button
+        .hidden=${!this.showDone}
         @click="${() => {
           this.dispatchEvent(new CustomEvent('done'));
         }}"
       >
-        Done
+        ${msg('Done')}
+      </button>
+      <button
+        .hidden=${!this.showCancel}
+        @click="${() => {
+          this.dispatchEvent(new CustomEvent('cancel'));
+        }}"
+      >
+        ${msg('Cancel')}
       </button>
     </div>`;
   }

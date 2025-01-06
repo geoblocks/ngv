@@ -154,3 +154,26 @@ export function getStoredModels(storeKey: string): StoredModel[] {
     return [];
   }
 }
+
+export type StoredClipping = {
+  name: string;
+  positions: number[][];
+  terrainClipping: boolean;
+  tilesClipping: boolean;
+};
+
+const CLIPPING_KEY = 'clipping-polygons';
+
+export function updateClippingInLocalStore(clipping: StoredClipping[]): void {
+  localStorage.setItem(CLIPPING_KEY, JSON.stringify(clipping));
+}
+
+export function getStoredClipping(): StoredClipping[] {
+  if (!localStorage.getItem(CLIPPING_KEY)) return [];
+  try {
+    return <StoredClipping[]>JSON.parse(localStorage.getItem(CLIPPING_KEY));
+  } catch (e) {
+    console.error('Not possible to parse clippings from local storage', e);
+    return [];
+  }
+}

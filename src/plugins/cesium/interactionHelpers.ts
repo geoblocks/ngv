@@ -1,12 +1,12 @@
-import {
+import type {
   Cesium3DTileset,
-  ClippingPolygonCollection,
   CustomDataSource,
   Globe,
   Model,
   PrimitiveCollection,
   Scene,
 } from '@cesium/engine';
+import {ClippingPolygonCollection} from '@cesium/engine';
 import {
   ArcType,
   Axis,
@@ -623,9 +623,9 @@ export function updateHeightForCartesianPositions(
   positions: Cartesian3[],
   height?: number,
   scene?: Scene,
-  assignBack: boolean = false
+  assignBack: boolean = false,
 ): Cartesian3[] {
-  return positions.map(p => {
+  return positions.map((p) => {
     const cartographicPosition = Cartographic.fromCartesian(p);
     if (typeof height === 'number' && !isNaN(height))
       cartographicPosition.height = height;
@@ -633,6 +633,8 @@ export function updateHeightForCartesianPositions(
       const altitude = scene.globe.getHeight(cartographicPosition) || 0;
       cartographicPosition.height += altitude;
     }
-    return assignBack ? Cartographic.toCartesian(cartographicPosition, Ellipsoid.WGS84, p) : Cartographic.toCartesian(cartographicPosition);
+    return assignBack
+      ? Cartographic.toCartesian(cartographicPosition, Ellipsoid.WGS84, p)
+      : Cartographic.toCartesian(cartographicPosition);
   });
 }

@@ -1,28 +1,37 @@
 import {customElement, property, state} from 'lit/decorators.js';
 import {css, html, type HTMLTemplateResult, LitElement} from 'lit';
 import type {
-  Cartesian3,
   Cesium3DTileset,
   CesiumWidget,
-  CustomDataSource,
-  Entity,
+  DataSourceCollection,
   PrimitiveCollection,
 } from '@cesium/engine';
-import {ClippingPolygon, ClippingPolygonCollection} from '@cesium/engine';
 import {
-  Color,
-  ConstantProperty,
-  PolygonHierarchy,
+  Cartesian3,
+  ClippingPolygon,
+  ClippingPolygonCollection,
+  CustomDataSource,
+  Entity,
+  JulianDate,
 } from '@cesium/engine';
+import {Color, ConstantProperty, PolygonHierarchy} from '@cesium/engine';
 import '../ui/ngv-layer-details.js';
 import '../ui/ngv-layers-list.js';
 import type {ClippingChangeDetail} from '../ui/ngv-layer-details.js';
-import type { DrawEndDetails} from './draw.js';
+import type {DrawEndDetails} from './draw.js';
 import {CesiumDraw} from './draw.js';
+import {msg} from '@lit/localize';
+import type {StoredClipping} from './localStore.js';
+import {getStoredClipping, updateClippingInLocalStore} from './localStore.js';
 
 export type ClippingData = {
   clipping: ClippingPolygon;
   entity: Entity;
+};
+
+export type ClippingEntityProps = {
+  terrainClipping: boolean;
+  tilesClipping: boolean;
 };
 
 @customElement('ngv-plugin-cesium-slicing')
@@ -32,13 +41,17 @@ export class NgvPluginCesiumSlicing extends LitElement {
   @property({type: Object})
   private tiles3dCollection: PrimitiveCollection;
   @property({type: Object})
-  private slicingDataSource: CustomDataSource;
+  private dataSourceCollection: DataSourceCollection;
   @state()
   private clippingPolygons: ClippingData[] = [];
   @state()
   private activePolygon: Entity | undefined = undefined;
+  @state()
   private editingClipping: ClippingData | undefined = undefined;
   private draw: CesiumDraw;
+  private slicingDataSource: CustomDataSource = new CustomDataSource();
+  private drawDataSource: CustomDataSource = new CustomDataSource();
+  private julianDate = new JulianDate();
 
   static styles = css`
     button {
@@ -70,40 +83,97 @@ export class NgvPluginCesiumSlicing extends LitElement {
   `;
 
   firstUpdated(): void {
-    this.draw = new CesiumDraw(this.viewer, this.slicingDataSource)
-    this.draw.type = 'polygon';
-    this.draw.addEventListener('drawend', (e) => {
-      this.draw.active = false;
-      const details: DrawEndDetails = (<CustomEvent<DrawEndDetails>>e).detail
-      const clippingPolygon = new ClippingPolygon({
-        positions: details.positions,
-      });
-      if (this.editingClipping) {
-        this.editingClipping.clipping = clippingPolygon;
-        this.applyClipping(this.editingClipping);
-      } else {
-        this.activePolygon.polygon.hierarchy = new ConstantProperty(new PolygonHierarchy(details.positions));
-        const clipping = {
-          clipping: clippingPolygon,
-          entity: this.activePolygon,
-        };
-        this.clippingPolygons.push(clipping);
-        this.applyClipping(clipping);
-      }
-      this.activePolygon = undefined;
-    })
+    this.dataSourceCollection
+      .add(this.slicingDataSource)
+      .then(() => {
+        const storedClipping = getStoredClipping();
+        storedClipping.forEach((clipping) => {
+          const positions = clipping.positions.map(
+            (p) => new Cartesian3(p[0], p[1], p[2]),
+          );
+          const entity = this.drawPolygon(positions, clipping.name, {
+            terrainClipping: clipping.terrainClipping,
+            tilesClipping: clipping.tilesClipping,
+          });
+          const clippingData = {
+            entity,
+            clipping: new ClippingPolygon({positions}),
+          };
+          this.clippingPolygons.push(clippingData);
+          this.applyClipping(clippingData);
+        });
+        this.requestUpdate();
+      })
+      .catch((e) => console.error(e));
+    this.dataSourceCollection
+      .add(this.drawDataSource)
+      .then((drawDataSource) => {
+        this.draw = new CesiumDraw(this.viewer, drawDataSource);
+        this.draw.type = 'polygon';
+        this.draw.addEventListener('drawend', (e) => {
+          this.onDrawEnd((<CustomEvent<DrawEndDetails>>e).detail);
+        });
+      })
+      .catch((e) => console.error(e));
   }
 
-  drawPolygon(positions: Cartesian3[]): Entity {
+  saveToLocalStore(): void {
+    const clippingsToStore: StoredClipping[] =
+      this.slicingDataSource.entities.values.map((e) => {
+        const properties = <ClippingEntityProps>(
+          e.properties.getValue(this.julianDate)
+        );
+        return {
+          name: e.name,
+          positions: (<PolygonHierarchy>(
+            e.polygon.hierarchy.getValue(this.julianDate)
+          )).positions.map((p) => [p.x, p.y, p.z]),
+          terrainClipping: properties.terrainClipping,
+          tilesClipping: properties.tilesClipping,
+        };
+      });
+    updateClippingInLocalStore(clippingsToStore);
+  }
+
+  onDrawEnd(details: DrawEndDetails): void {
+    this.draw.active = false;
+    const clippingPolygon = new ClippingPolygon({
+      positions: details.positions,
+    });
+    if (this.editingClipping) {
+      this.editingClipping.clipping = clippingPolygon;
+      this.applyClipping(this.editingClipping);
+    } else {
+      this.activePolygon.polygon.hierarchy = new ConstantProperty(
+        new PolygonHierarchy(details.positions),
+      );
+      const clipping = {
+        clipping: clippingPolygon,
+        entity: this.activePolygon,
+      };
+      this.clippingPolygons.push(clipping);
+      this.applyClipping(clipping);
+    }
+    this.activePolygon = undefined;
+    this.saveToLocalStore();
+  }
+
+  drawPolygon(
+    positions?: Cartesian3[],
+    name?: string,
+    properties?: ClippingEntityProps,
+  ): Entity {
     const date = new Date();
     return this.slicingDataSource.entities.add({
-      name: `Polygon ${date.toLocaleDateString()} ${date.toLocaleTimeString()}`,
-      // show: false,
+      name:
+        name ||
+        `Polygon ${date.toLocaleDateString()} ${date.toLocaleTimeString()}`,
+      show: false,
       polygon: {
-        hierarchy: new PolygonHierarchy(positions),
+        hierarchy: positions || [],
         material: Color.RED.withAlpha(0.7),
       },
-      properties: {
+      properties: properties || {
         terrainClipping: true,
         tilesClipping: true,
       },
@@ -112,7 +182,7 @@ export class NgvPluginCesiumSlicing extends LitElement {
 
   addClippingPolygon(): void {
     this.draw.active = true;
-    this.activePolygon = this.drawPolygon([])
+    this.activePolygon = this.drawPolygon();
   }
 
   applyClipping(clippingData: ClippingData): void {
@@ -182,8 +252,12 @@ export class NgvPluginCesiumSlicing extends LitElement {
 
   render(): HTMLTemplateResult | string {
     return html`<div class="slicing-container">
-      <button class="add-slicing-btn" @click=${() => this.addClippingPolygon()}>
-        Choose region to hide
+      <button
+        class="add-slicing-btn"
+        .hidden=${this.draw?.active}
+        @click=${() => this.addClippingPolygon()}
+      >
+        ${msg('Choose region to hide')}
       </button>
       ${this.draw?.active
         ? html` <ngv-layer-details
@@ -206,6 +280,8 @@ export class NgvPluginCesiumSlicing extends LitElement {
                   : true,
               },
             }}"
+            .showDone=${this.draw?.entityForEdit}
+            .showCancel=${true}
             @clippingChange=${(evt: {detail: ClippingChangeDetail}) => {
               this.activePolygon.properties.terrainClipping =
                 new ConstantProperty(evt.detail.terrainClipping);
@@ -213,12 +289,36 @@ export class NgvPluginCesiumSlicing extends LitElement {
                 new ConstantProperty(evt.detail.tilesClipping);
             }}
             @done="${() => {
-              // todo
+              if (this.draw.entityForEdit) {
+                const positions: Cartesian3[] = (<PolygonHierarchy>(
+                  this.draw.entityForEdit.polygon.hierarchy.getValue(
+                    this.julianDate,
+                  )
+                )).positions;
+                this.editingClipping.entity.polygon.hierarchy =
+                  new ConstantProperty(new PolygonHierarchy(positions));
+                this.editingClipping.clipping = new ClippingPolygon({
+                  positions,
+                });
+                this.applyClipping(this.editingClipping);
+                this.draw.active = false;
+                this.draw.clear();
+                this.requestUpdate();
+                this.saveToLocalStore();
+              }
+            }}"
+            @cancel="${() => {
+              if (this.draw?.entityForEdit) {
+                this.applyClipping(this.editingClipping);
+              }
+              this.draw.active = false;
+              this.draw.clear();
+              this.requestUpdate();
             }}"
           ></ngv-layer-details>`
         : html` <ngv-layers-list
             .options="${{
-              title: 'Clipping polygons',
+              title: msg('Clipping polygons'),
               showDeleteBtns: true,
               showZoomBtns: true,
               showEditBtns: true,
@@ -235,6 +335,7 @@ export class NgvPluginCesiumSlicing extends LitElement {
                 this.removeClipping(polygonToRemove.clipping);
                 this.clippingPolygons.splice(evt.detail, 1);
                 this.requestUpdate();
+                this.saveToLocalStore();
               }
             }}
             @zoom=${(evt: {detail: number}) => {
@@ -254,7 +355,12 @@ export class NgvPluginCesiumSlicing extends LitElement {
               if (polToEdit) {
                 this.editingClipping = polToEdit;
                 this.removeClipping(polToEdit.clipping);
-                this.addClippingPolygon();
+                this.draw.type = 'polygon';
+                this.draw.entityForEdit = this.drawDataSource.entities.add(
+                  new Entity({polygon: polToEdit.entity.polygon.clone()}),
+                );
+                this.draw.active = true;
+                this.requestUpdate();
               }
             }}
             @zoomEnter=${(e: {detail: number}) => {

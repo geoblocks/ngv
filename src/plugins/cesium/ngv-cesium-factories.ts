@@ -11,7 +11,6 @@ import {
   HeadingPitchRoll,
   Transforms,
   Ellipsoid,
-  ClippingPolygon,
 } from '@cesium/engine';
 
 import type {

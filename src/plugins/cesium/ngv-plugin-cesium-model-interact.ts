@@ -468,6 +468,7 @@ export class NgvPluginCesiumModelInteract extends LitElement {
               tilesClipping: this.chosenModel.id.tilesClipping,
             },
           }}"
+          .showDone=${true}
           @clippingChange=${(evt: {detail: ClippingChangeDetail}) => {
             this.chosenModel.id.terrainClipping = evt.detail.terrainClipping;
             this.chosenModel.id.tilesClipping = evt.detail.tilesClipping;

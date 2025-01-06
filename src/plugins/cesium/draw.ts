@@ -1,4 +1,8 @@
-import type {CesiumWidget, ConstantProperty} from '@cesium/engine';
+import type {
+  CesiumWidget,
+  ConstantProperty,
+  CustomDataSource,
+} from '@cesium/engine';
 import {
   PositionProperty,
   Entity,
@@ -12,7 +16,6 @@ import {
   Cartographic,
   ClassificationType,
   Color,
-  CustomDataSource,
   HeightReference,
   Intersections2D,
   JulianDate,
@@ -79,9 +82,9 @@ export class CesiumDraw extends EventTarget {
   private isDoubleClick = false;
   private singleClickTimer: NodeJS.Timeout | null = null;
   private segmentsInfo: SegmentInfo[] = [];
+  private julianDate = new JulianDate();
   type: GeometryTypes | undefined;
-  julianDate = new JulianDate();
-  drawingDataSource = new CustomDataSource('drawing');
+  drawingDataSource: CustomDataSource;
   minPointsStop: boolean;
   moveEntity = false;
   entityForEdit: Entity | undefined;
@@ -90,7 +93,11 @@ export class CesiumDraw extends EventTarget {
   // todo line options?
   lineClampToGround: boolean = true;
 
-  constructor(viewer: CesiumWidget, dataSource: CustomDataSource, options?: DrawOptions) {
+  constructor(
+    viewer: CesiumWidget,
+    dataSource: CustomDataSource,
+    options?: DrawOptions,
+  ) {
     super();
     // todo move default values to constants
     this.viewer_ = viewer;
@@ -208,7 +215,8 @@ export class CesiumDraw extends EventTarget {
   activateEditing(): void {
     if (!this.eventHandler_ || !this.entityForEdit) return;
     this.eventHandler_.setInputAction(
-      (event: ScreenSpaceEventHandler.PositionedEvent) => this.onLeftDown_(event),
+      (event: ScreenSpaceEventHandler.PositionedEvent) =>
+        this.onLeftDown_(event),
       ScreenSpaceEventType.LEFT_DOWN,
     );
     this.eventHandler_.setInputAction(
@@ -223,11 +231,16 @@ export class CesiumDraw extends EventTarget {
         // todo
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-expect-error
-        this.entityForEdit.position = new CallbackProperty(() => this.activePoints_[0] || position, false);
+        this.entityForEdit.position = new CallbackProperty(
+          () => this.activePoints_[0] || position,
+          false,
+        );
         break;
       case 'line':
         positions = [
-          ...(<Cartesian3[]>this.entityForEdit.polyline.positions.getValue(this.julianDate))
+          ...(<Cartesian3[]>(
+            this.entityForEdit.polyline.positions.getValue(this.julianDate)
+          )),
         ];
         this.entityForEdit.polyline.positions = new CallbackProperty(
           () => this.activePoints_,
@@ -237,8 +250,9 @@ export class CesiumDraw extends EventTarget {
         break;
       case 'polygon':
         positions = [
-          ...(<PolygonHierarchy>this.entityForEdit.polygon.hierarchy.getValue(this.julianDate)
-            ).positions,
+          ...(<PolygonHierarchy>(
+            this.entityForEdit.polygon.hierarchy.getValue(this.julianDate)
+          )).positions,
         ];
         this.entityForEdit.polygon.hierarchy = new CallbackProperty(
           () => new PolygonHierarchy(this.activePoints_),
@@ -248,8 +262,9 @@ export class CesiumDraw extends EventTarget {
         break;
       case 'rectangle':
         positions = [
-          ...(<PolygonHierarchy>this.entityForEdit.polygon.hierarchy.getValue(this.julianDate))
-            .positions,
+          ...(<PolygonHierarchy>(
+            this.entityForEdit.polygon.hierarchy.getValue(this.julianDate)
+          )).positions,
         ];
         this.entityForEdit.polygon.hierarchy = new CallbackProperty(
           () => new PolygonHierarchy(this.activePoints_),
@@ -267,7 +282,7 @@ export class CesiumDraw extends EventTarget {
             );
           }, false),
           billboard: {
-            image: './images/rotate-icon.svg',
+            image: '../../icons/rotate-icon.svg',
             disableDepthTestDistance: Number.POSITIVE_INFINITY,
             heightReference: HeightReference.CLAMP_TO_GROUND,
           },
@@ -744,7 +759,8 @@ export class CesiumDraw extends EventTarget {
               prevRealSP,
               this.sketchPoint_,
             );
-            this.sketchPoints_[prevRealSPIndex + 1].position = new ConstantPositionProperty(prevVirtualPosition);
+            this.sketchPoints_[prevRealSPIndex + 1].position =
+              new ConstantPositionProperty(prevVirtualPosition);
 
             const nextRealSPIndex = ((spLen + idx + 1) * 2) % spLen;
             const nextRealSP = this.sketchPoints_[nextRealSPIndex];
@@ -752,7 +768,8 @@ export class CesiumDraw extends EventTarget {
               nextRealSP,
               this.sketchPoint_,
             );
-            this.sketchPoints_[idx * 2 + 1].position = new ConstantPositionProperty(nextVirtualPosition);
+            this.sketchPoints_[idx * 2 + 1].position =
+              new ConstantPositionProperty(nextVirtualPosition);
           }
           if (this.type === 'line') {
             // move virtual SPs
@@ -763,9 +780,8 @@ export class CesiumDraw extends EventTarget {
                 prevRealSP,
                 this.sketchPoint_,
               );
-              this.sketchPoints_[(idx - 1) * 2 + 1].position = new ConstantPositionProperty(
-                prevVirtualPosition
-              );
+              this.sketchPoints_[(idx - 1) * 2 + 1].position =
+                new ConstantPositionProperty(prevVirtualPosition);
             }
             if (idx < this.activePoints_.length - 1) {
               const nextRealSP = this.sketchPoints_[(idx + 1) * 2];
@@ -773,9 +789,8 @@ export class CesiumDraw extends EventTarget {
                 nextRealSP,
                 this.sketchPoint_,
               );
-              this.sketchPoints_[(idx + 1) * 2 - 1].position = new ConstantPositionProperty(
-                nextVirtualPosition
-              );
+              this.sketchPoints_[(idx + 1) * 2 - 1].position =
+                new ConstantPositionProperty(nextVirtualPosition);
             }
           } else {
             const positions = this.activePoints_;
@@ -890,10 +905,17 @@ export class CesiumDraw extends EventTarget {
   onLeftDown_(event: ScreenSpaceEventHandler.PositionedEvent): void {
     this.leftPressedPixel_ = Cartesian2.clone(event.position);
     if (this.entityForEdit) {
-      const objects: any[] = this.viewer_.scene.drillPick(event.position, 5, 5, 5);
+      const objects: any[] = this.viewer_.scene.drillPick(
+        event.position,
+        5,
+        5,
+        5,
+      );
       if (objects.length) {
-        const selectedPoint = <{id: Entity} | undefined>objects.find(
-          (obj: {id: Entity}) => !!obj.id.point || !!obj.id.billboard,
+        const selectedPoint = <{id: Entity} | undefined>(
+          objects.find(
+            (obj: {id: Entity}) => !!obj.id.point || !!obj.id.billboard,
+          )
         );
         if (!selectedPoint) return;
         const selectedEntity = selectedPoint.id;
@@ -918,13 +940,19 @@ export class CesiumDraw extends EventTarget {
   }
 
   halfwayPosition_(
-    a: Entity | Cartesian3 | PositionProperty,
-    b: Entity | Cartesian3 | PositionProperty,
+    a: Entity | Cartesian3 | PositionProperty | ConstantPositionProperty,
+    b: Entity | Cartesian3 | PositionProperty | ConstantPositionProperty,
   ): Cartesian3 {
     a = a instanceof Entity ? a.position : a;
     b = b instanceof Entity ? b.position : b;
-    a = a instanceof PositionProperty ? a.getValue(this.julianDate) : a;
-    b = b instanceof PositionProperty ? b.getValue(this.julianDate) : b;
+    a =
+      a instanceof ConstantPositionProperty || a instanceof PositionProperty
+        ? <Cartesian3>a.getValue(this.julianDate)
+        : a;
+    b =
+      b instanceof ConstantPositionProperty || b instanceof PositionProperty
+        ? <Cartesian3>b.getValue(this.julianDate)
+        : b;
     const position = Cartesian3.add(a, b, new Cartesian3());
     Cartesian3.divideByScalar(position, 2, position);
     return position;
@@ -1221,7 +1249,7 @@ function rectanglify(coordinates: Cartesian3[]) {
 
 function triangulate(positions: Cartesian2[], holes: number[]): number[] {
   const flattenedPositions: number[] = Cartesian2.packArray(positions);
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-call
+
   return earcut(flattenedPositions, holes, 2);
 }
 
