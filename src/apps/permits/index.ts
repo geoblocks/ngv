@@ -14,6 +14,7 @@ import '../../plugins/cesium/ngv-plugin-cesium-widget';
 import '../../plugins/cesium/ngv-plugin-cesium-upload';
 import '../../plugins/cesium/ngv-plugin-cesium-model-interact';
 import '../../plugins/cesium/ngv-plugin-cesium-slicing';
+import '../../plugins/cesium/ngv-plugin-cesium-measure';
 import type {CesiumWidget, DataSourceCollection} from '@cesium/engine';
 
 import {PrimitiveCollection} from '@cesium/engine';
@@ -80,6 +81,10 @@ export class NgvAppPermits extends ABaseApp<IPermitsConfig> {
                   .tiles3dCollection="${this.collections.tiles3d}"
                   .dataSourceCollection="${this.dataSourceCollection}"
                 ></ngv-plugin-cesium-slicing>
+                <ngv-plugin-cesium-measure
+                  .viewer="${this.viewer}"
+                  .dataSourceCollection="${this.dataSourceCollection}"
+                ></ngv-plugin-cesium-measure>
               `
             : ''}
         </div>

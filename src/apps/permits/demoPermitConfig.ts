@@ -27,13 +27,13 @@ export const config: IPermitsConfig = {
         '@demo': () => import('../../catalogs/demoCatalog.js'),
       },
       layers: {
-        // tiles3d: ['@cesium/googlePhotorealistic'],
+        tiles3d: ['@geoadmin/buildings'], // @cesium/googlePhotorealistic
         // models: ['@demo/sofa', '@demo/thatopensmall'],
         imageries: ['@geoadmin/pixel-karte-farbe'],
-        // terrain: '@geoadmin/terrain',
+        terrain: '@geoadmin/terrain',
       },
       camera: {
-        position: [6.628484, 46.5, 100],
+        position: [6.628484, 46.5, 1000],
         orientation: {
           heading: 0,
           pitch: -30.0,

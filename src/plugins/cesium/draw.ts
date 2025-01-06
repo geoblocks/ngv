@@ -2,8 +2,10 @@ import type {
   CesiumWidget,
   ConstantProperty,
   CustomDataSource,
+  LabelGraphics,
 } from '@cesium/engine';
 import {
+  EllipsoidGeodesic,
   PositionProperty,
   Entity,
   ConstantPositionProperty,
@@ -56,6 +58,7 @@ export type DrawInfo = {
   segments: SegmentInfo[];
   type: GeometryTypes;
   drawInProgress: boolean;
+  area?: number;
 };
 
 export type DrawEndDetails = {
@@ -76,6 +79,7 @@ export class CesiumDraw extends EventTarget {
   private activePoint_: Cartesian3 | undefined;
   private sketchPoint_: Entity | undefined;
   private activeDistance_ = 0;
+  private activeDistancePoly_ = 0;
   private activeDistances_: number[] = [];
   private leftPressedPixel_: Cartesian2 | undefined;
   private sketchPoints_: Entity[] = [];
@@ -204,8 +208,8 @@ export class CesiumDraw extends EventTarget {
     } else {
       if (this.eventHandler_) {
         this.eventHandler_.destroy();
+        this.eventHandler_ = undefined;
       }
-      this.eventHandler_ = undefined;
     }
     this.dispatchEvent(
       new CustomEvent('statechanged', {detail: {active: value && this.type}}),
@@ -354,14 +358,14 @@ export class CesiumDraw extends EventTarget {
           this.activePoints_[this.activePoints_.length - 1],
           this.activePoints_[0],
         );
-        this.activeDistances_.push(distance / 1000);
+        this.activeDistances_.push(distance);
       }
       this.drawShape_(this.activePoints_);
     }
     this.viewer_.scene.requestRender();
 
     const measurements = getMeasurements(positions, this.type);
-    const segments = this.getSegmentsInfo();
+    const segments = this.getSegmentsInfo(this.activeDistances_);
     this.dispatchEvent(
       new CustomEvent<DrawInfo>('drawinfo', {
         detail: {
@@ -370,6 +374,7 @@ export class CesiumDraw extends EventTarget {
           segments: segments,
           type: this.type,
           drawInProgress: false,
+          area: measurements.area,
         },
       }),
     );
@@ -393,6 +398,7 @@ export class CesiumDraw extends EventTarget {
     this.activePoint_ = undefined;
     this.sketchPoint_ = undefined;
     this.activeDistance_ = 0;
+    this.activeDistancePoly_ = 0;
     this.activeDistances_ = [];
     this.entityForEdit = undefined;
     this.leftPressedPixel_ = undefined;
@@ -433,7 +439,11 @@ export class CesiumDraw extends EventTarget {
       entity.point.disableDepthTestDistance = Number.POSITIVE_INFINITY;
     }
     if (options.label && this.type) {
-      entity.label = getDimensionLabel(this.type, this.activeDistances_);
+      entity.label = getDimensionLabel({
+        type: this.type,
+        distances: this.activeDistances_,
+        positions: [...this.activePoints_],
+      });
       entity.label.heightReference = this.pointOptions.heightReference;
     }
     const pointEntity = this.drawingDataSource.entities.add(entity);
@@ -482,7 +492,10 @@ export class CesiumDraw extends EventTarget {
             ? ClassificationType.TERRAIN
             : ClassificationType.BOTH,
         },
-        label: getDimensionLabel(this.type, this.activeDistances_),
+        label: getDimensionLabel({
+          type: this.type,
+          distances: this.activeDistances_,
+        }),
       });
     } else if (
       (this.type === 'polygon' || this.type === 'rectangle') &&
@@ -495,7 +508,11 @@ export class CesiumDraw extends EventTarget {
           material: this.fillColor_,
           classificationType: ClassificationType.TERRAIN,
         },
-        label: getDimensionLabel(this.type, this.activeDistances_),
+        label: getDimensionLabel({
+          type: this.type,
+          distances: this.activeDistances_,
+          positions: [...this.activePoints_, this.activePoint_],
+        }),
       });
     }
   }
@@ -544,27 +561,52 @@ export class CesiumDraw extends EventTarget {
         (<ConstantPositionProperty>this.sketchPoint_.position).setValue(
           lastPoint,
         );
+        if (this.type === 'polygon' && this.activePoints_.length > 1) {
+          this.activeDistancePoly_ = Cartesian3.distance(
+            lastPoint,
+            positions[0],
+          );
+        }
       }
-      this.activeDistance_ = distance / 1000;
-      const value = `${this.activeDistance_.toFixed(3)}km`;
-      (<ConstantProperty>this.sketchPoint_.label.text).setValue(value);
+      this.activeDistance_ = distance;
+      let area = 0;
+      const distances = [...this.activeDistances_];
+      if (this.type === 'polygon') {
+        if (positions.length > 2) {
+          distances.push(this.activeDistance_, this.activeDistancePoly_);
+        }
+        area = getPolygonArea(positions);
+        (<ConstantProperty>this.sketchPoint_.label.text).setValue(
+          `${area.toFixed(1)}m²`,
+        );
+      } else {
+        const value = `${this.activeDistance_.toFixed(1)}m`;
+        (<ConstantProperty>this.sketchPoint_.label.text).setValue(value);
+      }
+      this.segmentsInfo = this.getSegmentsInfo(distances);
+      const numberOfSegments =
+        this.type === 'polygon'
+          ? this.segmentsInfo.length
+          : this.segmentsInfo.length + 1;
       this.dispatchEvent(
         new CustomEvent<DrawInfo>('drawinfo', {
           detail: {
             length: this.activeDistance_,
             numberOfSegments:
-              this.activePoints_.length === 0
-                ? 0
-                : this.segmentsInfo.length + 1,
+              this.activePoints_.length === 0 ? 0 : numberOfSegments,
             segments: this.segmentsInfo,
             type: this.type,
             drawInProgress: true,
+            area:
+              this.type === 'polygon' || this.type === 'rectangle'
+                ? area
+                : undefined,
           },
         }),
       );
       return;
     }
-    (<ConstantProperty>this.sketchPoint_.label.text).setValue('0km');
+    (<ConstantProperty>this.sketchPoint_.label.text).setValue('0m');
     this.dispatchEvent(
       new CustomEvent<DrawInfo>('drawinfo', {
         detail: {
@@ -600,7 +642,7 @@ export class CesiumDraw extends EventTarget {
         this.activeDistances_.push(this.activeDistance_);
       }
       this.activePoints_.push(Cartesian3.clone(this.activePoint_));
-      this.segmentsInfo = this.getSegmentsInfo();
+      this.segmentsInfo = this.getSegmentsInfo(this.activeDistances_);
       const forceFinish =
         this.minPointsStop &&
         ((this.type === 'polygon' && this.activePoints_.length === 3) ||
@@ -1158,20 +1200,27 @@ export class CesiumDraw extends EventTarget {
     };
   }
 
-  getSegmentsInfo(): SegmentInfo[] {
-    const positions = this.activePoints_;
-    return this.activeDistances_.map((dist, indx) => {
-      const easting = 0;
-      const northing = 0;
-      let height = 0;
-      if (positions[indx + 1]) {
+  getSegmentsInfo(distances: number[]): SegmentInfo[] {
+    const positions = [...this.activePoints_];
+    positions.push(this.activePoint_);
+    return distances.map((dist, indx) => {
+      let easting: number = 0;
+      let northing: number = 0;
+      let height: number = 0;
+      const position =
+        indx === distances.length - 1 && this.type === 'polygon'
+          ? positions[0]
+          : positions[indx + 1];
+      if (position && positions[indx]) {
         const cartPosition1 = Cartographic.fromCartesian(positions[indx]);
-        const cartPosition2 = Cartographic.fromCartesian(positions[indx + 1]);
-        // todo
-        // const lv95Position1 = cartesianToLv95(positions[indx]);
-        // const lv95Position2 = cartesianToLv95(positions[indx + 1]);
-        // easting = Math.abs(lv95Position2[0] - lv95Position1[0]) / 1000;
-        // northing = Math.abs(lv95Position2[1] - lv95Position1[1]) / 1000;
+        const cartPosition2 = Cartographic.fromCartesian(position);
+        const geodesic = new EllipsoidGeodesic(cartPosition1, cartPosition2);
+        northing = Math.abs(
+          geodesic.surfaceDistance * Math.cos(geodesic.startHeading),
+        );
+        easting = Math.abs(
+          geodesic.surfaceDistance * Math.sin(geodesic.startHeading),
+        );
         height = Math.abs(cartPosition2.height - cartPosition1.height);
       }
       return {
@@ -1184,20 +1233,32 @@ export class CesiumDraw extends EventTarget {
   }
 }
 
-function getDimensionLabelText(type: GeometryTypes, distances: number[]) {
-  let text;
-  if (type === 'rectangle') {
-    text = `${Number(distances[0]).toFixed(3)}km x ${Number(distances[1]).toFixed(3)}km`;
-  } else {
+function getDimensionLabelText(options: {
+  type: GeometryTypes;
+  distances?: number[];
+  positions?: Cartesian3[];
+}) {
+  const distances = options.distances;
+  const type = options.type;
+  let text = '';
+  if (type === 'rectangle' && distances?.length) {
+    text = `${Number(distances[0]).toFixed(1)}m x ${Number(distances[1]).toFixed(1)}m`;
+  } else if (type === 'polygon') {
+    text = `${options.positions?.length ? Number(getPolygonArea(options.positions)).toFixed(1) : 0}m²`;
+  } else if (distances?.length) {
     const length = distances.reduce((a, b) => a + b, 0);
-    text = `${length.toFixed(3)}km`;
+    text = `${length.toFixed(1)}m`;
   }
-  return text.includes('undefined') ? '' : text;
+  return text?.includes('undefined') ? '' : text;
 }
 
-function getDimensionLabel(type: GeometryTypes, distances: number[]) {
+export function getDimensionLabel(options: {
+  type: GeometryTypes;
+  distances?: number[];
+  positions?: Cartesian3[];
+}): LabelGraphics.ConstructorOptions {
   return {
-    text: getDimensionLabelText(type, distances),
+    text: getDimensionLabelText(options),
     font: '8pt arial',
     style: LabelStyle.FILL,
     showBackground: true,
@@ -1270,10 +1331,10 @@ function getPolygonArea(positions: Cartesian3[], holes: number[] = []): number {
 
     area += triangleArea;
   }
-  return area * Math.pow(10, -6);
+  return area;
 }
 
-type Measurements = {
+export type Measurements = {
   positions: Cartesian3[];
   type: GeometryTypes;
   numberOfSegments: number;
@@ -1292,7 +1353,7 @@ function getMeasurements(
   const segmentsLength: number[] = [];
   positions.forEach((p, key) => {
     if (key > 0) {
-      segmentsLength.push(Cartesian3.distance(positions[key - 1], p) / 1000);
+      segmentsLength.push(Cartesian3.distance(positions[key - 1], p));
     }
   });
   const result: Measurements = {
