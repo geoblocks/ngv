@@ -115,6 +115,13 @@ export class NgvPluginCesiumSlicing extends LitElement {
         });
       })
       .catch((e) => console.error(e));
+    this.tiles3dCollection.primitiveAdded.addEventListener(
+      (tileset: Cesium3DTileset) => {
+        this.clippingPolygons.forEach((cp) =>
+          this.applyClippingOnTileset(tileset, cp.clipping),
+        );
+      },
+    );
   }
 
   saveToLocalStore(): void {
@@ -209,15 +216,22 @@ export class NgvPluginCesiumSlicing extends LitElement {
           const tileset: Cesium3DTileset = this.tiles3dCollection.get(
             i,
           ) as Cesium3DTileset;
-          if (!tileset.clippingPolygons) {
-            tileset.clippingPolygons = new ClippingPolygonCollection();
-          }
-          tileset.clippingPolygons.add(clippingData.clipping);
+          this.applyClippingOnTileset(tileset, clippingData.clipping);
         }
       } else {
         this.removeTilesClipping(clippingData.clipping);
       }
     }
+  }
+
+  applyClippingOnTileset(
+    tileset: Cesium3DTileset,
+    clippingPolygon: ClippingPolygon,
+  ): void {
+    if (!tileset.clippingPolygons) {
+      tileset.clippingPolygons = new ClippingPolygonCollection();
+    }
+    tileset.clippingPolygons.add(clippingPolygon);
   }
 
   removeTerrainClipping(clippingPolygon: ClippingPolygon): void {
@@ -301,6 +315,7 @@ export class NgvPluginCesiumSlicing extends LitElement {
                   positions,
                 });
                 this.applyClipping(this.editingClipping);
+                this.activePolygon = undefined;
                 this.draw.active = false;
                 this.draw.clear();
                 this.requestUpdate();
@@ -356,6 +371,7 @@ export class NgvPluginCesiumSlicing extends LitElement {
                 this.editingClipping = polToEdit;
                 this.removeClipping(polToEdit.clipping);
                 this.draw.type = 'polygon';
+                this.activePolygon = polToEdit.entity;
                 this.draw.entityForEdit = this.drawDataSource.entities.add(
                   new Entity({polygon: polToEdit.entity.polygon.clone()}),
                 );

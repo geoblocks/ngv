@@ -1262,7 +1262,7 @@ export function getDimensionLabel(options: {
     font: '8pt arial',
     style: LabelStyle.FILL,
     showBackground: true,
-    heightReference: HeightReference.CLAMP_TO_GROUND,
+    heightReference: HeightReference.NONE,
     verticalOrigin: VerticalOrigin.BOTTOM,
     horizontalOrigin: HorizontalOrigin.RIGHT,
     pixelOffset: new Cartesian2(-5, -5),

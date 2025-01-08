@@ -1,7 +1,7 @@
 import {customElement, property, state} from 'lit/decorators.js';
 import {css, html, type HTMLTemplateResult, LitElement} from 'lit';
 import {msg} from '@lit/localize';
-import type {Entity, CesiumWidget, DataSourceCollection} from '@cesium/engine';
+import type {CesiumWidget, DataSourceCollection, Entity} from '@cesium/engine';
 import {Color, CustomDataSource, HeightReference} from '@cesium/engine';
 import type {DrawInfo} from './draw.js';
 import {CesiumDraw, type DrawEndDetails, getDimensionLabel} from './draw.js';
@@ -62,6 +62,9 @@ export class NgvPluginCesiumMeasure extends LitElement {
       .then((drawDataSource) => {
         this.draw = new CesiumDraw(this.viewer, drawDataSource, {
           lineClampToGround: false,
+          pointOptions: {
+            heightReference: HeightReference.NONE,
+          },
         });
         this.draw.addEventListener('drawend', (e) => {
           const details = (<CustomEvent<DrawEndDetails>>e).detail;
@@ -78,6 +81,7 @@ export class NgvPluginCesiumMeasure extends LitElement {
               polygon: {
                 hierarchy: details.positions,
                 material: Color.YELLOW.withAlpha(0.7),
+                perPositionHeight: true,
               },
             });
           }
