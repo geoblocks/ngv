@@ -8,6 +8,7 @@ import type {
   DataSourceCollection,
   Cartesian2,
   Cesium3DTileset,
+  Event,
 } from '@cesium/engine';
 import {
   Model,
@@ -100,6 +101,9 @@ export class NgvPluginCesiumModelInteract extends LitElement {
   private movePlane: Plane | undefined;
   private grabType: GrabType;
   private hoveredEdge: Entity | undefined;
+  private cameraMoving = false;
+  private unlistenMoveStart: Event.RemoveCallback;
+  private unlistenMoveEnd: Event.RemoveCallback;
 
   initEvents(): void {
     this.eventHandler = new ScreenSpaceEventHandler(this.viewer.canvas);
@@ -146,6 +150,12 @@ export class NgvPluginCesiumModelInteract extends LitElement {
         applyClippingTo3dTileset(tileset, this.models);
       },
     );
+    this.unlistenMoveStart = this.viewer.camera.moveStart.addEventListener(
+      () => (this.cameraMoving = true),
+    );
+    this.unlistenMoveEnd = this.viewer.camera.moveEnd.addEventListener(
+      () => (this.cameraMoving = false),
+    );
   }
 
   removeEvents(): void {
@@ -156,6 +166,8 @@ export class NgvPluginCesiumModelInteract extends LitElement {
       this.eventHandler.destroy();
       this.eventHandler = null;
     }
+    if (this.unlistenMoveStart) this.unlistenMoveStart();
+    if (this.unlistenMoveEnd) this.unlistenMoveEnd();
   }
 
   onPrimitivesChanged(): void {
@@ -232,6 +244,7 @@ export class NgvPluginCesiumModelInteract extends LitElement {
   }
 
   onMouseMove(evt: ScreenSpaceEventHandler.MotionEvent): void {
+    if (this.cameraMoving) return;
     if (this.grabType && this.chosenModel) {
       const endPosition = this.viewer.scene.pickPosition(evt.endPosition);
       if (!endPosition) return;
@@ -295,36 +308,56 @@ export class NgvPluginCesiumModelInteract extends LitElement {
   }
 
   updateCursor(position: Cartesian2): void {
-    const model: Model | undefined = this.pickModel(position);
-    const isSidePlane = !!this.pickEntity(position, this.sidePlanesDataSource);
-    const isTopPlane = !!this.pickEntity(
-      position,
-      this.topDownPlanesDataSource,
-    );
-    const edgeEntity = this.pickEntity(position, this.edgeLinesDataSource);
-    const isCorner = !!this.pickEntity(position, this.cornerPointsDataSource);
+    const obj: {id: Entity | undefined; primitive: Model | undefined} = <
+      {id: Entity | undefined; primitive: Model | undefined}
+    >this.viewer.scene.pick(position);
+    if (!obj) return;
+
+    const pickedEntity =
+      this.chosenModel && obj?.id && obj.id instanceof Entity
+        ? obj?.id
+        : undefined;
+    const model =
+      !pickedEntity &&
+      obj?.primitive &&
+      this.primitiveCollection.contains(obj.primitive)
+        ? obj.primitive
+        : undefined;
+    if (!pickedEntity && !model) return;
+
+    const isEdge =
+      pickedEntity && this.edgeLinesDataSource.entities.contains(pickedEntity);
     if (model && !this.chosenModel) {
       if (this.cursor !== 'pointer') {
         this.viewer.canvas.style.cursor = this.cursor = 'pointer';
       }
-    } else if (isSidePlane) {
+    } else if (
+      pickedEntity &&
+      this.sidePlanesDataSource.entities.contains(pickedEntity)
+    ) {
       if (this.cursor !== 'move') {
         this.viewer.canvas.style.cursor = this.cursor = 'move';
       }
-    } else if (isTopPlane) {
+    } else if (
+      pickedEntity &&
+      this.topDownPlanesDataSource.entities.contains(pickedEntity)
+    ) {
       if (this.cursor !== 'ns-resize') {
         this.viewer.canvas.style.cursor = this.cursor = 'ns-resize';
       }
-    } else if (isCorner) {
+    } else if (
+      pickedEntity &&
+      this.cornerPointsDataSource.entities.contains(pickedEntity)
+    ) {
       if (this.cursor !== 'nesw-resize') {
         this.viewer.canvas.style.cursor = this.cursor = 'nesw-resize';
       }
-    } else if (edgeEntity) {
+    } else if (isEdge) {
       if (this.cursor !== 'ew-resize') {
         this.viewer.canvas.style.cursor = this.cursor = 'ew-resize';
       }
       if (!this.hoveredEdge) {
-        this.hoveredEdge = edgeEntity;
+        this.hoveredEdge = pickedEntity;
         this.hoveredEdge.polyline.material = new ColorMaterialProperty(
           Color.WHITE.withAlpha(0.9),
         );
@@ -332,7 +365,7 @@ export class NgvPluginCesiumModelInteract extends LitElement {
     } else if (this.cursor !== 'default') {
       this.viewer.canvas.style.cursor = this.cursor = 'default';
     }
-    if (this.hoveredEdge && !edgeEntity) {
+    if (this.hoveredEdge && !isEdge) {
       this.hoveredEdge.polyline.material = new ColorMaterialProperty(
         Color.WHITE.withAlpha(0.3),
       );
@@ -347,17 +380,6 @@ export class NgvPluginCesiumModelInteract extends LitElement {
     return pickedObject?.primitive &&
       this.primitiveCollection.contains(pickedObject.primitive)
       ? pickedObject.primitive
-      : undefined;
-  }
-
-  pickEntity(position: Cartesian2, dataSource: DataSource): Entity | undefined {
-    const obj: {id: Entity | undefined} = <{id: Entity | undefined}>(
-      this.viewer.scene.pick(position)
-    );
-    return obj?.id &&
-      obj.id instanceof Entity &&
-      dataSource.entities.contains(obj.id)
-      ? obj?.id
       : undefined;
   }
 

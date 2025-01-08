@@ -100,7 +100,9 @@ export class NgvPluginCesiumUpload extends LitElement {
   }
 
   onMouseMove(event: ScreenSpaceEventHandler.MotionEvent): void {
+    if (!event.endPosition) return;
     const position = this.viewer.scene.pickPosition(event.endPosition);
+    if (!position) return;
     const cart = Cartographic.fromCartesian(
       position,
       this.viewer.scene.ellipsoid,
