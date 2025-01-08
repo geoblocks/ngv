@@ -110,6 +110,8 @@ export type StoredModel = {
   translation: number[];
   rotation: number[];
   scale: number[];
+  terrainClipping: boolean;
+  tilesClipping: boolean;
 };
 
 export function updateModelsInLocalStore(
@@ -136,6 +138,8 @@ export function updateModelsInLocalStore(
       translation: [translation.x, translation.y, translation.z],
       rotation: [rotation.x, rotation.y, rotation.z, rotation.w],
       scale: [scale.x, scale.y, scale.z],
+      tilesClipping: model.id.tilesClipping,
+      terrainClipping: model.id.terrainClipping,
     });
   });
   localStorage.setItem(storeKey, JSON.stringify(localStoreModels));
@@ -147,6 +151,29 @@ export function getStoredModels(storeKey: string): StoredModel[] {
     return <StoredModel[]>JSON.parse(localStorage.getItem(storeKey));
   } catch (e) {
     console.error('Not possible to parse models from local storage', e);
+    return [];
+  }
+}
+
+export type StoredClipping = {
+  name: string;
+  positions: number[][];
+  terrainClipping: boolean;
+  tilesClipping: boolean;
+};
+
+const CLIPPING_KEY = 'clipping-polygons';
+
+export function updateClippingInLocalStore(clipping: StoredClipping[]): void {
+  localStorage.setItem(CLIPPING_KEY, JSON.stringify(clipping));
+}
+
+export function getStoredClipping(): StoredClipping[] {
+  if (!localStorage.getItem(CLIPPING_KEY)) return [];
+  try {
+    return <StoredClipping[]>JSON.parse(localStorage.getItem(CLIPPING_KEY));
+  } catch (e) {
+    console.error('Not possible to parse clippings from local storage', e);
     return [];
   }
 }

@@ -10,6 +10,7 @@ export type LayerListOptions = {
   title?: string;
   showDeleteBtns?: boolean;
   showZoomBtns?: boolean;
+  showEditBtns?: boolean;
 };
 
 @customElement('ngv-layers-list')
@@ -37,13 +38,28 @@ export class NgvLayersList extends LitElement {
     .item {
       text-overflow: ellipsis;
       display: flex;
-      align-items: center;
+      flex-direction: column;
       column-gap: 10px;
+      row-gap: 10px;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.16);
+      padding-bottom: 10px;
+    }
+
+    .item:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
     }
 
     .item span {
       overflow: hidden;
       text-overflow: ellipsis;
+    }
+
+    .actions {
+      display: flex;
+      align-items: center;
+      justify-content: end;
+      column-gap: 5px;
     }
 
     button {
@@ -65,27 +81,48 @@ export class NgvLayersList extends LitElement {
         ${this.layers.map(
           (l, i) =>
             html`<div class="item">
-              ${this.options?.showZoomBtns
-                ? html`<button
-                    @click=${() => {
-                      this.dispatchEvent(new CustomEvent('zoom', {detail: i}));
-                    }}
-                  >
-                    &#x1F50D;
-                  </button>`
-                : ''}
               <span>${l.name}</span>
-              ${this.options?.showDeleteBtns
-                ? html`<button
+              <div class="actions">
+                ${this.options?.showZoomBtns
+                  ? html`<button
+                      @mouseenter=${() =>
+                        this.dispatchEvent(
+                          new CustomEvent('zoomEnter', {detail: i}),
+                        )}
+                      @mouseout=${() =>
+                        this.dispatchEvent(
+                          new CustomEvent('zoomOut', {detail: i}),
+                        )}
+                      @click=${() => {
+                        this.dispatchEvent(
+                          new CustomEvent('zoom', {detail: i}),
+                        );
+                      }}
+                    >
+                      &#x1F50D;
+                    </button>`
+                  : ''}
+                ${this.options?.showEditBtns
+                  ? html`<button
                     @click=${() => {
-                      this.dispatchEvent(
-                        new CustomEvent('remove', {detail: i}),
-                      );
+                      this.dispatchEvent(new CustomEvent('edit', {detail: i}));
                     }}
                   >
-                    &#x1F5D1;
+                    &#128393
                   </button>`
-                : ''}
+                  : ''}
+                ${this.options?.showDeleteBtns
+                  ? html`<button
+                      @click=${() => {
+                        this.dispatchEvent(
+                          new CustomEvent('remove', {detail: i}),
+                        );
+                      }}
+                    >
+                      &#x1F5D1;
+                    </button>`
+                  : ''}
+              </div>
             </div>`,
         )}
       </div>`;

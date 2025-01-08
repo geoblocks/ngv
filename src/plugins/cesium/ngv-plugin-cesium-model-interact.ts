@@ -7,6 +7,7 @@ import type {
   PrimitiveCollection,
   DataSourceCollection,
   Cartesian2,
+  Cesium3DTileset,
 } from '@cesium/engine';
 import {
   Model,
@@ -35,6 +36,11 @@ import '../ui/ngv-layer-details.js';
 import '../ui/ngv-layers-list.js';
 import type {BBoxStyles} from './interactionHelpers.js';
 import {
+  applyClippingTo3dTileset,
+  removeClippingFrom3dTilesets,
+  updateModelClipping,
+} from './interactionHelpers.js';
+import {
   getHorizontalMoveVector,
   getTranslationFromMatrix,
   getVerticalMoveVector,
@@ -43,6 +49,7 @@ import {
   showModelBBox,
 } from './interactionHelpers.js';
 import type {INGVCesiumModel} from '../../interfaces/cesium/ingv-layers.js';
+import type {ClippingChangeDetail} from '../ui/ngv-layer-details.js';
 
 type GrabType = 'side' | 'top' | 'edge' | 'corner' | undefined;
 
@@ -52,6 +59,8 @@ export class NgvPluginCesiumModelInteract extends LitElement {
   private viewer: CesiumWidget;
   @property({type: Object})
   private primitiveCollection: PrimitiveCollection;
+  @property({type: Object})
+  private tiles3dCollection: PrimitiveCollection;
   @property({type: Object})
   private dataSourceCollection: DataSourceCollection;
   @property({type: Object})
@@ -111,9 +120,16 @@ export class NgvPluginCesiumModelInteract extends LitElement {
       ScreenSpaceEventType.LEFT_UP,
     );
 
-    this.primitiveCollection.primitiveAdded.addEventListener(() => {
-      this.onPrimitivesChanged();
-    });
+    this.primitiveCollection.primitiveAdded.addEventListener(
+      (model: INGVCesiumModel) => {
+        this.onPrimitivesChanged();
+        updateModelClipping(
+          model,
+          this.tiles3dCollection,
+          this.viewer.scene.globe,
+        );
+      },
+    );
     this.primitiveCollection.primitiveRemoved.addEventListener(
       (p: INGVCesiumModel) => {
         if (this.storeOptions) {
@@ -123,6 +139,11 @@ export class NgvPluginCesiumModelInteract extends LitElement {
         } else {
           this.onPrimitivesChanged();
         }
+      },
+    );
+    this.tiles3dCollection?.primitiveAdded.addEventListener(
+      (tileset: Cesium3DTileset) => {
+        applyClippingTo3dTileset(tileset, this.models);
       },
     );
   }
@@ -180,10 +201,31 @@ export class NgvPluginCesiumModelInteract extends LitElement {
 
       const normal = Ellipsoid.WGS84.geodeticSurfaceNormal(this.moveStart);
       this.movePlane = Plane.fromPointNormal(this.moveStart, normal);
+
+      if (
+        this.chosenModel?.id.tilesClipping ||
+        this.chosenModel?.id.terrainClipping
+      ) {
+        removeClippingFrom3dTilesets(
+          this.chosenModel,
+          this.tiles3dCollection,
+          this.viewer.scene.globe,
+        );
+      }
     }
   }
   onLeftUp(): void {
     if (this.grabType) {
+      if (
+        this.chosenModel?.id.tilesClipping ||
+        this.chosenModel?.id.terrainClipping
+      ) {
+        updateModelClipping(
+          this.chosenModel,
+          this.tiles3dCollection,
+          this.viewer.scene.globe,
+        );
+      }
       this.viewer.scene.screenSpaceCameraController.enableInputs = true;
       this.grabType = undefined;
     }
@@ -368,7 +410,7 @@ export class NgvPluginCesiumModelInteract extends LitElement {
             this.storeOptions.indexDbName,
             m.name,
           );
-          const model = await instantiateModel({
+          const model: INGVCesiumModel = await instantiateModel({
             type: 'model',
             options: {
               url: URL.createObjectURL(blob),
@@ -383,10 +425,19 @@ export class NgvPluginCesiumModelInteract extends LitElement {
               id: {
                 name: m.name,
                 dimensions: new Cartesian3(...Object.values(m.dimensions)),
+                terrainClipping: m.terrainClipping,
+                tilesClipping: m.tilesClipping,
               },
             },
           });
           this.primitiveCollection.add(model);
+          model.readyEvent.addEventListener(() =>
+            updateModelClipping(
+              model,
+              this.tiles3dCollection,
+              this.viewer.scene.globe,
+            ),
+          );
         }),
       );
       this.onPrimitivesChanged();
@@ -410,7 +461,23 @@ export class NgvPluginCesiumModelInteract extends LitElement {
     if (!this.chosenModel && !this.models?.length) return '';
     return this.chosenModel
       ? html` <ngv-layer-details
-          .layer="${{name: this.chosenModel.id.name}}"
+          .layer="${{
+            name: this.chosenModel.id.name,
+            clippingOptions: {
+              terrainClipping: this.chosenModel.id.terrainClipping,
+              tilesClipping: this.chosenModel.id.tilesClipping,
+            },
+          }}"
+          .showDone=${true}
+          @clippingChange=${(evt: {detail: ClippingChangeDetail}) => {
+            this.chosenModel.id.terrainClipping = evt.detail.terrainClipping;
+            this.chosenModel.id.tilesClipping = evt.detail.tilesClipping;
+            updateModelClipping(
+              this.chosenModel,
+              this.tiles3dCollection,
+              this.viewer.scene.globe,
+            );
+          }}
           @done="${() => {
             this.chosenModel = undefined;
             this.sidePlanesDataSource.entities.removeAll();

@@ -13,6 +13,8 @@ import type {IPermitsConfig} from './ingv-config-permits.js';
 import '../../plugins/cesium/ngv-plugin-cesium-widget';
 import '../../plugins/cesium/ngv-plugin-cesium-upload';
 import '../../plugins/cesium/ngv-plugin-cesium-model-interact';
+import '../../plugins/cesium/ngv-plugin-cesium-slicing';
+import '../../plugins/cesium/ngv-plugin-cesium-measure';
 import type {CesiumWidget, DataSourceCollection} from '@cesium/engine';
 
 import {PrimitiveCollection} from '@cesium/engine';
@@ -55,6 +57,7 @@ export class NgvAppPermits extends ABaseApp<IPermitsConfig> {
                   .viewer="${this.viewer}"
                   .dataSourceCollection="${this.dataSourceCollection}"
                   .primitiveCollection="${this.collections.models}"
+                  .tiles3dCollection="${this.collections.tiles3d}"
                   .options="${{listTitle: 'Catalog'}}"
                 ></ngv-plugin-cesium-model-interact>
                 <div
@@ -69,9 +72,19 @@ export class NgvAppPermits extends ABaseApp<IPermitsConfig> {
                   .viewer="${this.viewer}"
                   .dataSourceCollection="${this.dataSourceCollection}"
                   .primitiveCollection="${this.uploadedModelsCollection}"
+                  .tiles3dCollection="${this.collections.tiles3d}"
                   .storeOptions="${this.storeOptions}"
                   .options="${{listTitle: 'Uploaded models'}}"
                 ></ngv-plugin-cesium-model-interact>
+                <ngv-plugin-cesium-slicing
+                  .viewer="${this.viewer}"
+                  .tiles3dCollection="${this.collections.tiles3d}"
+                  .dataSourceCollection="${this.dataSourceCollection}"
+                ></ngv-plugin-cesium-slicing>
+                <ngv-plugin-cesium-measure
+                  .viewer="${this.viewer}"
+                  .dataSourceCollection="${this.dataSourceCollection}"
+                ></ngv-plugin-cesium-measure>
               `
             : ''}
         </div>

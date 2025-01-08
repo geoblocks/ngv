@@ -31,7 +31,7 @@ import {
 } from '@cesium/engine';
 import type {IngvCesiumContext} from '../../interfaces/cesium/ingv-cesium-context.js';
 import type {INGVCatalog} from '../../interfaces/cesium/ingv-catalog.js';
-import {getDimensions} from './interactionHelpers.js';
+import {getClippingPolygon, getDimensions} from './interactionHelpers.js';
 
 function withExtra<T>(options: T, extra: Record<string, any>): T {
   if (!extra) {
@@ -67,6 +67,7 @@ export async function instantiateModel(
   );
   model.readyEvent.addEventListener(() => {
     model.id.dimensions = getDimensions(model);
+    model.id.clippingPolygon = getClippingPolygon(model);
   });
   return model;
 }
