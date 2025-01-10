@@ -42,6 +42,8 @@ export class NgvPluginCesiumSlicing extends LitElement {
   private tiles3dCollection: PrimitiveCollection;
   @property({type: Object})
   private dataSourceCollection: DataSourceCollection;
+  @property({type: String})
+  private storeKey: string;
   @state()
   private clippingPolygons: ClippingData[] = [];
   @state()
@@ -86,23 +88,26 @@ export class NgvPluginCesiumSlicing extends LitElement {
     this.dataSourceCollection
       .add(this.slicingDataSource)
       .then(() => {
-        const storedClipping = getStoredClipping();
-        storedClipping.forEach((clipping) => {
-          const positions = clipping.positions.map(
-            (p) => new Cartesian3(p[0], p[1], p[2]),
-          );
-          const entity = this.drawPolygon(positions, clipping.name, {
-            terrainClipping: clipping.terrainClipping,
-            tilesClipping: clipping.tilesClipping,
+        if (this.storeKey) {
+          const storedClipping = getStoredClipping(this.storeKey);
+          storedClipping.forEach((clipping) => {
+            const positions = clipping.positions.map(
+              (p) => new Cartesian3(p[0], p[1], p[2]),
+            );
+            if (positions?.length < 3) return;
+            const entity = this.drawPolygon(positions, clipping.name, {
+              terrainClipping: clipping.terrainClipping,
+              tilesClipping: clipping.tilesClipping,
+            });
+            const clippingData = {
+              entity,
+              clipping: new ClippingPolygon({positions}),
+            };
+            this.clippingPolygons.push(clippingData);
+            this.applyClipping(clippingData);
           });
-          const clippingData = {
-            entity,
-            clipping: new ClippingPolygon({positions}),
-          };
-          this.clippingPolygons.push(clippingData);
-          this.applyClipping(clippingData);
-        });
-        this.requestUpdate();
+          this.requestUpdate();
+        }
       })
       .catch((e) => console.error(e));
     this.dataSourceCollection
@@ -125,6 +130,7 @@ export class NgvPluginCesiumSlicing extends LitElement {
   }
 
   saveToLocalStore(): void {
+    if (!this.storeKey) return;
     const clippingsToStore: StoredClipping[] =
       this.slicingDataSource.entities.values.map((e) => {
         const properties = <ClippingEntityProps>(
@@ -139,7 +145,7 @@ export class NgvPluginCesiumSlicing extends LitElement {
           tilesClipping: properties.tilesClipping,
         };
       });
-    updateClippingInLocalStore(clippingsToStore);
+    updateClippingInLocalStore(clippingsToStore, this.storeKey);
   }
 
   onDrawEnd(details: DrawEndDetails): void {

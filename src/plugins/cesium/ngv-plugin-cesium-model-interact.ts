@@ -10,6 +10,8 @@ import type {
   Cesium3DTileset,
   Event,
 } from '@cesium/engine';
+import {Matrix3, HeadingPitchRoll} from '@cesium/engine';
+import {Cartographic, Math as CMath} from '@cesium/engine';
 import {
   Model,
   Cartesian3,
@@ -311,7 +313,12 @@ export class NgvPluginCesiumModelInteract extends LitElement {
     const obj: {id: Entity | undefined; primitive: Model | undefined} = <
       {id: Entity | undefined; primitive: Model | undefined}
     >this.viewer.scene.pick(position);
-    if (!obj) return;
+    if (!obj) {
+      if (this.cursor !== 'default') {
+        this.viewer.canvas.style.cursor = this.cursor = 'default';
+      }
+      return;
+    }
 
     const pickedEntity =
       this.chosenModel && obj?.id && obj.id instanceof Entity
@@ -323,7 +330,12 @@ export class NgvPluginCesiumModelInteract extends LitElement {
       this.primitiveCollection.contains(obj.primitive)
         ? obj.primitive
         : undefined;
-    if (!pickedEntity && !model) return;
+    if (!pickedEntity && !model) {
+      if (this.cursor !== 'default') {
+        this.viewer.canvas.style.cursor = this.cursor = 'default';
+      }
+      return;
+    }
 
     const isEdge =
       pickedEntity && this.edgeLinesDataSource.entities.contains(pickedEntity);
@@ -501,6 +513,28 @@ export class NgvPluginCesiumModelInteract extends LitElement {
             );
           }}
           @done="${() => {
+            const modelMatrix = this.chosenModel.modelMatrix;
+            const cartesianPosition = new Cartesian3();
+            Matrix4.getTranslation(modelMatrix, cartesianPosition);
+            const cartographicPosition =
+              Cartographic.fromCartesian(cartesianPosition);
+            const longitude = CMath.toDegrees(cartographicPosition.longitude);
+            const latitude = CMath.toDegrees(cartographicPosition.latitude);
+            const height = cartographicPosition.height;
+            // todo show in panel
+            console.log(
+              `Longitude: ${longitude}, Latitude: ${latitude}, Height: ${height}`,
+            );
+            const rotationMatrix = new Matrix3();
+            Matrix4.getRotation(modelMatrix, rotationMatrix);
+            const euler = HeadingPitchRoll.fromQuaternion(
+              Quaternion.fromRotationMatrix(rotationMatrix),
+            );
+            const heading = CMath.toDegrees(euler.heading);
+            const pitch = CMath.toDegrees(euler.pitch);
+            const roll = CMath.toDegrees(euler.roll);
+            // todo show in panel
+            console.log(`Heading: ${heading}, Pitch: ${pitch}, Roll: ${roll}`);
             this.chosenModel = undefined;
             this.sidePlanesDataSource.entities.removeAll();
             this.topDownPlanesDataSource.entities.removeAll();

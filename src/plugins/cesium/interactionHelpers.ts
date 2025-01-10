@@ -1,11 +1,13 @@
 import type {
   Cesium3DTileset,
   CustomDataSource,
+  DirectionUp,
   Globe,
   Model,
   PrimitiveCollection,
   Scene,
 } from '@cesium/engine';
+import {Math as CMath} from '@cesium/engine';
 import {ClippingPolygonCollection} from '@cesium/engine';
 import {
   ArcType,
@@ -637,4 +639,70 @@ export function updateHeightForCartesianPositions(
       ? Cartographic.toCartesian(cartographicPosition, Ellipsoid.WGS84, p)
       : Cartographic.toCartesian(cartographicPosition);
   });
+}
+
+export function calculateViewOnRectangle(
+  bottomLeft: Cartesian3,
+  bottomRight: Cartesian3,
+  topLeft: Cartesian3,
+  topRight: Cartesian3,
+  fovAngle = 45,
+): {
+  destination: Cartesian3;
+  orientation: DirectionUp;
+} {
+  // Calculate the midpoint of the rectangle
+  const midpoint = Cartesian3.multiplyByScalar(
+    Cartesian3.add(
+      Cartesian3.add(bottomLeft, bottomRight, new Cartesian3()),
+      Cartesian3.add(topLeft, topRight, new Cartesian3()),
+      new Cartesian3(),
+    ),
+    0.25,
+    new Cartesian3(),
+  );
+
+  const verticalExtent = Cartesian3.distance(topLeft, bottomLeft);
+  const horizontalExtent = Cartesian3.distance(bottomLeft, bottomRight);
+  const diagonalExtent = Math.sqrt(verticalExtent ** 2 + horizontalExtent ** 2);
+
+  const fov = CMath.toRadians(fovAngle);
+  const cameraDistance = diagonalExtent / (2 * Math.tan(fov / 2));
+
+  // Calculate the normal vector of the rectangle plane
+  const horizontalVector = Cartesian3.subtract(
+    bottomRight,
+    bottomLeft,
+    new Cartesian3(),
+  );
+  const verticalVector = Cartesian3.subtract(
+    topLeft,
+    bottomLeft,
+    new Cartesian3(),
+  );
+
+  const normalVector = Cartesian3.normalize(
+    Cartesian3.cross(horizontalVector, verticalVector, new Cartesian3()),
+    new Cartesian3(),
+  );
+
+  // Camera position is offset along the normal vector
+  const cameraPosition = Cartesian3.add(
+    midpoint,
+    Cartesian3.multiplyByScalar(normalVector, cameraDistance, new Cartesian3()),
+    new Cartesian3(),
+  );
+
+  const cameraDirection = Cartesian3.normalize(
+    Cartesian3.subtract(midpoint, cameraPosition, new Cartesian3()),
+    new Cartesian3(),
+  );
+
+  return {
+    destination: cameraPosition,
+    orientation: {
+      direction: cameraDirection,
+      up: verticalVector,
+    },
+  };
 }

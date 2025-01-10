@@ -267,7 +267,7 @@ export async function initCesiumWidget(
 
   const viewer = new CesiumWidget(
     container,
-    Object.assign({}, cesiumContext.widgetOptions),
+    Object.assign({baseLayer: false}, cesiumContext.widgetOptions),
   );
 
   if (cesiumContext.globeOptions) {
