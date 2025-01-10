@@ -47,4 +47,14 @@ export interface IngvCesiumContext {
   }[];
   widgetOptions?: ConstructorParameters<typeof CesiumWidget>[1];
   globeOptions?: Partial<Globe>;
+  measureOptions?: {
+    areaFill?: string;
+    lineColor?: string;
+    lineWidth?: number;
+    showPoints?: boolean;
+    pointColor?: string;
+    pointOutlineWidth?: number;
+    pointOutlineColor?: string;
+    pointPixelSize?: number;
+  };
 }
