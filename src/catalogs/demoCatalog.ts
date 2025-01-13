@@ -12,9 +12,10 @@ export const catalog: INGVCatalog = {
           credit: 'test',
         },
       },
-      position: [6.628484, 46.5],
-      height: 0,
-      rotation: 0,
+      position: [6.625727097014207, 46.50662035273721],
+      // todo apply terrain height automatically?
+      height: 374,
+      rotation: 45,
     },
     sofa: {
       type: 'model',
@@ -22,9 +23,10 @@ export const catalog: INGVCatalog = {
         url: 'https://raw.GithubUserContent.com/KhronosGroup/glTF-Sample-Assets/main/./Models/SheenWoodLeatherSofa/glTF-Binary/SheenWoodLeatherSofa.glb',
         credit: 'Khonos',
       },
-      position: [6.628484, 46.5],
-      height: 0,
-      rotation: 0,
+      position: [6.625858407650085, 46.50649671101955],
+      // todo apply terrain height automatically?
+      height: 374,
+      rotation: 239,
     },
     // to complete
   },

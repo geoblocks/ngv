@@ -5,6 +5,18 @@ import type {CesiumWidget, DataSourceCollection, Entity} from '@cesium/engine';
 import {Color, CustomDataSource, HeightReference} from '@cesium/engine';
 import type {DrawInfo} from './draw.js';
 import {CesiumDraw, type DrawEndDetails, getDimensionLabel} from './draw.js';
+import type {IngvCesiumContext} from '../../interfaces/cesium/ingv-cesium-context.js';
+
+const DefaultConfig: IngvCesiumContext['measureOptions'] = {
+  areaFill: 'rgba(0, 153, 255, 0.3)',
+  lineColor: 'rgba(0, 153, 255, 0.75)',
+  lineWidth: 4,
+  showPoints: true,
+  pointColor: '#fff',
+  pointOutlineWidth: 1,
+  pointOutlineColor: '#000',
+  pointPixelSize: 5,
+};
 
 @customElement('ngv-plugin-cesium-measure')
 export class NgvPluginCesiumMeasure extends LitElement {
@@ -12,6 +24,8 @@ export class NgvPluginCesiumMeasure extends LitElement {
   private viewer: CesiumWidget;
   @property({type: Object})
   private dataSourceCollection: DataSourceCollection;
+  @property({type: Object})
+  private options: IngvCesiumContext['measureOptions'];
   @state()
   private measurements: Partial<DrawInfo>;
   private draw: CesiumDraw;
@@ -62,8 +76,21 @@ export class NgvPluginCesiumMeasure extends LitElement {
       .then((drawDataSource) => {
         this.draw = new CesiumDraw(this.viewer, drawDataSource, {
           lineClampToGround: false,
+          strokeColor: this.options?.lineColor || DefaultConfig.lineColor,
+          fillColor: this.options?.areaFill || DefaultConfig.areaFill,
+          strokeWidth: this.options?.lineWidth || DefaultConfig.lineWidth,
           pointOptions: {
             heightReference: HeightReference.NONE,
+            color: this.options?.pointColor || DefaultConfig.pointColor,
+            outlineColor:
+              this.options?.pointOutlineColor ||
+              DefaultConfig.pointOutlineColor,
+            outlineWidth:
+              typeof this.options?.pointOutlineWidth === 'number'
+                ? this.options?.pointOutlineWidth
+                : DefaultConfig.pointOutlineWidth,
+            pixelSizeDefault:
+              this.options?.pointPixelSize || DefaultConfig.pointPixelSize,
           },
         });
         this.draw.addEventListener('drawend', (e) => {
@@ -72,39 +99,68 @@ export class NgvPluginCesiumMeasure extends LitElement {
             this.measureDataSource.entities.add({
               polyline: {
                 positions: details.positions,
-                material: Color.RED,
-                width: 4,
+                material: Color.fromCssColorString(
+                  this.options?.lineColor || DefaultConfig.lineColor,
+                ),
+                width: this.options?.lineWidth || DefaultConfig.lineWidth,
               },
             });
           } else {
             this.measureDataSource.entities.add({
               polygon: {
                 hierarchy: details.positions,
-                material: Color.YELLOW.withAlpha(0.7),
+                material: Color.fromCssColorString(
+                  this.options?.lineColor || DefaultConfig.lineColor,
+                ),
                 perPositionHeight: true,
               },
             });
           }
-          details.positions.forEach((p, index) => {
-            const entity: Entity.ConstructorOptions = {
-              position: p,
-              point: {
-                color: Color.WHITE,
-                outlineWidth: 1,
-                outlineColor: Color.BLACK,
-                pixelSize: 5,
-                heightReference: HeightReference.NONE,
-              },
-            };
-            if (index === details.positions.length - 1) {
-              entity.label = getDimensionLabel({
+          if (
+            (typeof this.options?.showPoints === 'boolean' &&
+              this.options.showPoints) ||
+            DefaultConfig.showPoints
+          ) {
+            details.positions.forEach((p, index) => {
+              const entity: Entity.ConstructorOptions = {
+                position: p,
+                point: {
+                  color: Color.fromCssColorString(
+                    this.options?.pointColor || DefaultConfig.pointColor,
+                  ),
+                  outlineWidth:
+                    typeof this.options?.pointOutlineWidth === 'number'
+                      ? this.options?.pointOutlineWidth
+                      : DefaultConfig.pointOutlineWidth,
+                  outlineColor: Color.fromCssColorString(
+                    this.options?.pointOutlineColor ||
+                      DefaultConfig.pointOutlineColor,
+                  ),
+                  pixelSize:
+                    this.options?.pointPixelSize ||
+                    DefaultConfig.pointPixelSize,
+                  heightReference: HeightReference.NONE,
+                },
+              };
+              if (index === details.positions.length - 1) {
+                entity.label = getDimensionLabel({
+                  type: details.type,
+                  positions: details.positions,
+                  distances: details.measurements.segmentsLength,
+                });
+              }
+              this.measureDataSource.entities.add(entity);
+            });
+          } else {
+            this.measureDataSource.entities.add({
+              position: details.positions[details.positions.length - 1],
+              label: getDimensionLabel({
                 type: details.type,
                 positions: details.positions,
                 distances: details.measurements.segmentsLength,
-              });
-            }
-            this.measureDataSource.entities.add(entity);
-          });
+              }),
+            });
+          }
           this.draw.active = false;
         });
         this.draw.addEventListener('drawinfo', (e) => {

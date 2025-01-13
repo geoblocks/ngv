@@ -31,6 +31,30 @@ export interface IngvCesiumContext {
       pitch: number;
     };
   };
+  views?: {
+    positions: [
+      [number, number],
+      [number, number],
+      [number, number],
+      [number, number],
+    ];
+    height: number;
+    elevation: number;
+    title: string;
+    flyDuration?: number;
+    fovAngle: number;
+    highlightColor?: string; // css string, default red
+  }[];
   widgetOptions?: ConstructorParameters<typeof CesiumWidget>[1];
   globeOptions?: Partial<Globe>;
+  measureOptions?: {
+    areaFill?: string;
+    lineColor?: string;
+    lineWidth?: number;
+    showPoints?: boolean;
+    pointColor?: string;
+    pointOutlineWidth?: number;
+    pointOutlineColor?: string;
+    pointPixelSize?: number;
+  };
 }

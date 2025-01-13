@@ -42,7 +42,14 @@ export interface DrawOptions {
   strokeColor?: string | Color;
   strokeWidth?: number;
   minPointsStop?: boolean;
-  pointOptions?: PointOptions;
+  pointOptions?: Omit<
+    PointOptions,
+    'color' | 'virtualColor' | 'outlineColor'
+  > & {
+    color?: Color | string;
+    virtualColor?: Color | string;
+    outlineColor?: Color | string;
+  };
   lineClampToGround?: boolean;
 }
 
@@ -129,15 +136,17 @@ export class CesiumDraw extends EventTarget {
     const heightReference = pointOptions?.heightReference;
     this.pointOptions = {
       color:
-        pointOptions?.color instanceof Color ? pointOptions.color : Color.WHITE,
+        pointOptions?.color instanceof Color
+          ? pointOptions.color
+          : Color.fromCssColorString(pointOptions?.color || '#fff'),
       virtualColor:
         pointOptions?.virtualColor instanceof Color
           ? pointOptions.virtualColor
-          : Color.GREY,
+          : Color.fromCssColorString(pointOptions?.virtualColor || '#808080'),
       outlineColor:
         pointOptions?.outlineColor instanceof Color
           ? pointOptions.outlineColor
-          : Color.BLACK,
+          : Color.fromCssColorString(pointOptions?.outlineColor || '#000'),
       outlineWidth:
         typeof pointOptions?.outlineWidth === 'number' &&
         !isNaN(pointOptions?.outlineWidth)

@@ -28,9 +28,12 @@ export const config: IPermitsConfig = {
       },
       layers: {
         tiles3d: ['@geoadmin/buildings'], // @cesium/googlePhotorealistic
-        // models: ['@demo/sofa', '@demo/thatopensmall'],
+        models: ['@demo/sofa', '@demo/thatopensmall'],
         imageries: ['@geoadmin/pixel-karte-farbe'],
         terrain: '@geoadmin/terrain',
+      },
+      quickLists: {
+        baseLayers: ['@geoadmin/pixel-karte-farbe'],
       },
       camera: {
         position: [6.628484, 46.5, 1000],
@@ -39,6 +42,34 @@ export const config: IPermitsConfig = {
           pitch: -30.0,
         },
       },
+      views: [
+        {
+          positions: [
+            [6.62571, 46.50666],
+            [6.62582, 46.50659],
+            [6.62556, 46.50655],
+            [6.62566, 46.50648],
+          ],
+          height: 5,
+          elevation: 374,
+          flyDuration: 2,
+          title: 'Building',
+          fovAngle: 45,
+        },
+        {
+          positions: [
+            [6.62582, 46.50651],
+            [6.62587, 46.50654],
+            [6.62592, 46.50651],
+            [6.62587, 46.50648],
+          ],
+          height: 2,
+          elevation: 374,
+          flyDuration: 2,
+          title: 'Building 2',
+          fovAngle: 45,
+        },
+      ],
       layerOptions: {},
       widgetOptions: {
         scene3DOnly: true,
