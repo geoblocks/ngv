@@ -1,11 +1,6 @@
 import {customElement, property, state} from 'lit/decorators.js';
-import {
-  css,
-  html,
-  type HTMLTemplateResult,
-  LitElement,
-  type PropertyValues,
-} from 'lit';
+import {css, html, type HTMLTemplateResult, LitElement} from 'lit';
+import {Task} from '@lit/task';
 import type {
   CesiumWidget,
   DataSourceCollection,
@@ -46,15 +41,13 @@ type NavViews = {
 @customElement('ngv-plugin-cesium-navigation')
 export class NgvPluginCesiumNavigation extends LitElement {
   @property({type: Object})
-  private viewer: CesiumWidget;
+  public viewer: CesiumWidget;
   @property({type: Object})
-  private dataSourceCollection: DataSourceCollection;
+  public dataSourceCollection: DataSourceCollection;
   @property({type: Array})
-  private viewsConfig: IngvCesiumContext['views'];
+  public viewsConfig: IngvCesiumContext['views'];
   @state()
-  private views: NavViews[] = [];
-  @state()
-  private tilesToLoad = Number.POSITIVE_INFINITY;
+  private tilesToLoad = 0;
   @state()
   private currentViewIndex: number;
   private currentView: NavViews;
@@ -130,102 +123,89 @@ export class NgvPluginCesiumNavigation extends LitElement {
     }
   `;
 
-  parseViews(): void {
-    this.views = this.viewsConfig.map((v) => {
-      const positions: Cartographic[] = v.positions.map((p) =>
-        Cartographic.fromDegrees(p[0], p[1]),
-      );
+  updateView(): void {
+    const v = this.viewsConfig[this.currentViewIndex];
+    const positions: Cartographic[] = v.positions.map((p) =>
+      Cartographic.fromDegrees(p[0], p[1]),
+    );
 
-      const baseRect = Rectangle.fromCartographicArray(positions);
+    const baseRect = Rectangle.fromCartographicArray(positions);
 
-      const nw = Cartographic.toCartesian(Rectangle.northwest(baseRect));
-      const ne = Cartographic.toCartesian(Rectangle.northeast(baseRect));
-      const sw = Cartographic.toCartesian(Rectangle.southwest(baseRect));
-      const se = Cartographic.toCartesian(Rectangle.southeast(baseRect));
-      const bottomPositions = [nw, ne, se, sw];
-      updateHeightForCartesianPositions(
-        bottomPositions,
-        v.elevation,
-        this.viewer.scene,
-        true,
-      );
-      const [nwt, net, set, swt] = updateHeightForCartesianPositions(
-        bottomPositions,
-        v.elevation + v.height,
-        this.viewer.scene,
-      );
+    const nw = Cartographic.toCartesian(Rectangle.northwest(baseRect));
+    const ne = Cartographic.toCartesian(Rectangle.northeast(baseRect));
+    const sw = Cartographic.toCartesian(Rectangle.southwest(baseRect));
+    const se = Cartographic.toCartesian(Rectangle.southeast(baseRect));
+    const bottomPositions = [nw, ne, se, sw];
+    updateHeightForCartesianPositions(bottomPositions, v.elevation, null, true);
+    const [nwt, net, set, swt] = updateHeightForCartesianPositions(
+      bottomPositions,
+      v.elevation + v.height,
+    );
 
-      const highlightEntity = this.dataSource.entities.add(
-        new Entity({
-          show: false,
-          polygon: {
-            hierarchy: bottomPositions,
-            heightReference: HeightReference.RELATIVE_TO_GROUND,
-            extrudedHeightReference: HeightReference.RELATIVE_TO_GROUND,
-            material: v.highlightColor
-              ? Color.fromCssColorString(v.highlightColor)
-              : Color.RED.withAlpha(0.6),
-            extrudedHeight: v.height,
-          },
-        }),
-      );
+    const highlightEntity = this.dataSource.entities.add(
+      new Entity({
+        show: false,
+        polygon: {
+          hierarchy: bottomPositions,
+          heightReference: HeightReference.RELATIVE_TO_GROUND,
+          extrudedHeightReference: HeightReference.RELATIVE_TO_GROUND,
+          material: v.highlightColor
+            ? Color.fromCssColorString(v.highlightColor)
+            : Color.RED.withAlpha(0.6),
+          extrudedHeight: v.height,
+        },
+      }),
+    );
 
-      return {
-        top: {
-          ...calculateViewOnRectangle(swt, set, nwt, net, v.fovAngle),
-          duration: v.flyDuration,
-        },
-        north: {
-          ...calculateViewOnRectangle(ne, nw, net, nwt, v.fovAngle),
-          duration: v.flyDuration,
-        },
-        east: {
-          ...calculateViewOnRectangle(se, ne, set, net, v.fovAngle),
-          duration: v.flyDuration,
-        },
-        west: {
-          ...calculateViewOnRectangle(nw, sw, nwt, swt, v.fovAngle),
-          duration: v.flyDuration,
-        },
-        south: {
-          ...calculateViewOnRectangle(sw, se, swt, set, v.fovAngle),
-          duration: v.flyDuration,
-        },
-        title: v.title,
-        highlightEntity,
-      };
-    });
+    this.currentView = {
+      top: {
+        ...calculateViewOnRectangle(swt, set, nwt, net, v.fovAngle),
+        duration: v.flyDuration,
+      },
+      north: {
+        ...calculateViewOnRectangle(ne, nw, net, nwt, v.fovAngle),
+        duration: v.flyDuration,
+      },
+      east: {
+        ...calculateViewOnRectangle(se, ne, set, net, v.fovAngle),
+        duration: v.flyDuration,
+      },
+      west: {
+        ...calculateViewOnRectangle(nw, sw, nwt, swt, v.fovAngle),
+        duration: v.flyDuration,
+      },
+      south: {
+        ...calculateViewOnRectangle(sw, se, swt, set, v.fovAngle),
+        duration: v.flyDuration,
+      },
+      title: v.title,
+      highlightEntity,
+    };
   }
 
-  willUpdate(changedProperties: PropertyValues): void {
-    if (changedProperties.has('currentViewIndex')) {
-      this.currentView = this.views[this.currentViewIndex];
+  // @ts-expect-error TS6133
+  private _changeViewTask = new Task(this, {
+    args: (): [number] => [this.currentViewIndex],
+    task: ([_currentViewIndex]) => {
+      this.updateView();
       this.viewer.camera.flyTo(this.currentView.south);
-    }
-  }
+    },
+  });
 
   firstUpdated(): void {
     this.dataSourceCollection
       .add(this.dataSource)
+      .then(() => {
+        this.currentViewIndex = 0;
+        this.updateView();
+      })
       .catch((err) => console.error(err));
-    // todo make general loading?
-    const removeCallback =
-      this.viewer.scene.globe.tileLoadProgressEvent.addEventListener(
-        (tilesLoading: number) => {
-          this.tilesToLoad = tilesLoading;
-          if (tilesLoading === 0) {
-            this.parseViews();
-            this.currentViewIndex = 0;
-            removeCallback();
-          }
-        },
-      );
   }
 
   toNextView(): void {
-    if (!this.views) return;
+    if (!this.viewsConfig) return;
     const nextIndx = this.currentViewIndex + 1;
-    if (nextIndx >= this.views.length) {
+    if (nextIndx >= this.viewsConfig.length) {
       this.currentViewIndex = 0;
       return;
     }
@@ -233,10 +213,10 @@ export class NgvPluginCesiumNavigation extends LitElement {
   }
 
   toPrevView(): void {
-    if (!this.views) return;
+    if (!this.viewsConfig) return;
     const prevIndx = this.currentViewIndex - 1;
     if (prevIndx < 0) {
-      this.currentViewIndex = this.views.length - 1;
+      this.currentViewIndex = this.viewsConfig.length - 1;
       return;
     }
     this.currentViewIndex = prevIndx;
@@ -249,7 +229,7 @@ export class NgvPluginCesiumNavigation extends LitElement {
             `Please wait for tiles loading. ${this.tilesToLoad} tiles to load`,
           )
         : html`
-            ${this.views.length > 1
+            ${this.viewsConfig.length > 1
               ? html`<div class="nav-container">
                     <button @click=${() => this.toPrevView()}>
                       ${msg('Previous')}

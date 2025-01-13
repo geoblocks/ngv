@@ -42,7 +42,7 @@ export interface IngvCesiumContext {
     elevation: number;
     title: string;
     flyDuration?: number;
-    fovAngle?: number; // default 45 degrees
+    fovAngle: number;
     highlightColor?: string; // css string, default red
   }[];
   widgetOptions?: ConstructorParameters<typeof CesiumWidget>[1];

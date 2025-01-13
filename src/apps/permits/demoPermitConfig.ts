@@ -51,9 +51,10 @@ export const config: IPermitsConfig = {
             [6.62566, 46.50648],
           ],
           height: 5,
-          elevation: 0,
+          elevation: 374,
           flyDuration: 2,
           title: 'Building',
+          fovAngle: 45,
         },
         {
           positions: [
@@ -63,9 +64,10 @@ export const config: IPermitsConfig = {
             [6.62587, 46.50648],
           ],
           height: 2,
-          elevation: 0,
+          elevation: 374,
           flyDuration: 2,
           title: 'Building 2',
+          fovAngle: 45,
         },
       ],
       layerOptions: {},

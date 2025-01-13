@@ -646,7 +646,7 @@ export function calculateViewOnRectangle(
   bottomRight: Cartesian3,
   topLeft: Cartesian3,
   topRight: Cartesian3,
-  fovAngle = 45,
+  fovAngle: number,
 ): {
   destination: Cartesian3;
   orientation: DirectionUp;
@@ -662,12 +662,14 @@ export function calculateViewOnRectangle(
     new Cartesian3(),
   );
 
-  const verticalExtent = Cartesian3.distance(topLeft, bottomLeft);
-  const horizontalExtent = Cartesian3.distance(bottomLeft, bottomRight);
-  const diagonalExtent = Math.sqrt(verticalExtent ** 2 + horizontalExtent ** 2);
+  const verticalDistance = Cartesian3.distance(topLeft, bottomLeft);
+  const horizontalDistance = Cartesian3.distance(bottomLeft, bottomRight);
+  const diagonalDistance = Math.sqrt(
+    verticalDistance ** 2 + horizontalDistance ** 2,
+  );
 
   const fov = CMath.toRadians(fovAngle);
-  const cameraDistance = diagonalExtent / (2 * Math.tan(fov / 2));
+  const cameraDistance = diagonalDistance / (2 * Math.tan(fov / 2));
 
   // Calculate the normal vector of the rectangle plane
   const horizontalVector = Cartesian3.subtract(
@@ -693,10 +695,7 @@ export function calculateViewOnRectangle(
     new Cartesian3(),
   );
 
-  const cameraDirection = Cartesian3.normalize(
-    Cartesian3.subtract(midpoint, cameraPosition, new Cartesian3()),
-    new Cartesian3(),
-  );
+  const cameraDirection = Cartesian3.negate(normalVector, new Cartesian3());
 
   return {
     destination: cameraPosition,
