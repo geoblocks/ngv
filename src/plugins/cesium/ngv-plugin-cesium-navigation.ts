@@ -47,8 +47,6 @@ export class NgvPluginCesiumNavigation extends LitElement {
   @property({type: Array})
   public viewsConfig: IngvCesiumContext['views'];
   @state()
-  private tilesToLoad = 0;
-  @state()
   private currentViewIndex: number;
   private currentView: NavViews;
   private dataSource: CustomDataSource = new CustomDataSource();
@@ -223,72 +221,65 @@ export class NgvPluginCesiumNavigation extends LitElement {
   }
 
   render(): HTMLTemplateResult | string {
+    if (!this.viewsConfig?.length) return '';
     return html`<div class="container">
-      ${this.tilesToLoad > 0
-        ? msg(
-            `Please wait for tiles loading. ${this.tilesToLoad} tiles to load`,
-          )
-        : html`
-            ${this.viewsConfig.length > 1
-              ? html`<div class="nav-container">
-                    <button @click=${() => this.toPrevView()}>
-                      ${msg('Previous')}
-                    </button>
-                    <button @click=${() => this.toNextView()}>
-                      ${msg('Next')}
-                    </button>
-                  </div>
-                  <div class="divider"></div>`
-              : ''}
-            ${!this.currentView
-              ? ''
-              : html` <div class="view-container">
-                  <h4
-                    @mouseenter="${() => {
-                      this.currentView.highlightEntity.show = true;
-                    }}"
-                    @mouseout="${() => {
-                      this.currentView.highlightEntity.show = false;
-                    }}"
-                  >
-                    ${this.currentView.title}
-                  </h4>
-                  <div class="view-btns">
-                    <button
-                      @click="${() =>
-                        this.viewer.camera.flyTo(this.currentView.west)}"
-                    >
-                      W
-                    </button>
-                    <div>
-                      <button
-                        @click="${() =>
-                          this.viewer.camera.flyTo(this.currentView.north)}"
-                      >
-                        N
-                      </button>
-                      <button
-                        @click="${() =>
-                          this.viewer.camera.flyTo(this.currentView.top)}"
-                      >
-                        TOP
-                      </button>
-                      <button
-                        @click="${() =>
-                          this.viewer.camera.flyTo(this.currentView.south)}"
-                      >
-                        S
-                      </button>
-                    </div>
-                    <button
-                      @click="${() =>
-                        this.viewer.camera.flyTo(this.currentView.east)}"
-                    >
-                      E
-                    </button>
-                  </div>
-                </div>`}
-          `}
+      ${this.viewsConfig.length > 1
+        ? html`<div class="nav-container">
+              <button @click=${() => this.toPrevView()}>
+                ${msg('Previous')}
+              </button>
+              <button @click=${() => this.toNextView()}>${msg('Next')}</button>
+            </div>
+            <div class="divider"></div>`
+        : ''}
+      ${!this.currentView
+        ? ''
+        : html` <div class="view-container">
+            <h4
+              @mouseenter="${() => {
+                this.currentView.highlightEntity.show = true;
+              }}"
+              @mouseout="${() => {
+                this.currentView.highlightEntity.show = false;
+              }}"
+            >
+              ${this.currentView.title}
+            </h4>
+            <div class="view-btns">
+              <button
+                @click="${() =>
+                  this.viewer.camera.flyTo(this.currentView.west)}"
+              >
+                W
+              </button>
+              <div>
+                <button
+                  @click="${() =>
+                    this.viewer.camera.flyTo(this.currentView.north)}"
+                >
+                  N
+                </button>
+                <button
+                  @click="${() =>
+                    this.viewer.camera.flyTo(this.currentView.top)}"
+                >
+                  TOP
+                </button>
+                <button
+                  @click="${() =>
+                    this.viewer.camera.flyTo(this.currentView.south)}"
+                >
+                  S
+                </button>
+              </div>
+              <button
+                @click="${() =>
+                  this.viewer.camera.flyTo(this.currentView.east)}"
+              >
+                E
+              </button>
+            </div>
+          </div>`}
     </div>`;
   }
 }
