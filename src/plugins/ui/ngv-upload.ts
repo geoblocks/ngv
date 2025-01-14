@@ -13,7 +13,8 @@ export type NgvUploadOptions = {
 };
 
 export type FileUploadDetails = {
-  url: string;
+  url?: string;
+  file?: File;
   name: string;
 };
 
@@ -66,11 +67,9 @@ export class NgvUpload extends LitElement {
     }
   `;
 
-  async onFileUpload(file: File): Promise<void> {
-    const arrayBufer = await file.arrayBuffer();
-    const blob = new Blob([arrayBufer]);
+  onFileUpload(file: File): void {
     this.fileDetails = {
-      url: URL.createObjectURL(blob),
+      file: file,
       name: file.name,
     };
   }
@@ -105,10 +104,10 @@ export class NgvUpload extends LitElement {
       <input
         type="file"
         accept="${this.options.accept}"
-        @change=${async (e: Event) => {
+        @change=${(e: Event) => {
           const target = <HTMLInputElement>e.target;
           if (!target || !target.files?.length) return;
-          await this.onFileUpload(target.files[0]);
+          this.onFileUpload(target.files[0]);
         }}
       />
       <input

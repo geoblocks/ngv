@@ -13,7 +13,6 @@ export const catalog: INGVCatalog = {
         },
       },
       position: [6.625727097014207, 46.50662035273721],
-      // todo apply terrain height automatically?
       height: 374,
       rotation: 45,
     },
@@ -24,7 +23,6 @@ export const catalog: INGVCatalog = {
         credit: 'Khonos',
       },
       position: [6.625858407650085, 46.50649671101955],
-      // todo apply terrain height automatically?
       height: 374,
       rotation: 239,
     },

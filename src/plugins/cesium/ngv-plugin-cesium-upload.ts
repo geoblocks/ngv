@@ -37,8 +37,42 @@ export class NgvPluginCesiumUpload extends LitElement {
   private uploadedModel: INGVCesiumModel | undefined;
 
   async upload(fileDetails: FileUploadDetails): Promise<void> {
-    const response = await fetch(fileDetails.url);
-    const arrayBuffer = await response.arrayBuffer();
+    let url = fileDetails.url;
+    let arrayBuffer =
+      fileDetails.file && (await fileDetails.file.arrayBuffer());
+    if (!arrayBuffer && url) {
+      const response = await fetch(url);
+      arrayBuffer = await response.arrayBuffer();
+    }
+    if (!arrayBuffer) {
+      return;
+    }
+
+    const decoder = new TextDecoder('utf-8');
+    const text = decoder.decode(arrayBuffer.slice(0, 15));
+    const isIfc = text.startsWith('ISO-10303-21');
+
+    let blob = new Blob([arrayBuffer]);
+    url = URL.createObjectURL(blob);
+    if (isIfc) {
+      const {ifcToGLTF} = await import('@geoblocks/ifc-gltf');
+      try {
+        const {glb} = await ifcToGLTF({
+          url: url,
+          webIfcSettings: {
+            wasm: {
+              path: '/',
+              absolute: true,
+            },
+          },
+        });
+        blob = new Blob([glb]);
+        url = URL.createObjectURL(blob);
+      } catch (e) {
+        console.error('Error during file handle or wrong type.', e);
+        return;
+      }
+    }
 
     const modelMatrix = Matrix4.fromTranslationRotationScale(
       new TranslationRotationScale(
@@ -52,7 +86,7 @@ export class NgvPluginCesiumUpload extends LitElement {
     this.uploadedModel = await instantiateModel({
       type: 'model',
       options: {
-        url: fileDetails.url,
+        url: url,
         scene: this.viewer.scene,
         modelMatrix,
         id: {
@@ -122,7 +156,7 @@ export class NgvPluginCesiumUpload extends LitElement {
 
   render(): HTMLTemplateResult {
     return html` <ngv-upload
-      .options="${{accept: '.glb,.GLB,.gltf,.GLTF'}}"
+      .options="${{accept: '.glb,.GLB,.gltf,.GLTF,.ifc,.IFC'}}"
       @uploaded="${(evt: {detail: FileUploadDetails}): void => {
         this.upload(evt.detail).catch((e) =>
           console.error(`Upload error: ${e}`),
