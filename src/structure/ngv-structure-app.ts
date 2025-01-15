@@ -21,6 +21,7 @@ export interface INgvStructureApp {
     impressum: Partial<Record<Locale, string>>;
     contact: string;
   };
+  projections?: [string, string][];
 }
 
 /**

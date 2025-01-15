@@ -82,7 +82,7 @@ export class NgvPluginCesiumWidget extends LitElement {
   }
 
   render(): HTMLTemplateResult {
-    return html`<div id="globe"></div>`;
+    return html`<div id="globe"><slot></slot></div>`;
   }
 }
 

@@ -3,11 +3,13 @@ import {html, LitElement} from 'lit';
 import {state} from 'lit/decorators.js';
 import type {Status} from './ngv-structure-apploading.js';
 import './ngv-structure-apploading.js';
-
 import type {Locale} from './helpers/localeHelper.js';
 import {detectOKLanguage, setLocale} from './helpers/localeHelper.js';
+import type {INgvStructureApp} from './ngv-structure-app.js';
 
-export abstract class ABaseApp<ConfigType> extends LitElement {
+export abstract class ABaseApp<
+  ConfigType extends INgvStructureApp,
+> extends LitElement {
   @state()
   protected config: ConfigType;
 
@@ -54,7 +56,15 @@ export abstract class ABaseApp<ConfigType> extends LitElement {
     super();
     try {
       this.initializeLocale().catch(() => {});
-      this.initializeConfig(configUrl).catch(() => {});
+      this.initializeConfig(configUrl)
+        .then(async () => {
+          const projections = this.config.projections;
+          if (projections) {
+            const proj4 = (await import('proj4')).default;
+            proj4.defs(projections);
+          }
+        })
+        .catch(() => {});
     } finally {
       // pass
     }

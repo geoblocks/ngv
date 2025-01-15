@@ -1,4 +1,10 @@
-import type {CesiumWidget, Globe} from '@cesium/engine';
+import type {
+  CesiumWidget,
+  Globe,
+  HorizontalOrigin,
+  LabelStyle,
+  VerticalOrigin,
+} from '@cesium/engine';
 import type {INGVCatalog} from './ingv-catalog.js';
 
 export interface IngvCesiumContext {
@@ -56,5 +62,33 @@ export interface IngvCesiumContext {
     pointOutlineWidth?: number;
     pointOutlineColor?: string;
     pointPixelSize?: number;
+    showNEDifference?: boolean;
+    showHeightDifferance?: boolean;
+    showSegmentsInfo?: boolean;
+  };
+  clickInfoOptions?: {
+    type: 'cesium' | 'html';
+    showWgs84?: boolean;
+    showAmslElevation?: boolean;
+    showTerrainDistance?: boolean;
+    projection?: string;
+    pointOptions?: {
+      show?: boolean;
+      color?: string;
+      outlineWidth?: number;
+      outlineColor?: string;
+      pixelSize?: number;
+    };
+    cesiumLabelOptions?: {
+      font?: string;
+      style?: LabelStyle;
+      showBackground?: boolean;
+      verticalOrigin?: VerticalOrigin;
+      horizontalOrigin?: HorizontalOrigin;
+      disableDepthTestDistance?: number;
+      pixelOffset?: {x: number; y: number};
+      backgroundPadding?: {x: number; y: number};
+      backgroundColor?: string;
+    };
   };
 }
