@@ -9,6 +9,12 @@ export const catalog: INGVCatalog = {
       subtype: 'googlePhotorealistic',
       url: '',
     },
+    openstreetmap: {
+      type: 'openstreetmap',
+      options: {
+        url: 'https://tile.openstreetmap.org/',
+      },
+    },
     // to complete
   },
 };

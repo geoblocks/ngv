@@ -186,7 +186,7 @@ export class NgvPluginCesiumNavigation extends LitElement {
     args: (): [number] => [this.currentViewIndex],
     task: ([_currentViewIndex]) => {
       this.updateView();
-      this.viewer.camera.flyTo(this.currentView.south);
+      this.viewer.camera.flyTo(this.currentView.top);
     },
   });
 

@@ -1,6 +1,7 @@
 import type {
   Cesium3DTileset,
   ClippingPolygon,
+  OpenStreetMapImageryProvider,
   UrlTemplateImageryProvider,
   WebMapServiceImageryProvider,
   WebMapTileServiceImageryProvider,
@@ -12,7 +13,8 @@ import type {Cartesian3} from '@cesium/engine';
 export type INGVCesiumImageryTypes =
   | INGVCesiumWMSImagery
   | INGVCesiumWMTSImagery
-  | INGVCesiumUrlTemplateImagery;
+  | INGVCesiumUrlTemplateImagery
+  | INGVCesiumOpenStreetMapImagery;
 
 export type INGVCesiumAllTypes =
   | INGVCesiumAllPrimitiveTypes
@@ -79,4 +81,9 @@ export interface INGVCesiumWMSImagery {
 export interface INGVCesiumUrlTemplateImagery {
   type: 'urltemplate';
   options?: ConstructorParameters<typeof UrlTemplateImageryProvider>[0];
+}
+
+export interface INGVCesiumOpenStreetMapImagery {
+  type: 'openstreetmap';
+  options?: ConstructorParameters<typeof OpenStreetMapImageryProvider>[0];
 }

@@ -61,6 +61,18 @@ export abstract class ABaseApp<
           const projections = this.config.projections;
           if (projections) {
             const proj4 = (await import('proj4')).default;
+            // todo check if we need it
+            // if (projections.find((p) => p[0] === 'EPSG:27700') !== undefined) {
+            //   try {
+            //     const response = await fetch(
+            //       '../helperFiles/OSTN15_NTv2_OSGBtoETRS.gsb',
+            //     );
+            //     const buffer = await response.arrayBuffer();
+            //     proj4.nadgrid('OSTN15_NTv2_OSGBtoETRS', buffer);
+            //   } catch (error) {
+            //     console.error(error);
+            //   }
+            // }
             proj4.defs(projections);
           }
         })
