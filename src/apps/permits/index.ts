@@ -16,6 +16,7 @@ import '../../plugins/cesium/ngv-plugin-cesium-model-interact';
 import '../../plugins/cesium/ngv-plugin-cesium-slicing';
 import '../../plugins/cesium/ngv-plugin-cesium-measure';
 import '../../plugins/cesium/ngv-plugin-cesium-navigation';
+import '../../plugins/cesium/ngv-plugin-cesium-click-info';
 import type {CesiumWidget, DataSourceCollection} from '@cesium/engine';
 
 import {PrimitiveCollection} from '@cesium/engine';
@@ -107,7 +108,15 @@ export class NgvAppPermits extends ABaseApp<IPermitsConfig> {
             this.dataSourceCollection = evt.detail.dataSourceCollection;
             this.collections = evt.detail.primitiveCollections;
           }}
-        ></ngv-plugin-cesium-widget>
+        >
+          ${this.viewer
+            ? html`<ngv-plugin-cesium-click-info
+                .viewer="${this.viewer}"
+                .dataSourceCollection="${this.dataSourceCollection}"
+                .options=${this.config.app.cesiumContext.clickInfoOptions}
+              ></ngv-plugin-cesium-click-info>`
+            : ''}
+        </ngv-plugin-cesium-widget>
       </ngv-structure-app>
     `;
   }

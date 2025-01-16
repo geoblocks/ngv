@@ -58,7 +58,7 @@ export class NgvPluginCesiumMeasure extends LitElement {
     }
 
     .measure-container p {
-      margin: 5px 0;
+      margin: 0;
     }
 
     .divider {
@@ -233,25 +233,27 @@ export class NgvPluginCesiumMeasure extends LitElement {
                   ${this.measurements.numberOfSegments}
                 </p>`
               : ''}
-            ${this.measurements?.segments
+            ${this.measurements?.segments && this.options.showSegmentsInfo
               ? this.measurements.segments.map(
                   (s, k) => html`
                     <div class="divider"></div>
                     <p>${msg('Segment')} ${k + 1}</p>
                     <p>${msg('Length')}: ${s.length.toFixed(1)} m</p>
-                    ${!isNaN(s.eastingDiff)
-                      ? html`<p>
-                          ${msg('Easting difference')}:
-                          ${s.eastingDiff.toFixed(1)} m
-                        </p>`
+                    ${this.options.showNEDifference
+                      ? html`${!isNaN(s.eastingDiff)
+                          ? html`<p>
+                              ${msg('Easting difference')}:
+                              ${s.eastingDiff.toFixed(1)} m
+                            </p>`
+                          : ''}
+                        ${!isNaN(s.northingDiff)
+                          ? html`<p>
+                              ${msg('Northing difference')}:
+                              ${s.northingDiff.toFixed(1)} m
+                            </p>`
+                          : ''}`
                       : ''}
-                    ${!isNaN(s.northingDiff)
-                      ? html`<p>
-                          ${msg('Northing difference')}:
-                          ${s.northingDiff.toFixed(1)} m
-                        </p>`
-                      : ''}
-                    ${!isNaN(s.heightDiff)
+                    ${!isNaN(s.heightDiff) && this.options.showHeightDifferance
                       ? html`<p>
                           ${msg('Height difference')}:
                           ${s.heightDiff.toFixed(1)} m
