@@ -78,12 +78,17 @@ export const config: ISurveyConfig = {
         type: 'html',
         showWgs84: true,
         showAmslElevation: true,
-        showTerrainDistance: true,
+        showTerrainDistance: false,
         projection: 'EPSG:27700',
       },
       measureOptions: {
         showSegmentsInfo: true,
         showHeightDifferance: true,
+      },
+      clippingOptions: {
+        tilesClippingEnabled: true,
+        terrainClippingEnabled: false,
+        storeKey: 'survey-localStoreClipping',
       },
     },
   },

@@ -10,11 +10,14 @@ import {
   Cartesian3,
   ClippingPolygon,
   ClippingPolygonCollection,
+  Color,
+  ConstantProperty,
   CustomDataSource,
   Entity,
+  HeightReference,
   JulianDate,
+  PolygonHierarchy,
 } from '@cesium/engine';
-import {Color, ConstantProperty, PolygonHierarchy} from '@cesium/engine';
 import '../ui/ngv-layer-details.js';
 import '../ui/ngv-layers-list.js';
 import type {ClippingChangeDetail} from '../ui/ngv-layer-details.js';
@@ -23,6 +26,8 @@ import {CesiumDraw} from './draw.js';
 import {msg} from '@lit/localize';
 import type {StoredClipping} from './localStore.js';
 import {getStoredClipping, updateClippingInLocalStore} from './localStore.js';
+import type {IngvCesiumContext} from '../../interfaces/cesium/ingv-cesium-context.js';
+import {Task} from '@lit/task';
 
 export type ClippingData = {
   clipping: ClippingPolygon;
@@ -42,14 +47,18 @@ export class NgvPluginCesiumSlicing extends LitElement {
   private tiles3dCollection: PrimitiveCollection;
   @property({type: Object})
   private dataSourceCollection: DataSourceCollection;
-  @property({type: String})
-  private storeKey: string;
+  @property({type: Object})
+  private options: IngvCesiumContext['clippingOptions'] | undefined;
   @state()
   private clippingPolygons: ClippingData[] = [];
   @state()
   private activePolygon: Entity | undefined = undefined;
   @state()
   private editingClipping: ClippingData | undefined = undefined;
+  @state()
+  private terrainClippingEnabled: boolean = true;
+  @state()
+  private tilesClippingEnabled: boolean = true;
   private draw: CesiumDraw;
   private slicingDataSource: CustomDataSource = new CustomDataSource();
   private drawDataSource: CustomDataSource = new CustomDataSource();
@@ -84,12 +93,27 @@ export class NgvPluginCesiumSlicing extends LitElement {
     }
   `;
 
+  // @ts-expect-error TS6133
+  private _changeViewTask = new Task(this, {
+    args: (): [IngvCesiumContext['clippingOptions']] => [this.options],
+    task: ([options]) => {
+      this.terrainClippingEnabled =
+        typeof options?.terrainClippingEnabled === 'boolean'
+          ? options?.terrainClippingEnabled
+          : true;
+      this.tilesClippingEnabled =
+        typeof options?.tilesClippingEnabled === 'boolean'
+          ? options?.tilesClippingEnabled
+          : true;
+    },
+  });
+
   firstUpdated(): void {
     this.dataSourceCollection
       .add(this.slicingDataSource)
       .then(() => {
-        if (this.storeKey) {
-          const storedClipping = getStoredClipping(this.storeKey);
+        if (this.options?.storeKey) {
+          const storedClipping = getStoredClipping(this.options?.storeKey);
           storedClipping.forEach((clipping) => {
             const positions = clipping.positions.map(
               (p) => new Cartesian3(p[0], p[1], p[2]),
@@ -113,7 +137,10 @@ export class NgvPluginCesiumSlicing extends LitElement {
     this.dataSourceCollection
       .add(this.drawDataSource)
       .then((drawDataSource) => {
-        this.draw = new CesiumDraw(this.viewer, drawDataSource);
+        this.draw = new CesiumDraw(this.viewer, drawDataSource, {
+          lineClampToGround: false,
+          pointOptions: {heightReference: HeightReference.NONE},
+        });
         this.draw.type = 'polygon';
         this.draw.addEventListener('drawend', (e) => {
           this.onDrawEnd((<CustomEvent<DrawEndDetails>>e).detail);
@@ -130,7 +157,7 @@ export class NgvPluginCesiumSlicing extends LitElement {
   }
 
   saveToLocalStore(): void {
-    if (!this.storeKey) return;
+    if (!this.options?.storeKey) return;
     const clippingsToStore: StoredClipping[] =
       this.slicingDataSource.entities.values.map((e) => {
         const properties = <ClippingEntityProps>(
@@ -145,7 +172,7 @@ export class NgvPluginCesiumSlicing extends LitElement {
           tilesClipping: properties.tilesClipping,
         };
       });
-    updateClippingInLocalStore(clippingsToStore, this.storeKey);
+    updateClippingInLocalStore(clippingsToStore, this.options?.storeKey);
   }
 
   onDrawEnd(details: DrawEndDetails): void {
@@ -187,8 +214,8 @@ export class NgvPluginCesiumSlicing extends LitElement {
         material: Color.RED.withAlpha(0.7),
       },
       properties: properties || {
-        terrainClipping: true,
-        tilesClipping: true,
+        terrainClipping: this.terrainClippingEnabled,
+        tilesClipping: this.tilesClippingEnabled,
       },
     });
   }
@@ -206,7 +233,8 @@ export class NgvPluginCesiumSlicing extends LitElement {
     if (
       (<ConstantProperty>(
         clippingData.entity.properties.terrainClipping
-      )).getValue()
+      )).getValue() &&
+      this.tilesClippingEnabled
     ) {
       this.viewer.scene.globe.clippingPolygons.add(clippingData.clipping);
     } else {
@@ -216,7 +244,8 @@ export class NgvPluginCesiumSlicing extends LitElement {
       if (
         (<ConstantProperty>(
           clippingData.entity.properties.tilesClipping
-        )).getValue()
+        )).getValue() &&
+        this.tilesClippingEnabled
       ) {
         for (let i = 0; i < this.tiles3dCollection.length; i++) {
           const tileset: Cesium3DTileset = this.tiles3dCollection.get(
@@ -283,22 +312,25 @@ export class NgvPluginCesiumSlicing extends LitElement {
         ? html` <ngv-layer-details
             .layer="${{
               name: this.activePolygon?.name,
-              clippingOptions: {
-                terrainClipping: this.activePolygon
-                  ? <boolean>(
-                      (<ConstantProperty>(
-                        this.activePolygon.properties.terrainClipping
-                      )).getValue()
-                    )
-                  : true,
-                tilesClipping: this.activePolygon
-                  ? <boolean>(
-                      (<ConstantProperty>(
-                        this.activePolygon.properties.tilesClipping
-                      )).getValue()
-                    )
-                  : true,
-              },
+              clippingOptions:
+                this.terrainClippingEnabled && this.tilesClippingEnabled
+                  ? {
+                      terrainClipping: this.activePolygon
+                        ? <boolean>(
+                            (<ConstantProperty>(
+                              this.activePolygon.properties.terrainClipping
+                            )).getValue()
+                          )
+                        : true,
+                      tilesClipping: this.activePolygon
+                        ? <boolean>(
+                            (<ConstantProperty>(
+                              this.activePolygon.properties.tilesClipping
+                            )).getValue()
+                          )
+                        : true,
+                    }
+                  : undefined,
             }}"
             .showDone=${this.draw?.entityForEdit}
             .showCancel=${true}

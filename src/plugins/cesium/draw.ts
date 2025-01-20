@@ -965,7 +965,7 @@ export class CesiumDraw extends EventTarget {
       if (objects.length) {
         const selectedPoint = <{id: Entity} | undefined>(
           objects.find(
-            (obj: {id: Entity}) => !!obj.id.point || !!obj.id.billboard,
+            (obj: {id: Entity}) => !!obj.id?.point || !!obj.id?.billboard,
           )
         );
         if (!selectedPoint) return;

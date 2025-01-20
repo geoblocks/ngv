@@ -91,4 +91,9 @@ export interface IngvCesiumContext {
       backgroundColor?: string;
     };
   };
+  clippingOptions?: {
+    terrainClippingEnabled?: boolean;
+    tilesClippingEnabled?: boolean;
+    storeKey?: string;
+  };
 }

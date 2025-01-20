@@ -88,6 +88,9 @@ export const config: IPermitsConfig = {
         showSegmentsInfo: true,
         showHeightDifferance: true,
       },
+      clippingOptions: {
+        storeKey: 'permits-localStoreClipping',
+      },
     },
   },
   projections: [
