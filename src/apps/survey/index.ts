@@ -3,9 +3,6 @@ import {html} from 'lit';
 import {customElement, state} from 'lit/decorators.js';
 
 import '../../structure/ngv-structure-app.js';
-
-// // @ts-expect-error ?url parameter is a viteJS specificity
-// import logoUrl from "../../logo.svg?url";
 import {localized} from '@lit/localize';
 import {ABaseApp} from '../../structure/BaseApp.js';
 

@@ -39,7 +39,8 @@
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
 
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "types": ["vite-plugin-pwa/client"]
   },
   "include": ["test/**/*.js", "src/**/*"],
   "typeAcquisition": {

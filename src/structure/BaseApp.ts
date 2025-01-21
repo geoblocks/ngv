@@ -71,9 +71,7 @@ export abstract class ABaseApp<
               )).map(async (proj) => {
                 if (proj.gridFileName) {
                   try {
-                    const response = await fetch(
-                      `/src/helperFiles/${proj.gridFileName}.gsb`,
-                    );
+                    const response = await fetch(`/${proj.gridFileName}.gsb`);
                     const buffer = await response.arrayBuffer();
                     proj4.nadgrid(proj.gridFileName, buffer);
                   } catch (error) {
