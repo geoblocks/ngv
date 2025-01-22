@@ -9,6 +9,12 @@ import './ngv-structure-header.js';
 import type {IngvSearchContext} from '../interfaces/search/ingv-search-context.js';
 import type {IngvAuthContext} from '../interfaces/auth/ingv-auth-context.js';
 
+export type ProjectionWithGrid = {
+  projection: [string, string];
+  gridKey: string;
+  gridUrl: string;
+};
+
 export interface INgvStructureApp {
   languages: Partial<Locale>[];
   authContext?: IngvAuthContext;
@@ -21,9 +27,7 @@ export interface INgvStructureApp {
     impressum: Partial<Record<Locale, string>>;
     contact: string;
   };
-  projections?:
-    | [string, string][]
-    | {projection: [string, string]; gridFileName: string}[];
+  projections?: [string, string][] | ProjectionWithGrid[];
 }
 
 /**

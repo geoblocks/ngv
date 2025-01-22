@@ -98,7 +98,8 @@ export const config: ISurveyConfig = {
         'EPSG:27700',
         '+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +units=m +no_defs +nadgrids=OSTN15_NTv2_OSGBtoETRS',
       ],
-      gridFileName: 'OSTN15_NTv2_OSGBtoETRS',
+      gridKey: 'OSTN15_NTv2_OSGBtoETRS',
+      gridUrl: '/OSTN15_NTv2_OSGBtoETRS.gsb',
     },
   ],
 };

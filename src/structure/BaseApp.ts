@@ -5,7 +5,10 @@ import type {Status} from './ngv-structure-apploading.js';
 import './ngv-structure-apploading.js';
 import type {Locale} from './helpers/localeHelper.js';
 import {detectOKLanguage, setLocale} from './helpers/localeHelper.js';
-import type {INgvStructureApp} from './ngv-structure-app.js';
+import type {
+  INgvStructureApp,
+  ProjectionWithGrid,
+} from './ngv-structure-app.js';
 
 export abstract class ABaseApp<
   ConfigType extends INgvStructureApp,
@@ -66,14 +69,12 @@ export abstract class ABaseApp<
               return;
             }
             await Promise.all(
-              (<{projection: [string, string]; gridFileName: string}[]>(
-                projections
-              )).map(async (proj) => {
-                if (proj.gridFileName) {
+              (<ProjectionWithGrid[]>projections).map(async (proj) => {
+                if (proj.gridKey && proj.gridUrl) {
                   try {
-                    const response = await fetch(`/${proj.gridFileName}.gsb`);
+                    const response = await fetch(proj.gridUrl);
                     const buffer = await response.arrayBuffer();
-                    proj4.nadgrid(proj.gridFileName, buffer);
+                    proj4.nadgrid(proj.gridKey, buffer);
                   } catch (error) {
                     console.error(error);
                   }
