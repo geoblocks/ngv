@@ -26,11 +26,11 @@ export default tseslint.config(
     },
   },
   {
-    files: ['*.js'],
+    files: ['*.js', 'vite.config.ts', 'pwa-assets.config.ts'],
     extends: [tseslint.configs.disableTypeChecked],
   },
   prettierConfig,
   {
-    ignores: ['lib/*', 'dist/*', 'localized/*'],
+    ignores: ['lib/*', 'dist/*', 'dev-dist/*', 'localized/*'],
   },
 );

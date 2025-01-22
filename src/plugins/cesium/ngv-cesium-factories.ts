@@ -1,4 +1,8 @@
-import {type ImageryProvider, PrimitiveCollection} from '@cesium/engine';
+import {
+  type ImageryProvider,
+  OpenStreetMapImageryProvider,
+  PrimitiveCollection,
+} from '@cesium/engine';
 import {
   Ion,
   Math as CesiumMath,
@@ -130,6 +134,10 @@ export function instantiateImageryProvider(
       return new WebMapTileServiceImageryProvider(
         withExtra(config.options, extraOptions),
       );
+    case 'openstreetmap':
+      return new OpenStreetMapImageryProvider({
+        url: 'https://tile.openstreetmap.org/',
+      });
   }
 }
 
@@ -177,7 +185,7 @@ export function isIFCConfig(config: INGVCesiumAllTypes): config is INGVIFC {
 export function isImageryConfig(
   config: INGVCesiumAllTypes,
 ): config is INGVCesiumImageryTypes {
-  return ['wms', 'wmts', 'urltemplate'].includes(config?.type);
+  return ['wms', 'wmts', 'urltemplate', 'openstreetmap'].includes(config?.type);
 }
 
 async function resolveLayers(

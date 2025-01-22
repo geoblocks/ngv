@@ -36,8 +36,6 @@ export class NgvAppPermits extends ABaseApp<IPermitsConfig> {
     indexDbName: 'permits-uploadedModelsStore',
   };
 
-  private sliceStoreKey = 'permits-localStoreClipping';
-
   private collections: ViewerInitializedDetails['primitiveCollections'];
 
   constructor() {
@@ -84,7 +82,7 @@ export class NgvAppPermits extends ABaseApp<IPermitsConfig> {
                   .viewer="${this.viewer}"
                   .tiles3dCollection="${this.collections.tiles3d}"
                   .dataSourceCollection="${this.dataSourceCollection}"
-                  .storeKey="${this.sliceStoreKey}"
+                  .options="${this.config.app.cesiumContext.clippingOptions}"
                 ></ngv-plugin-cesium-slicing>
                 <ngv-plugin-cesium-measure
                   .viewer="${this.viewer}"
