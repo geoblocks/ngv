@@ -38,7 +38,7 @@ export class NgvPluginCesiumClickInfo extends LitElement {
   private dataSource: CustomDataSource = new CustomDataSource();
   private eventHandler: ScreenSpaceEventHandler | null = null;
   private labelEntity: Entity = null;
-  private labelTimeout: NodeJS.Timeout | null = null;
+  private labelTimeout: number | null = null;
 
   static styles = css`
     :host {
