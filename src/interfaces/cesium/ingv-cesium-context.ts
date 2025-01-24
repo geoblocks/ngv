@@ -90,6 +90,8 @@ export interface IngvCesiumContext {
       backgroundPadding?: {x: number; y: number};
       backgroundColor?: string;
     };
+    actionBtn?: boolean; // work only with html popup
+    actionBtnLabel?: string;
   };
   clippingOptions?: {
     terrainClippingEnabled?: boolean;
