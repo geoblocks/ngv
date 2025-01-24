@@ -23,6 +23,13 @@ export default defineConfig({
   },
   plugins: [
     VitePWA({
+      strategies: 'injectManifest',
+      injectManifest: {
+        swSrc: './src/sw.ts',
+        maximumFileSizeToCacheInBytes: 16e6, // 16mb (because of grid file)
+      },
+      srcDir: 'src',
+      filename: 'sw.ts',
       registerType: 'prompt',
       pwaAssets: {
         disabled: false,
@@ -34,11 +41,6 @@ export default defineConfig({
         description: 'Next-Gen-3D-Viewer applications framework',
         theme_color: '#ffffff',
         display: 'minimal-ui',
-      },
-      workbox: {
-        maximumFileSizeToCacheInBytes: 16e6, // 16mb (because of grid file)
-        globPatterns: ['**/*.{js,css,html,svg,png,jpeg,jpg,ico,gsb,json}'],
-        cleanupOutdatedCaches: true,
       },
       devOptions: {
         enabled: true,
