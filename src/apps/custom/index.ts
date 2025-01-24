@@ -12,6 +12,10 @@ import {ABaseApp} from '../../structure/BaseApp.js';
 import './ngv-main-custom.js';
 
 import type {CustomConfig} from './ingv-config-custom.js';
+import {downloadAndPersistTileset} from '../../utils/cesium-tileset-downloader.js';
+import {getOrCreateDirectoryChain} from '../../utils/storage-utils.js';
+
+import {listDirectoryContents} from '../../utils/debug-utils.js';
 
 @customElement('ngv-app-custom')
 @localized()
@@ -27,6 +31,20 @@ export class NgvAppCustom extends ABaseApp<CustomConfig> {
       return r;
     }
     return html`
+      <button
+        @click="${async () => {
+          await downloadAndPersistTileset({
+            appName: 'test',
+            concurrency: 3,
+            tilesetBasePath: 'http://localhost:8000/',
+            tilesetName: 'clip-test',
+          });
+          const testDir = await getOrCreateDirectoryChain(['test']);
+          await listDirectoryContents(testDir, 10);
+        }}"
+      >
+        Press this!
+      </button>
       <ngv-structure-app .config=${this.config}>
         <ngv-main-custom .config=${this.config?.app}></ngv-main-custom>
       </ngv-structure-app>
