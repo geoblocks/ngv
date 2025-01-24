@@ -1,4 +1,6 @@
 // FIXME: This file is just for local testing
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable  @typescript-eslint/no-unsafe-member-access */
 
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
