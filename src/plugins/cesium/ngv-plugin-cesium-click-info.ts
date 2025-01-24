@@ -1,6 +1,11 @@
 import {customElement, property, state} from 'lit/decorators.js';
 import {css, html, type HTMLTemplateResult, LitElement} from 'lit';
-import type {CesiumWidget, DataSourceCollection, Entity} from '@cesium/engine';
+import type {
+  Cartesian3,
+  CesiumWidget,
+  DataSourceCollection,
+  Entity,
+} from '@cesium/engine';
 import {Cartesian2} from '@cesium/engine';
 import {
   ConstantPositionProperty,
@@ -19,6 +24,15 @@ import {CustomDataSource} from '@cesium/engine';
 import proj4 from 'proj4';
 import {msg} from '@lit/localize';
 import type {IngvCesiumContext} from '../../interfaces/cesium/ingv-cesium-context.js';
+
+export type ClickDetail = {
+  cartesian2: Cartesian2;
+  cartesian3: Cartesian3;
+  wgs84: {longitude: number; latitude: number};
+  projected: {longitude: number; latitude: number};
+  elevation: number;
+  distToTerrain: number;
+};
 
 @customElement('ngv-plugin-cesium-click-info')
 export class NgvPluginCesiumClickInfo extends LitElement {
@@ -39,6 +53,14 @@ export class NgvPluginCesiumClickInfo extends LitElement {
   private eventHandler: ScreenSpaceEventHandler | null = null;
   private labelEntity: Entity = null;
   private labelTimeout: ReturnType<typeof setTimeout> | null = null;
+  private detail: {
+    cartesian2: Cartesian2;
+    cartesian3: Cartesian3;
+    wgs84: {longitude: number; latitude: number};
+    projected: {longitude: number; latitude: number};
+    elevation: number;
+    distToTerrain: number;
+  };
 
   static styles = css`
     :host {
@@ -58,6 +80,17 @@ export class NgvPluginCesiumClickInfo extends LitElement {
       border-radius: 4px;
       border: 1px solid rgba(0, 0, 0, 0.16);
       box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05);
+    }
+
+    button {
+      border-radius: 4px;
+      padding: 0 12px;
+      height: 30px;
+      cursor: pointer;
+      background-color: white;
+      border: 1px solid rgba(0, 0, 0, 0.16);
+      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05);
+      transition: background-color 200ms;
     }
   `;
 
@@ -83,13 +116,22 @@ export class NgvPluginCesiumClickInfo extends LitElement {
     const elevationText = `${elevation.toFixed(2)}m`;
     const distToTerrainText = `${distToTerrain.toFixed(2)}m`;
     let projectedText = '';
+    let projectedCoords: [number, number] = [null, null];
     if (this.options.projection) {
-      const projectedCoords = proj4('EPSG:4326', this.options.projection, [
+      projectedCoords = proj4('EPSG:4326', this.options.projection, [
         longitude,
         latitude,
       ]);
       projectedText = `${projectedCoords[0]}, ${projectedCoords[1]}`;
     }
+    this.detail = {
+      cartesian2: evt.position,
+      cartesian3: position,
+      wgs84: {longitude, latitude},
+      projected: {longitude: projectedCoords[0], latitude: projectedCoords[1]},
+      elevation,
+      distToTerrain,
+    };
     if (this.options.type === 'cesium') {
       let text = projectedText
         ? `${this.options.projection}: ${projectedText}\n`
@@ -249,6 +291,19 @@ export class NgvPluginCesiumClickInfo extends LitElement {
         ><b>${msg('Elevation (from terrain)')}</b> ${this.popupContent
           .distToTerrain}</span
       >
+      ${this.options?.actionBtn
+        ? html`<button
+            @click="${() => {
+              this.dispatchEvent(
+                new CustomEvent<ClickDetail>('action', {detail: this.detail}),
+              );
+              this.popupContent = null;
+              this.labelEntity.show = false;
+            }}"
+          >
+            ${msg(this.options.actionBtnLabel)}
+          </button>`
+        : ''}
     </div>`;
   }
 }

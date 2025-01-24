@@ -14,24 +14,54 @@ import '../../plugins/cesium/ngv-plugin-cesium-slicing';
 import '../../plugins/cesium/ngv-plugin-cesium-measure';
 import '../../plugins/cesium/ngv-plugin-cesium-navigation';
 import '../../plugins/cesium/ngv-plugin-cesium-click-info';
-import type {CesiumWidget, DataSourceCollection} from '@cesium/engine';
-
-import {PrimitiveCollection} from '@cesium/engine';
+import '../../plugins/ui/ngv-survey';
+import type {CesiumWidget, DataSourceCollection, Entity} from '@cesium/engine';
+import {Color, HeightReference} from '@cesium/engine';
+import {CustomDataSource} from '@cesium/engine';
 import type {ViewerInitializedDetails} from '../../plugins/cesium/ngv-plugin-cesium-widget.js';
+import type {ClickDetail} from '../../plugins/cesium/ngv-plugin-cesium-click-info.js';
 
 @customElement('ngv-app-survey')
 @localized()
 export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
   @state()
   private viewer: CesiumWidget;
-  private uploadedModelsCollection: PrimitiveCollection =
-    new PrimitiveCollection();
+  @state()
+  private showSurvey = false;
   private dataSourceCollection: DataSourceCollection;
+  private dataSource: CustomDataSource = new CustomDataSource();
+  private lastPoint: Entity | undefined;
 
   private collections: ViewerInitializedDetails['primitiveCollections'];
+  private surveyFieldValues:
+    | Record<string, string | number | Record<string, boolean>>
+    | undefined = {};
 
   constructor() {
     super(() => import('./demoSurveyConfig.js'));
+  }
+
+  addMarker(detail: ClickDetail): void {
+    // todo make configurable
+    this.lastPoint = this.dataSource.entities.add({
+      position: detail.cartesian3,
+      point: {
+        color: Color.RED,
+        outlineWidth: 2,
+        pixelSize: 5,
+        heightReference: HeightReference.NONE,
+      },
+    });
+    this.showSurvey = true;
+    // todo improve: how to configure?
+    this.surveyFieldValues['textInput'] =
+      `${detail.projected.longitude}, ${detail.projected.latitude}`;
+  }
+
+  hideSurvey(): void {
+    this.showSurvey = false;
+    this.lastPoint = undefined;
+    this.surveyFieldValues = {};
   }
 
   render(): HTMLTemplateResult {
@@ -63,6 +93,20 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
                   .viewsConfig="${this.config.app.cesiumContext.views}"
                   .dataSourceCollection="${this.dataSourceCollection}"
                 ></ngv-plugin-cesium-navigation>
+                ${this.showSurvey
+                  ? html` <ngv-survey
+                      .surveyConfig="${this.config.app.survey}"
+                      .fieldValues="${this.surveyFieldValues}"
+                      @confirm=${(evt: CustomEvent) => {
+                        console.log(evt.detail);
+                        this.hideSurvey();
+                      }}
+                      @cancel=${() => {
+                        this.dataSource.entities.remove(this.lastPoint);
+                        this.hideSurvey();
+                      }}
+                    ></ngv-survey>`
+                  : ''}
               `
             : ''}
         </div>
@@ -71,8 +115,10 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
           .cesiumContext=${this.config.app.cesiumContext}
           @viewerInitialized=${(evt: CustomEvent<ViewerInitializedDetails>) => {
             this.viewer = evt.detail.viewer;
-            this.viewer.scene.primitives.add(this.uploadedModelsCollection);
             this.dataSourceCollection = evt.detail.dataSourceCollection;
+            this.dataSourceCollection
+              .add(this.dataSource)
+              .catch((e) => console.error(e));
             this.collections = evt.detail.primitiveCollections;
           }}
         >
@@ -81,6 +127,8 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
                 .viewer="${this.viewer}"
                 .dataSourceCollection="${this.dataSourceCollection}"
                 .options=${this.config.app.cesiumContext.clickInfoOptions}
+                @action=${(evt: CustomEvent<ClickDetail>) =>
+                  this.addMarker(evt.detail)}
               ></ngv-plugin-cesium-click-info>`
             : ''}
         </ngv-plugin-cesium-widget>

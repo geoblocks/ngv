@@ -20,6 +20,94 @@ export const config: ISurveyConfig = {
     },
   },
   app: {
+    survey: [
+      {
+        id: 'textInput',
+        type: 'input',
+        inputType: 'text',
+        required: true,
+        label: 'text test',
+        placeholder: 'test',
+        min: 1,
+        max: 30,
+      },
+      {
+        id: 'numberInput',
+        type: 'input',
+        label: 'number test',
+        inputType: 'number',
+        required: true,
+        min: 1,
+        max: 100,
+      },
+      {
+        id: 'dateInput',
+        type: 'input',
+        label: 'date test',
+        inputType: 'date',
+        required: true,
+        min: '2025-01-01',
+      },
+      {
+        id: 'textarea',
+        type: 'textarea',
+        required: true,
+        label: 'area test',
+        placeholder: 'test',
+        min: 1,
+        max: 100,
+      },
+      {
+        id: 'radio',
+        type: 'radio',
+        label: 'radio test',
+        defaultValue: 'r1',
+        options: [
+          {
+            label: 'radio 1',
+            value: 'r1',
+          },
+          {
+            label: 'radio 2',
+            value: 'r2',
+          },
+        ],
+      },
+      {
+        id: 'checkbox',
+        type: 'checkbox',
+        label: 'checkbox test',
+        required: true,
+        options: [
+          {
+            label: 'checkbox 1',
+            value: 'c1',
+            checked: false,
+          },
+          {
+            label: 'checkbox 2',
+            value: 'c2',
+            checked: false,
+          },
+        ],
+      },
+      {
+        id: 'select',
+        type: 'select',
+        label: 'select test',
+        required: true,
+        options: [
+          {
+            label: 'select 1',
+            value: 's1',
+          },
+          {
+            label: 'select 2',
+            value: 's2',
+          },
+        ],
+      },
+    ],
     cesiumContext: {
       catalogs: {
         '@cesium': () => import('../../catalogs/cesiumCatalog.js'),
@@ -80,6 +168,8 @@ export const config: ISurveyConfig = {
         showAmslElevation: true,
         showTerrainDistance: false,
         projection: 'EPSG:27700',
+        actionBtn: true,
+        actionBtnLabel: 'Add defect',
       },
       measureOptions: {
         showSegmentsInfo: true,
