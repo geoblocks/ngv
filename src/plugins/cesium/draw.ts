@@ -91,7 +91,7 @@ export class CesiumDraw extends EventTarget {
   private leftPressedPixel_: Cartesian2 | undefined;
   private sketchPoints_: Entity[] = [];
   private isDoubleClick = false;
-  private singleClickTimer: number | null = null;
+  private singleClickTimer: ReturnType<typeof setTimeout> | null = null;
   private segmentsInfo: SegmentInfo[] = [];
   private julianDate = new JulianDate();
   type: GeometryTypes | undefined;

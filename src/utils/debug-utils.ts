@@ -9,8 +9,8 @@ export async function listDirectoryContents(
   depth: number,
 ): Promise<void> {
   // From https://shaneosullivan.wordpress.com/2023/11/28/how-to-list-all-files-in-a-browsers-origin-private-file-system/
-  // @ts-expect-error this method do exist according to mdn
   const entries =
+    // @ts-expect-error this method do exist according to mdn
     (await directoryHandle.values()) as Promise<FileSystemDirectoryHandle>[];
 
   // @ts-ignore
