@@ -2,6 +2,7 @@ import {
   type ImageryProvider,
   OpenStreetMapImageryProvider,
   PrimitiveCollection,
+  Resource,
 } from '@cesium/engine';
 import {
   Ion,
@@ -94,7 +95,8 @@ export async function instantiate3dTileset(
   }
   if (typeof url === 'string') {
     return Cesium3DTileset.fromUrl(
-      url,
+      // This allows for offline mode
+      new Resource(url),
       withExtra(config.options, extraOptions),
     );
   } else {
