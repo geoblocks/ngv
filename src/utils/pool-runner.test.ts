@@ -1,6 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 // @ts-expect-error ts extension
