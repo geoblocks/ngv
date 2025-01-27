@@ -28,7 +28,11 @@ export const catalog: INGVCatalog = {
     },
     castle: {
       type: '3dtiles',
-      url: 'http://localhost:9999/tileset.json',
+      url: 'http://localhost:9999/castle1/tileset.json',
+    },
+    castle2: {
+      type: '3dtiles',
+      url: 'http://localhost:9999/castle2/tileset.json',
     },
     // to complete
   },

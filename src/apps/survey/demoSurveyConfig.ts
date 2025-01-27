@@ -26,7 +26,7 @@ export const config: ISurveyConfig = {
         '@demo': () => import('../../catalogs/demoCatalog.js'),
       },
       layers: {
-        // tiles3d: ['@demo/castle'],
+        // tiles3d: ['@demo/castle', '@demo/castle2'],
         imageries: ['@cesium/openstreetmap'],
       },
       quickLists: {
@@ -55,15 +55,15 @@ export const config: ISurveyConfig = {
         },
         {
           positions: [
-            [-1.1459364049250647, 60.156072543804996],
-            [-1.1443272025193694, 60.1562370324715],
-            [-1.1438096482321323, 60.154899456027685],
-            [-1.1455449773128685, 60.15467652132899],
+            [-3.5167084426199935, 56.00594918805265],
+            [-3.516120373893856, 56.005744756484745],
+            [-3.5153586268392725, 56.006330790752074],
+            [-3.5157395003694356, 56.00656588340325],
           ],
-          height: 15,
+          height: 30,
           elevation: 0,
           flyDuration: 2,
-          title: 'Fort Charlotte, Shetland',
+          title: 'Blackness Castle - Falkirk',
           fovAngle: 45,
         },
       ],
