@@ -30,6 +30,7 @@ export type ClickDetail = {
   cartesian3: Cartesian3;
   wgs84: {longitude: number; latitude: number};
   projected: {longitude: number; latitude: number};
+  projection?: string;
   elevation: number;
   distToTerrain: number;
 };
@@ -53,14 +54,7 @@ export class NgvPluginCesiumClickInfo extends LitElement {
   private eventHandler: ScreenSpaceEventHandler | null = null;
   private labelEntity: Entity = null;
   private labelTimeout: ReturnType<typeof setTimeout> | null = null;
-  private detail: {
-    cartesian2: Cartesian2;
-    cartesian3: Cartesian3;
-    wgs84: {longitude: number; latitude: number};
-    projected: {longitude: number; latitude: number};
-    elevation: number;
-    distToTerrain: number;
-  };
+  private detail: ClickDetail;
 
   static styles = css`
     :host {
@@ -129,6 +123,7 @@ export class NgvPluginCesiumClickInfo extends LitElement {
       cartesian3: position,
       wgs84: {longitude, latitude},
       projected: {longitude: projectedCoords[0], latitude: projectedCoords[1]},
+      projection: this.options.projection,
       elevation,
       distToTerrain,
     };

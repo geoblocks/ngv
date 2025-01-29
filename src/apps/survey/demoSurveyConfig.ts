@@ -1,111 +1,122 @@
 import type {ISurveyConfig} from './ingv-config-survey.js';
 
 export const config: ISurveyConfig = {
-  languages: ['de', 'fr', 'en', 'it'],
+  languages: ['en'],
   header: {
     title: {
-      fr: 'Ma super app',
-      en: 'My super app',
-      de: 'Meine supper app',
-      it: 'Mia super app',
+      en: 'Survey app',
     },
   },
   footer: {
     contact: 'me@example.com',
     impressum: {
-      fr: 'Bla bla FR impressim',
-      en: 'Bla bla EN impressim',
-      de: 'Bla bla DE impressim',
-      it: 'Bla bla IT impressim',
+      en: 'Survey app',
     },
   },
   app: {
     survey: [
       {
-        id: 'textInput',
+        id: 'survey-id',
+        type: 'id',
+      },
+      {
+        id: 'coords-field',
+        type: 'coordinates',
+      },
+      {
+        id: 'survey-summary',
         type: 'input',
         inputType: 'text',
         required: true,
-        label: 'text test',
-        placeholder: 'test',
+        label: 'Summary',
+        placeholder: 'Summary',
         min: 1,
-        max: 30,
+        max: 50,
       },
       {
-        id: 'numberInput',
+        id: 'survey-date',
         type: 'input',
-        label: 'number test',
-        inputType: 'number',
-        required: true,
-        min: 1,
-        max: 100,
-      },
-      {
-        id: 'dateInput',
-        type: 'input',
-        label: 'date test',
+        label: 'Date',
         inputType: 'date',
         required: true,
         min: '2025-01-01',
       },
       {
-        id: 'textarea',
+        id: 'survey-description',
         type: 'textarea',
-        required: true,
-        label: 'area test',
-        placeholder: 'test',
+        required: false,
+        label: 'Description',
+        placeholder: 'Describe a problem',
         min: 1,
-        max: 100,
+        max: 200,
       },
       {
-        id: 'radio',
-        type: 'radio',
-        label: 'radio test',
-        defaultValue: 'r1',
+        id: 'survey-select',
+        type: 'select',
+        label: 'Defect type',
+        required: true,
         options: [
           {
-            label: 'radio 1',
-            value: 'r1',
+            label: 'Type 1',
+            value: 's1',
           },
           {
-            label: 'radio 2',
-            value: 'r2',
+            label: 'Type 2',
+            value: 's2',
           },
         ],
       },
       {
-        id: 'checkbox',
+        id: 'survey-radio',
+        type: 'radio',
+        label: 'Priority',
+        defaultValue: 'r1',
+        options: [
+          {
+            label: 'Low',
+            value: 'r1',
+          },
+          {
+            label: 'Medium',
+            value: 'r2',
+          },
+          {
+            label: 'High',
+            value: 'r3',
+          },
+        ],
+      },
+      {
+        id: 'survey-checkbox',
         type: 'checkbox',
-        label: 'checkbox test',
+        label: 'Choose options (at least one)',
         required: true,
         options: [
           {
-            label: 'checkbox 1',
+            label: 'Option 1',
             value: 'c1',
             checked: false,
           },
           {
-            label: 'checkbox 2',
+            label: 'Option 2',
             value: 'c2',
+            checked: false,
+          },
+          {
+            label: 'Option 3',
+            value: 'c3',
             checked: false,
           },
         ],
       },
       {
-        id: 'select',
-        type: 'select',
-        label: 'select test',
-        required: true,
-        options: [
-          {
-            label: 'select 1',
-            value: 's1',
-          },
-          {
-            label: 'select 2',
-            value: 's2',
-          },
-        ],
+        id: 'survey-file',
+        type: 'file',
+        mainBtnText: 'Attach photo',
+        urlInput: false,
+        fileInput: true,
+        uploadBtnText: 'Upload',
+        accept: 'image/*',
       },
     ],
     cesiumContext: {
@@ -114,7 +125,7 @@ export const config: ISurveyConfig = {
         '@demo': () => import('../../catalogs/demoCatalog.js'),
       },
       layers: {
-        // tiles3d: ['@demo/castle', '@demo/castle2'],
+        tiles3d: ['@demo/castle', '@demo/castle2'],
         imageries: ['@cesium/openstreetmap'],
       },
       quickLists: {

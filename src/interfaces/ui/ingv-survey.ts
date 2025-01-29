@@ -34,9 +34,30 @@ export type SurveyCheckbox = Omit<SurveyFieldBase, 'defaultValue'> & {
   options: {label: string; value: string; checked: boolean}[];
 };
 
+export type SurveyCoords = SurveyFieldBase & {
+  type: 'coordinates';
+};
+
+export type SurveyFile = Omit<SurveyFieldBase, 'defaultValue'> & {
+  type: 'file';
+  accept?: string;
+  urlInput?: boolean;
+  urlPlaceholderText?: string;
+  fileInput?: boolean;
+  mainBtnText?: string;
+  uploadBtnText?: string;
+};
+
+export type SurveyId = Omit<SurveyFieldBase, 'required' | 'defaultValue'> & {
+  type: 'id';
+};
+
 export type SurveyField =
   | SurveyInput
   | SurveyTextarea
   | SurveySelect
   | SurveyRadio
-  | SurveyCheckbox;
+  | SurveyCheckbox
+  | SurveyCoords
+  | SurveyFile
+  | SurveyId;

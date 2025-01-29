@@ -1,6 +1,7 @@
 import type {
   CesiumWidget,
   Globe,
+  HeightReference,
   HorizontalOrigin,
   LabelStyle,
   VerticalOrigin,
@@ -97,5 +98,22 @@ export interface IngvCesiumContext {
     terrainClippingEnabled?: boolean;
     tilesClippingEnabled?: boolean;
     storeKey?: string;
+  };
+  surveyOptions?: {
+    pointOptions?: {
+      color?: string;
+      outlineWidth?: number;
+      outlineColor?: string;
+      pixelSize?: number;
+      disableDepthTestDistance?: number;
+      heightReference?: HeightReference;
+    };
+    pointHighlightOptions?: {
+      color?: string;
+      outlineWidth?: number;
+      outlineColor?: string;
+      pixelSize?: number;
+      disableDepthTestDistance?: number;
+    };
   };
 }

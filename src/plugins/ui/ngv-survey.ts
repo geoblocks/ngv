@@ -4,7 +4,10 @@ import {customElement, property, state} from 'lit/decorators.js';
 import {msg} from '@lit/localize';
 import type {
   SurveyCheckbox,
+  SurveyCoords,
   SurveyField,
+  SurveyFile,
+  SurveyId,
   SurveyInput,
   SurveyRadio,
   SurveySelect,
@@ -12,15 +15,22 @@ import type {
 } from '../../interfaces/ui/ingv-survey.js';
 import {Task} from '@lit/task';
 import {classMap} from 'lit/directives/class-map.js';
+import './ngv-upload';
+import type {FileUploadDetails} from './ngv-upload.js';
+import {fileToBase64} from '../../utils/file-utils.js';
+import type {Coordinate} from '../../utils/generalTypes.js';
+
+export type FieldValues = Record<
+  string,
+  string | number | Record<string, boolean> | Coordinate
+>;
 
 @customElement('ngv-survey')
 export class NgvSurvey extends LitElement {
   @property({type: Object})
   public surveyConfig: SurveyField[];
   @property({type: Object})
-  public fieldValues:
-    | Record<string, string | number | Record<string, boolean>>
-    | undefined;
+  public fieldValues: FieldValues | undefined;
   @state()
   notValid: Record<string, boolean> = {};
 
@@ -104,7 +114,10 @@ export class NgvSurvey extends LitElement {
             const date = new Date().toISOString();
             fields[item.id] = date.substring(0, date.indexOf('T'));
           } else {
-            fields[item.id] = item.defaultValue;
+            fields[item.id] =
+              item.type !== 'file' && item.type !== 'id'
+                ? item.defaultValue
+                : '';
           }
         }
       });
@@ -222,7 +235,9 @@ ${this.fieldValues[options.id] || ''}</textarea
         <label>${option.label}</label>
         <input
           type="checkbox"
-          .checked=${option.checked}
+          .checked=${(<Record<string, boolean>>this.fieldValues[options.id])[
+            option.value
+          ]}
           @click=${(evt: Event) => {
             if (!this.fieldValues[options.id]) {
               this.fieldValues[options.id] = {};
@@ -280,6 +295,64 @@ ${this.fieldValues[options.id] || ''}</textarea
     </fieldset>`;
   }
 
+  renderId(options: SurveyId): TemplateResult<1> | '' {
+    return html`
+      <div class="field" style="font-size: small">
+        <span><b>${msg('ID')}: </b>${this.fieldValues[options.id]}</span>
+      </div>
+    `;
+  }
+
+  renderCoordinates(options: SurveyCoords): TemplateResult<1> | '' {
+    const coordinate = <Coordinate>this.fieldValues[options.id];
+    return html`
+      <div class="field" style="font-size: smaller">
+        <span
+          ><b>${msg('Coordinates')}: </b><br />${coordinate.longitude},
+          ${coordinate.latitude}<br /><b>${msg('Height:')}</b>
+          ${coordinate.height}m</span
+        >
+      </div>
+    `;
+  }
+
+  renderFile(options: SurveyFile): TemplateResult<1> | '' {
+    return html`${this.fieldValues[options.id]
+      ? html`<button
+          @click=${() => {
+            this.fieldValues[options.id] = '';
+            this.requestUpdate();
+          }}
+        >
+          ${msg('Remove attached file')} 🗑
+        </button>`
+      : html`<ngv-upload
+          .options="${{
+            accept: options.accept,
+            mainBtnText: options.mainBtnText,
+            urlInput: options.urlInput,
+            urlPlaceholderText: options.urlPlaceholderText,
+            fileInput: options.fileInput,
+            uploadBtnText: options.uploadBtnText,
+          }}"
+          @uploaded="${async (evt: {
+            detail: FileUploadDetails;
+          }): Promise<void> => {
+            try {
+              this.fieldValues[options.id] = await fileToBase64(
+                evt.detail.file,
+              );
+              this.requestUpdate();
+            } catch (e) {
+              console.error(e);
+            }
+          }}"
+        ></ngv-upload>`}
+    ${this.fieldValues[options.id] && options.accept.includes('image')
+      ? html`<img src="${this.fieldValues[options.id]}" alt="preview" />`
+      : ''}`;
+  }
+
   renderField(field: SurveyField): TemplateResult<1> | '' {
     switch (field.type) {
       case 'radio':
@@ -292,6 +365,12 @@ ${this.fieldValues[options.id] || ''}</textarea
         return this.renderSelect(field);
       case 'textarea':
         return this.renderTextarea(field);
+      case 'coordinates':
+        return this.renderCoordinates(field);
+      case 'file':
+        return this.renderFile(field);
+      case 'id':
+        return this.renderId(field);
       default:
         return '';
     }
@@ -299,7 +378,11 @@ ${this.fieldValues[options.id] || ''}</textarea
 
   validate(): boolean {
     this.surveyConfig.forEach((field) => {
-      if (field.required) {
+      if (
+        field.type !== 'coordinates' &&
+        field.type !== 'id' &&
+        field.required
+      ) {
         const value = this.fieldValues[field.id];
         if (typeof value === 'string') {
           this.notValid[field.id] = !value?.length;
@@ -334,7 +417,9 @@ ${this.fieldValues[options.id] || ''}</textarea
             const valid = this.validate();
             if (valid) {
               this.dispatchEvent(
-                new CustomEvent('confirm', {detail: this.fieldValues}),
+                new CustomEvent<FieldValues>('confirm', {
+                  detail: this.fieldValues,
+                }),
               );
             }
           }}"
