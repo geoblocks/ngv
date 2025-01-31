@@ -28,7 +28,7 @@ export async function getOrCreateDirectoryChain(
 /**
  * Stream To a file.
  * @param directory Directory handle
- * @param filename Name of the file to write to
+ * @param name Name of the file to write to
  * @param stream A readable stream
  * @returns
  */
@@ -45,4 +45,84 @@ export async function streamToFile(
     keepExistingData: false,
   });
   return stream.pipeTo(writable);
+}
+
+/**
+ * Saves object as JSON to Persistent Storage
+ * @param directory Directory handle
+ * @param name Name of the file to write to
+ * @param data
+ */
+export async function persistJson(
+  directory: FileSystemDirectoryHandle,
+  name: string,
+  data: Record<string, any> | Record<string, any>[],
+): Promise<void> {
+  try {
+    const json = JSON.stringify(data);
+
+    const fileHandle = await getFileHandle(directory, name);
+    const writable = await fileHandle.createWritable({
+      keepExistingData: false,
+    });
+    await writable.write(json);
+
+    // Close the stream
+    await writable.close();
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+/**
+ * Gets JSON file from Persistent Storage
+ * @param directory Directory handle
+ * @param name Name of the file to write to
+ */
+export async function getJson<T>(
+  directory: FileSystemDirectoryHandle,
+  name: string,
+): Promise<T> {
+  const fileHandler = await getFileHandle(directory, name);
+  const file = await fileHandler.getFile();
+
+  const text = await file.text();
+
+  return <T>JSON.parse(text);
+}
+
+/**
+ * Removes file from Persistent Storage
+ * @param directory Directory handle
+ * @param name Name of the file to remove
+ */
+export async function removeFile(
+  directory: FileSystemDirectoryHandle,
+  name: string,
+): Promise<void> {
+  const fileExists = !!(await getFileHandle(directory, name));
+  if (!fileExists) return;
+  await directory.removeEntry(name);
+}
+
+/**
+ * Gets file handle if exists
+ * @param directory Directory handle
+ * @param name Name of the file
+ */
+async function getFileHandle(
+  directory: FileSystemDirectoryHandle,
+  name: string,
+) {
+  try {
+    return await directory.getFileHandle(name);
+  } catch (error) {
+    if ((<DOMException>error).name === 'NotFoundError') {
+      console.log(`File "${name}" does not exist.`);
+      return undefined;
+    } else {
+      console.error('Error checking file existence:', error);
+      throw error;
+    }
+  }
 }

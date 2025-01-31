@@ -1,32 +1,125 @@
 import type {ISurveyConfig} from './ingv-config-survey.js';
 
 export const config: ISurveyConfig = {
-  languages: ['de', 'fr', 'en', 'it'],
+  languages: ['en'],
   header: {
     title: {
-      fr: 'Ma super app',
-      en: 'My super app',
-      de: 'Meine supper app',
-      it: 'Mia super app',
-    },
-  },
-  footer: {
-    contact: 'me@example.com',
-    impressum: {
-      fr: 'Bla bla FR impressim',
-      en: 'Bla bla EN impressim',
-      de: 'Bla bla DE impressim',
-      it: 'Bla bla IT impressim',
+      en: 'Survey app',
     },
   },
   app: {
+    survey: [
+      {
+        id: 'survey-id',
+        type: 'id',
+      },
+      {
+        id: 'coords-field',
+        type: 'coordinates',
+      },
+      {
+        id: 'survey-summary',
+        type: 'input',
+        inputType: 'text',
+        required: true,
+        label: 'Summary',
+        placeholder: 'Summary',
+        min: 1,
+        max: 50,
+      },
+      {
+        id: 'survey-date',
+        type: 'input',
+        label: 'Date',
+        inputType: 'date',
+        required: true,
+        min: '2025-01-01',
+      },
+      {
+        id: 'survey-description',
+        type: 'textarea',
+        required: false,
+        label: 'Description',
+        placeholder: 'Describe a problem',
+        min: 1,
+        max: 200,
+      },
+      {
+        id: 'survey-select',
+        type: 'select',
+        label: 'Defect type',
+        required: true,
+        options: [
+          {
+            label: 'Type 1',
+            value: 's1',
+          },
+          {
+            label: 'Type 2',
+            value: 's2',
+          },
+        ],
+      },
+      {
+        id: 'survey-radio',
+        type: 'radio',
+        label: 'Priority',
+        defaultValue: 'r1',
+        options: [
+          {
+            label: 'Low',
+            value: 'r1',
+          },
+          {
+            label: 'Medium',
+            value: 'r2',
+          },
+          {
+            label: 'High',
+            value: 'r3',
+          },
+        ],
+      },
+      {
+        id: 'survey-checkbox',
+        type: 'checkbox',
+        label: 'Choose options (at least one)',
+        required: true,
+        options: [
+          {
+            label: 'Option 1',
+            value: 'c1',
+            checked: false,
+          },
+          {
+            label: 'Option 2',
+            value: 'c2',
+            checked: false,
+          },
+          {
+            label: 'Option 3',
+            value: 'c3',
+            checked: false,
+          },
+        ],
+      },
+      {
+        id: 'survey-file',
+        type: 'file',
+        mainBtnText: 'Attach photo',
+        urlInput: false,
+        fileInput: true,
+        uploadBtnText: 'Upload',
+        accept: 'image/*',
+      },
+    ],
     cesiumContext: {
       catalogs: {
         '@cesium': () => import('../../catalogs/cesiumCatalog.js'),
         '@demo': () => import('../../catalogs/demoCatalog.js'),
       },
       layers: {
-        // tiles3d: ['@demo/castle', '@demo/castle2'],
+        tiles3d: ['@demo/castle', '@demo/castle2'],
         imageries: ['@cesium/openstreetmap'],
       },
       quickLists: {
@@ -80,6 +173,8 @@ export const config: ISurveyConfig = {
         showAmslElevation: true,
         showTerrainDistance: false,
         projection: 'EPSG:27700',
+        actionBtn: true,
+        actionBtnLabel: 'Add defect',
       },
       measureOptions: {
         showSegmentsInfo: true,

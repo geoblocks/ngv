@@ -101,27 +101,31 @@ export class NgvUpload extends LitElement {
 
   render(): HTMLTemplateResult {
     return html` <div class="upload-popup">
-      <input
-        type="file"
-        accept="${this.options.accept}"
-        @change=${(e: Event) => {
-          const target = <HTMLInputElement>e.target;
-          if (!target || !target.files?.length) return;
-          this.onFileUpload(target.files[0]);
-        }}
-      />
-      <input
-        type="text"
-        placeholder="${this.options.urlPlaceholderText}"
-        .value="${this.fileDetails?.url || ''}"
-        @input="${(e: InputEvent) => {
-          const value = (<HTMLInputElement>e.target).value;
-          this.fileDetails = {
-            url: value,
-            name: value,
-          };
-        }}"
-      />
+      ${this.options.fileInput
+        ? html`<input
+            type="file"
+            accept="${this.options.accept}"
+            @change=${(e: Event) => {
+              const target = <HTMLInputElement>e.target;
+              if (!target || !target.files?.length) return;
+              this.onFileUpload(target.files[0]);
+            }}
+          />`
+        : ''}
+      ${this.options.urlInput
+        ? html`<input
+            type="text"
+            placeholder="${this.options.urlPlaceholderText}"
+            .value="${this.fileDetails?.url || ''}"
+            @input="${(e: InputEvent) => {
+              const value = (<HTMLInputElement>e.target).value;
+              this.fileDetails = {
+                url: value,
+                name: value,
+              };
+            }}"
+          />`
+        : ''}
       <button @click="${() => this.upload()}">
         ${this.options.uploadBtnText}
       </button>

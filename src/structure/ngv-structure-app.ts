@@ -23,9 +23,9 @@ export interface INgvStructureApp {
     title: Partial<Record<Locale, string>>;
     searchContext?: IngvSearchContext;
   };
-  footer: {
-    impressum: Partial<Record<Locale, string>>;
-    contact: string;
+  footer?: {
+    impressum?: Partial<Record<Locale, string>>;
+    contact?: string;
   };
   projections?: [string, string][] | ProjectionWithGrid[];
 }
@@ -58,7 +58,11 @@ export class NgvStructureApp extends LitElement {
         <div slot="main-content" style="height: 100%"><slot></slot></div>
         <div slot="main-footer">
           <footer>
-            <p>${this.config.footer.impressum[getLocale() as Locale]}</p>
+            ${this.config.footer?.impressum
+              ? html`<p>
+                  ${this.config.footer.impressum[getLocale() as Locale]}
+                </p>`
+              : ''}
           </footer>
         </div>
         <!-- <div slot="aside">aside</div> -->
