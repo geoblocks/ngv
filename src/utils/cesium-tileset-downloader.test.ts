@@ -7,6 +7,8 @@ import {
   listTilesetUrls,
 } from './cesium-tileset-downloader.js';
 
+import 'opfs-mock';
+
 await test(async function testList3dTilesetFunction() {
   const controller = new AbortController();
   const urls = await listTilesetUrls(
