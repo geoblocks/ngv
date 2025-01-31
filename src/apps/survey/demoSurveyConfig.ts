@@ -7,12 +7,6 @@ export const config: ISurveyConfig = {
       en: 'Survey app',
     },
   },
-  footer: {
-    contact: 'me@example.com',
-    impressum: {
-      en: 'Survey app',
-    },
-  },
   app: {
     survey: [
       {
