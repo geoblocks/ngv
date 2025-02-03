@@ -44,6 +44,7 @@ export const config: IPermitsConfig = {
       },
       views: [
         {
+          id: 'building-1',
           positions: [
             [6.62571, 46.50666],
             [6.62582, 46.50659],
@@ -57,6 +58,7 @@ export const config: IPermitsConfig = {
           fovAngle: 45,
         },
         {
+          id: 'building-2',
           positions: [
             [6.62582, 46.50651],
             [6.62587, 46.50654],

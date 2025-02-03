@@ -8,6 +8,7 @@ import {
 } from './cesium-tileset-downloader.js';
 
 import 'opfs-mock';
+import {getOrCreateDirectoryChain} from './storage-utils.js';
 
 await test(async function testList3dTilesetFunction() {
   const controller = new AbortController();
@@ -30,8 +31,9 @@ await test(async function testList3dTilesetFunction() {
 });
 
 await test.only(async function testDownloadAndPersistTileset() {
+  const dir = await getOrCreateDirectoryChain(['test', 'persistent']);
   await downloadAndPersistTileset({
-    appName: 'test',
+    persistedDir: dir,
     concurrency: 3,
     tilesetBasePath: 'http://localhost:8000/',
     tilesetName: 'clip-test',

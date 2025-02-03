@@ -5,7 +5,7 @@ import {
   type TilingScheme,
 } from '@cesium/engine';
 import {poolRunner} from './pool-runner.js';
-import {getOrCreateDirectoryChain, streamToFile} from './storage-utils.js';
+import {streamToFile} from './storage-utils.js';
 
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 const orig: (...blob: [Blob]) => Promise<{
@@ -47,14 +47,13 @@ export function extentToTileRange(
 }
 
 export async function downloadAndPersistImageTiles(options: {
-  appName: string;
+  persistedDir: FileSystemDirectoryHandle;
   prefix: string;
   concurrency: number;
   imageryProvider: ImageryProvider;
   tiles: number[][];
 }): Promise<void> {
-  const {appName, concurrency, imageryProvider, prefix, tiles} = options;
-  const persistedDir = await getOrCreateDirectoryChain([appName, 'persisted']);
+  const {persistedDir, concurrency, imageryProvider, prefix, tiles} = options;
   const controller = new AbortController();
 
   return await poolRunner({
@@ -94,6 +93,7 @@ export async function downloadAndPersistImageTiles(options: {
       }
       // FIXME: how to choose the suffix (jpg / png / ...)
       const filename = `zxy_${prefix}_${z}_${x}_${y}`;
+      console.log(filename);
       return streamToFile(persistedDir, filename, blob.stream()).catch(
         (error) => {
           controller.abort(error);

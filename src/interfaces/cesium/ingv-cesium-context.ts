@@ -39,6 +39,7 @@ export interface IngvCesiumContext {
     };
   };
   views?: {
+    id: string; // should be uniq
     positions: [
       [number, number],
       [number, number],
@@ -51,6 +52,11 @@ export interface IngvCesiumContext {
     flyDuration?: number;
     fovAngle: number;
     highlightColor?: string; // css string, default red
+    offline?: {
+      rectangle?: number[]; // west, south, east, north
+      tiles3d?: string[];
+      imageries?: string[];
+    };
   }[];
   widgetOptions?: ConstructorParameters<typeof CesiumWidget>[1];
   globeOptions?: Partial<Globe>;

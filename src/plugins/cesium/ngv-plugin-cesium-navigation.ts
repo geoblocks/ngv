@@ -46,6 +46,8 @@ export class NgvPluginCesiumNavigation extends LitElement {
   public dataSourceCollection: DataSourceCollection;
   @property({type: Array})
   public viewsConfig: IngvCesiumContext['views'];
+  @property({type: Boolean})
+  public disableViewChange: boolean = false;
   @state()
   private currentViewIndex: number;
   private currentView: NavViews;
@@ -184,7 +186,12 @@ export class NgvPluginCesiumNavigation extends LitElement {
   // @ts-expect-error TS6133
   private _changeViewTask = new Task(this, {
     args: (): [number] => [this.currentViewIndex],
-    task: ([_currentViewIndex]) => {
+    task: ([currentViewIndex]) => {
+      this.dispatchEvent(
+        new CustomEvent('viewChanged', {
+          detail: this.viewsConfig[currentViewIndex],
+        }),
+      );
       this.updateView();
       this.viewer.camera.flyTo(this.currentView.top);
     },
@@ -220,15 +227,31 @@ export class NgvPluginCesiumNavigation extends LitElement {
     this.currentViewIndex = prevIndx;
   }
 
+  public setViewById(id: string): void {
+    if (!this.viewsConfig) return;
+    const index = this.viewsConfig.findIndex((c) => c.id === id);
+    if (index > -1) {
+      this.currentViewIndex = index;
+    }
+  }
+
   render(): HTMLTemplateResult | string {
     if (!this.viewsConfig?.length) return '';
     return html`<div class="container">
       ${this.viewsConfig.length > 1
         ? html`<div class="nav-container">
-              <button @click=${() => this.toPrevView()}>
+              <button
+                .disabled=${this.disableViewChange}
+                @click=${() => this.toPrevView()}
+              >
                 ${msg('Previous')}
               </button>
-              <button @click=${() => this.toNextView()}>${msg('Next')}</button>
+              <button
+                .disabled=${this.disableViewChange}
+                @click=${() => this.toNextView()}
+              >
+                ${msg('Next')}
+              </button>
             </div>
             <div class="divider"></div>`
         : ''}

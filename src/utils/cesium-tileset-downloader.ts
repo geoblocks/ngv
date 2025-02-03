@@ -1,9 +1,5 @@
 import {poolRunner} from './pool-runner.js';
-import {
-  getOrCreateDirectoryChain,
-  streamToFile,
-  filenamize,
-} from './storage-utils.js';
+import {streamToFile, filenamize} from './storage-utils.js';
 
 interface TilesetNode {
   content?: {
@@ -97,14 +93,13 @@ export async function listTilesetUrls(
 }
 
 export async function downloadAndPersistTileset(options: {
-  appName: string;
+  persistedDir: FileSystemDirectoryHandle;
   tilesetBasePath: string;
   tilesetFilename?: string;
   tilesetName: string;
   concurrency: number;
 }): Promise<void> {
-  const {appName, tilesetFilename, tilesetBasePath, concurrency} = options;
-  const persistedDir = await getOrCreateDirectoryChain([appName, 'persisted']);
+  const {persistedDir, tilesetFilename, tilesetBasePath, concurrency} = options;
   const controller = new AbortController();
   const allUrls = await listTilesetUrls(
     tilesetBasePath,

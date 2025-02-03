@@ -61,7 +61,9 @@ export async function persistJson(
   try {
     const json = JSON.stringify(data);
 
-    const fileHandle = await getFileHandle(directory, name);
+    const fileHandle = await directory.getFileHandle(name, {
+      create: true,
+    });
     const writable = await fileHandle.createWritable({
       keepExistingData: false,
     });
@@ -124,5 +126,21 @@ async function getFileHandle(
       console.error('Error checking file existence:', error);
       throw error;
     }
+  }
+}
+
+/**
+ * Removes directory
+ * @param directory Directory handle
+ * @param name
+ */
+export async function removeDirectory(
+  directory: FileSystemDirectoryHandle,
+  name: string,
+): Promise<void> {
+  try {
+    await directory.removeEntry(name, {recursive: true});
+  } catch (error) {
+    console.error(error);
   }
 }

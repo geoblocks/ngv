@@ -10,6 +10,7 @@ import {listTilesInRectangle} from '../plugins/cesium/cesium-utils.js';
 import {listDirectoryContents} from './debug-utils.js';
 
 import './mocks.test.js';
+import {getOrCreateDirectoryChain} from './storage-utils.js';
 
 await test.only(async function testDownloadAndPersistImagery() {
   const imageryProvider = new UrlTemplateImageryProvider({
@@ -38,9 +39,10 @@ await test.only(async function testDownloadAndPersistImagery() {
   const tiles = listTilesInRectangle(rectangle, imageryProvider);
 
   assert(tiles.length === 32, 'Incorrect number of tiles ' + tiles.length);
+  const persistedDir = await getOrCreateDirectoryChain(['test', 'persisted']);
 
   await downloadAndPersistImageTiles({
-    appName: 'test',
+    persistedDir,
     concurrency: 3,
     imageryProvider,
     prefix: 'swissimage',
