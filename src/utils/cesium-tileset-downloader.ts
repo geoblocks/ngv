@@ -1,5 +1,12 @@
 import {poolRunner} from './pool-runner.js';
-import {streamToFile, filenamize} from './storage-utils.js';
+import {
+  streamToFile,
+  filenamize,
+  getOrCreateDirectoryChain,
+  getDirectoryIfExists,
+  getFileHandle,
+} from './storage-utils.js';
+import {Proxy, Resource} from '@cesium/engine';
 
 interface TilesetNode {
   content?: {
@@ -33,8 +40,34 @@ interface ListTilesetOptions {
   extent?: number[];
 }
 
+const fetchOrig = Resource.prototype.fetch;
+
+Resource.prototype.fetch = async function (options): Promise<any> {
+  const filePath = new URL(this.url).pathname;
+  if (
+    options?.responseType === 'arraybuffer' ||
+    (options?.responseType === 'text' &&
+      options?.headers.Accept.includes('application/json'))
+  ) {
+    const path = filePath.replace('/', '').split('/');
+    const name = path.splice(path.length - 1, 1)[0];
+    //todo
+    const dir = await getDirectoryIfExists(['survey', 'tiles3d', ...path]);
+    if (dir) {
+      const fileHandler = await getFileHandle(dir, name);
+      const file = await fileHandler.getFile();
+      if (file) {
+        return options.responseType === 'arraybuffer'
+          ? file.arrayBuffer()
+          : file.text();
+      }
+    }
+  }
+
+  return fetchOrig.call(this, options);
+};
+
 function rectsOverlapping(rect1: number[], rect2: number[], error: number) {
-  // console.log("Is overlapping", rect1, rect2, error);
   if (rect1[2] + error < rect2[0] || rect2[2] + error < rect1[0]) {
     return false;
   }
@@ -93,13 +126,15 @@ export async function listTilesetUrls(
 }
 
 export async function downloadAndPersistTileset(options: {
-  persistedDir: FileSystemDirectoryHandle;
+  appName: string;
+  subdir: string;
   tilesetBasePath: string;
   tilesetFilename?: string;
   tilesetName: string;
   concurrency: number;
 }): Promise<void> {
-  const {persistedDir, tilesetFilename, tilesetBasePath, concurrency} = options;
+  const {appName, subdir, tilesetFilename, tilesetBasePath, concurrency} =
+    options;
   const controller = new AbortController();
   const allUrls = await listTilesetUrls(
     tilesetBasePath,
@@ -121,12 +156,14 @@ export async function downloadAndPersistTileset(options: {
       const response = await fetch(url, {
         signal: controller.signal,
       });
-      const filename = filenamize(url);
-      return streamToFile(persistedDir, filename, response.body).catch(
-        (error) => {
-          controller.abort(error);
-        },
-      );
+      // const filename = filenamize(url);
+      const u = new URL(url);
+      const path = u.pathname.replace('/', '').split('/');
+      const name = path.splice(path.length - 1, 1)[0];
+      const dir = await getOrCreateDirectoryChain([appName, subdir, ...path]);
+      return streamToFile(dir, name, response.body).catch((error) => {
+        controller.abort(error);
+      });
     },
   });
 }

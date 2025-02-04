@@ -37,6 +37,7 @@ import {
 import type {IngvCesiumContext} from '../../interfaces/cesium/ingv-cesium-context.js';
 import type {INGVCatalog} from '../../interfaces/cesium/ingv-catalog.js';
 import {getClippingPolygon, getDimensions} from './interactionHelpers.js';
+import {getOrCreateDirectoryChain} from '../../utils/storage-utils.js';
 
 function withExtra<T>(options: T, extra: Record<string, any>): T {
   if (!extra) {

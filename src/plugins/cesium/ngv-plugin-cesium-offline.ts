@@ -113,7 +113,8 @@ export class NgvPluginCesiumOffline extends LitElement {
 
         const prefix = `imagery-${i}-${Date.now()}`;
         await downloadAndPersistImageTiles({
-          persistedDir,
+          appName: this.info.appName,
+          subdir: IMAGERY_SUBDIR,
           concurrency: 3,
           imageryProvider: provider,
           prefix,
@@ -123,29 +124,11 @@ export class NgvPluginCesiumOffline extends LitElement {
         this.info.view.offline.imageries.push(prefix);
       }
     }
-    await listDirectoryContents(persistedDir, 10);
-    // const imageryProvider = new UrlTemplateImageryProvider({
-    //   url: 'https://wmts.geo.admin.ch/1.0.0/{layer}/default/{timestamp}/3857/{z}/{x}/{y}.{format}',
-    //   customTags: {
-    //     layer() {
-    //       return 'ch.swisstopo.swissimage';
-    //     },
-    //     timestamp() {
-    //       return 'current';
-    //     },
-    //     format() {
-    //       return 'jpeg';
-    //     },
-    //   },
-    //   maximumLevel: 16,
-    // });
+    // const mainDir = await getOrCreateDirectoryChain([this.info.appName]);
+    // await listDirectoryContents(mainDir, 10);
   }
 
   async downloadTiles(): Promise<void> {
-    const dir = await getOrCreateDirectoryChain([
-      this.info.appName,
-      TILES_SUBDIR,
-    ]);
     await Promise.all(
       this.info.view.offline.tiles3d.map(async (layer) => {
         const splitted = layer.split('/');
@@ -154,7 +137,8 @@ export class NgvPluginCesiumOffline extends LitElement {
         const catalog = catalogs.find((c) => c.id === id);
         if (catalog?.layers[tilesetName]?.type === '3dtiles') {
           await downloadAndPersistTileset({
-            persistedDir: dir,
+            appName: this.info.appName,
+            subdir: TILES_SUBDIR,
             concurrency: 3,
             tilesetBasePath: (<string>catalog.layers[tilesetName].url).replace(
               'tileset.json',
@@ -162,7 +146,8 @@ export class NgvPluginCesiumOffline extends LitElement {
             ),
             tilesetName,
           });
-          await listDirectoryContents(dir, 10);
+          // const mainDir = await getOrCreateDirectoryChain([this.info.appName]);
+          // await listDirectoryContents(mainDir, 10);
         }
       }),
     );
@@ -173,17 +158,6 @@ export class NgvPluginCesiumOffline extends LitElement {
     await removeDirectory(dir, TILES_SUBDIR);
     await removeDirectory(dir, IMAGERY_SUBDIR);
     await listDirectoryContents(dir, 10);
-
-    // await Promise.all(
-    //   this.info.view.offline.tiles3d.map(async (layer) => {
-    //     const splitted = layer.split('/');
-    //     const id = splitted[0];
-    //     const tilesetName = splitted[1];
-    //     const catalog = catalogs.find((c) => c.id === id);
-    //     if (catalog?.layers[tilesetName]?.type === '3dtiles') {
-    //     }
-    //   }),
-    // );
   }
 
   protected render(): unknown {

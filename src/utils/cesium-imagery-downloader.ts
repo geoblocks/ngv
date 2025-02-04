@@ -1,11 +1,18 @@
+import {ImageryTypes, Proxy, Request} from '@cesium/engine';
 import {
   Resource,
   type Cartographic,
-  type ImageryProvider,
+  ImageryProvider,
   type TilingScheme,
 } from '@cesium/engine';
 import {poolRunner} from './pool-runner.js';
-import {streamToFile} from './storage-utils.js';
+import {
+  filenamize,
+  getDirectoryIfExists,
+  getFileHandle,
+  getOrCreateDirectoryChain,
+  streamToFile,
+} from './storage-utils.js';
 
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 const orig: (...blob: [Blob]) => Promise<{
@@ -19,6 +26,49 @@ Resource.createImageBitmapFromBlob = async function (...args: [Blob]) {
   res.blob = args[0];
   /* eslint-disable-nextline @typescript-eslint/no-unsafe-return */
   return res;
+};
+
+const fetchImageOrig: (options?: {
+  preferBlob?: boolean;
+  preferImageBitmap?: boolean;
+  flipY?: boolean;
+  skipColorSpaceConversion?: boolean;
+}) => Promise<ImageBitmap | HTMLImageElement> | undefined =
+  Resource.prototype.fetchImage;
+
+Resource.prototype.fetchImage = async function (
+  options,
+): Promise<ImageBitmap | HTMLImageElement> | undefined {
+  // console.log(this.url, options);
+
+  const u = new URL(this.url);
+  const path = u.pathname.replace('/', '').split('/');
+  const name = path.splice(path.length - 1, 1)[0];
+  const ext = name.split('.')[1];
+  //todo add layer name dir
+  const dir = await getDirectoryIfExists([
+    'survey',
+    'imageries',
+    filenamize(u.hostname),
+    ...path,
+  ]);
+  if (dir) {
+    const fileHandler = await getFileHandle(dir, name);
+    if (fileHandler) {
+      const file = await fileHandler.getFile();
+      const arrayBuffer = await file.arrayBuffer();
+      const blob = new Blob([arrayBuffer], {
+        type: `image/${ext.toLowerCase()}`,
+      });
+      return Resource.createImageBitmapFromBlob(blob, {
+        flipY: !!options.flipY,
+        skipColorSpaceConversion: !!options.skipColorSpaceConversion,
+        premultiplyAlpha: false,
+      });
+    }
+  }
+
+  return fetchImageOrig.call(this, options);
 };
 
 interface ExtentToTileRangeOptions {
@@ -47,13 +97,15 @@ export function extentToTileRange(
 }
 
 export async function downloadAndPersistImageTiles(options: {
-  persistedDir: FileSystemDirectoryHandle;
+  appName: string;
+  subdir: string;
   prefix: string;
   concurrency: number;
   imageryProvider: ImageryProvider;
   tiles: number[][];
 }): Promise<void> {
-  const {persistedDir, concurrency, imageryProvider, prefix, tiles} = options;
+  const {appName, subdir, concurrency, imageryProvider, prefix, tiles} =
+    options;
   const controller = new AbortController();
 
   return await poolRunner({
@@ -93,12 +145,26 @@ export async function downloadAndPersistImageTiles(options: {
       }
       // FIXME: how to choose the suffix (jpg / png / ...)
       const filename = `zxy_${prefix}_${z}_${x}_${y}`;
-      console.log(filename);
-      return streamToFile(persistedDir, filename, blob.stream()).catch(
-        (error) => {
-          controller.abort(error);
-        },
-      );
+      //todo improve
+      const url = (<Resource>imageryProvider._resource).url;
+      const u = new URL(url);
+      const path = decodeURI(u.pathname)
+        .replace('{x}', x.toString())
+        .replace('{y}', y.toString())
+        .replace('{z}', z.toString())
+        .replace('/', '')
+        .split('/');
+      const name = path.splice(path.length - 1, 1)[0];
+      //todo add layer name dir
+      const dir = await getOrCreateDirectoryChain([
+        appName,
+        subdir,
+        filenamize(u.hostname),
+        ...path,
+      ]);
+      return streamToFile(dir, name, blob.stream()).catch((error) => {
+        controller.abort(error);
+      });
     },
   });
 }

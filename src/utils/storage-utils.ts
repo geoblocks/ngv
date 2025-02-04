@@ -26,6 +26,29 @@ export async function getOrCreateDirectoryChain(
 }
 
 /**
+ * Returns directory handler if exists
+ * @param directories the chain of directories to create
+ * @returns the handle to the last created subdirectory
+ */
+export async function getDirectoryIfExists(
+  directories: string | string[],
+): Promise<FileSystemDirectoryHandle> {
+  try {
+    let handle = await navigator.storage.getDirectory();
+    if (typeof directories === 'string') {
+      directories = [directories];
+    }
+    for (const dirName of directories) {
+      handle = await handle.getDirectoryHandle(dirName);
+    }
+
+    return handle;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Stream To a file.
  * @param directory Directory handle
  * @param name Name of the file to write to
@@ -112,10 +135,10 @@ export async function removeFile(
  * @param directory Directory handle
  * @param name Name of the file
  */
-async function getFileHandle(
+export async function getFileHandle(
   directory: FileSystemDirectoryHandle,
   name: string,
-) {
+): Promise<FileSystemFileHandle> {
   try {
     return await directory.getFileHandle(name);
   } catch (error) {

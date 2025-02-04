@@ -47,7 +47,7 @@ import type {NgvPluginCesiumNavigation} from '../../plugins/cesium/ngv-plugin-ce
 import type {IngvCesiumContext} from '../../interfaces/cesium/ingv-cesium-context.js';
 
 const APP_NAME = 'survey';
-const STORAGE_DIR = ['persisted', 'surveys'];
+const STORAGE_DIR = ['surveys'];
 const STORAGE_LIST_NAME = 'surveys.json';
 
 type SurveysListItem = {
