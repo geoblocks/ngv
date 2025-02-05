@@ -21,6 +21,7 @@ export const config: IPermitsConfig = {
   },
   app: {
     cesiumContext: {
+      name: 'permits',
       catalogs: {
         '@cesium': () => import('../../catalogs/cesiumCatalog.js'),
         '@geoadmin': () => import('../../catalogs/geoadminCatalog.js'),

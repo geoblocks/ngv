@@ -108,12 +108,16 @@ export async function getJson<T>(
   directory: FileSystemDirectoryHandle,
   name: string,
 ): Promise<T> {
-  const fileHandler = await getFileHandle(directory, name);
-  const file = await fileHandler.getFile();
+  try {
+    const fileHandler = await getFileHandle(directory, name);
+    const file = await fileHandler.getFile();
 
-  const text = await file.text();
+    const text = await file.text();
 
-  return <T>JSON.parse(text);
+    return <T>JSON.parse(text);
+  } catch {
+    return undefined;
+  }
 }
 
 /**

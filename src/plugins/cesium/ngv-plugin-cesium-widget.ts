@@ -11,7 +11,12 @@ import type {
   Model,
   PrimitiveCollection,
 } from '@cesium/engine';
+import {Resource} from '@cesium/engine';
 import {initCesiumWidget} from './ngv-cesium-factories.js';
+import {getJson, getOrCreateDirectoryChain} from '../../utils/storage-utils.js';
+import type {OfflineInfo} from './ngv-plugin-cesium-offline.js';
+import {cesiumFetchCustom} from '../../utils/cesium-tileset-downloader.js';
+import {cesiumFetchImageCustom} from '../../utils/cesium-imagery-downloader.js';
 
 export type ViewerInitializedDetails = {
   viewer: CesiumWidget;
@@ -56,6 +61,24 @@ export class NgvPluginCesiumWidget extends LitElement {
   private element: HTMLDivElement;
 
   private async initCesiumViewer(): Promise<void> {
+    // rewrite resource functions before viewer initialized
+    if (this.cesiumContext.offline) {
+      const dir = await getOrCreateDirectoryChain([this.cesiumContext.name]);
+      const info: OfflineInfo = await getJson(
+        dir,
+        `${this.cesiumContext.offline.infoFilename}.json`,
+      );
+      if (info) {
+        Resource.prototype.fetch = cesiumFetchCustom([
+          this.cesiumContext.name,
+          this.cesiumContext.offline.tiles3dSubdir,
+        ]);
+        Resource.prototype.fetchImage = cesiumFetchImageCustom([
+          this.cesiumContext.name,
+          this.cesiumContext.offline.imagerySubdir,
+        ]);
+      }
+    }
     const {viewer, dataSourceCollection, primitiveCollections} =
       await initCesiumWidget(
         this.element,

@@ -114,6 +114,7 @@ export const config: ISurveyConfig = {
       },
     ],
     cesiumContext: {
+      name: 'survey',
       catalogs: {
         '@cesium': () => import('../../catalogs/cesiumCatalog.js'),
         '@demo': () => import('../../catalogs/demoCatalog.js'),
@@ -149,7 +150,7 @@ export const config: ISurveyConfig = {
           offline: {
             rectangle: [-5.51792, 57.273, -5.51372, 57.27516],
             tiles3d: ['@demo/castle'],
-            imageries: ['@cesium/openstreetmap'],
+            imageryMaxLevel: 16,
           },
         },
         {
@@ -168,7 +169,7 @@ export const config: ISurveyConfig = {
           offline: {
             rectangle: [-3.51868, 56.00386, -3.51352, 56.00704],
             tiles3d: ['@demo/castle2'],
-            imageries: ['@cesium/openstreetmap'],
+            imageryMaxLevel: 16,
           },
         },
       ],
@@ -196,6 +197,11 @@ export const config: ISurveyConfig = {
         tilesClippingEnabled: true,
         terrainClippingEnabled: false,
         storeKey: 'survey-localStoreClipping',
+      },
+      offline: {
+        infoFilename: 'offline-info',
+        tiles3dSubdir: 'tiles3d',
+        imagerySubdir: 'imageries',
       },
     },
   },

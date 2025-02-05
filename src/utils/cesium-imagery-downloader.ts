@@ -1,10 +1,5 @@
-import {ImageryTypes, Proxy, Request} from '@cesium/engine';
-import {
-  Resource,
-  type Cartographic,
-  ImageryProvider,
-  type TilingScheme,
-} from '@cesium/engine';
+import type {ImageryProvider} from '@cesium/engine';
+import {Resource, type Cartographic, type TilingScheme} from '@cesium/engine';
 import {poolRunner} from './pool-runner.js';
 import {
   filenamize,
@@ -28,47 +23,53 @@ Resource.createImageBitmapFromBlob = async function (...args: [Blob]) {
   return res;
 };
 
-const fetchImageOrig: (options?: {
+export const cesiumFetchImageOrig: (options?: {
   preferBlob?: boolean;
   preferImageBitmap?: boolean;
   flipY?: boolean;
   skipColorSpaceConversion?: boolean;
 }) => Promise<ImageBitmap | HTMLImageElement> | undefined =
+  // eslint-disable-next-line @typescript-eslint/unbound-method
   Resource.prototype.fetchImage;
 
-Resource.prototype.fetchImage = async function (
-  options,
-): Promise<ImageBitmap | HTMLImageElement> | undefined {
-  // console.log(this.url, options);
-
-  const u = new URL(this.url);
-  const path = u.pathname.replace('/', '').split('/');
-  const name = path.splice(path.length - 1, 1)[0];
-  const ext = name.split('.')[1];
-  //todo add layer name dir
-  const dir = await getDirectoryIfExists([
-    'survey',
-    'imageries',
-    filenamize(u.hostname),
-    ...path,
-  ]);
-  if (dir) {
-    const fileHandler = await getFileHandle(dir, name);
-    if (fileHandler) {
-      const file = await fileHandler.getFile();
-      const arrayBuffer = await file.arrayBuffer();
-      const blob = new Blob([arrayBuffer], {
-        type: `image/${ext.toLowerCase()}`,
-      });
-      return Resource.createImageBitmapFromBlob(blob, {
-        flipY: !!options.flipY,
-        skipColorSpaceConversion: !!options.skipColorSpaceConversion,
-        premultiplyAlpha: false,
-      });
+export const cesiumFetchImageCustom = (directories: string[]) => {
+  return async function (options?: {
+    preferBlob?: boolean;
+    preferImageBitmap?: boolean;
+    flipY?: boolean;
+    skipColorSpaceConversion?: boolean;
+  }): Promise<ImageBitmap | HTMLImageElement> | undefined {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-expect-error
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument,@typescript-eslint/no-unsafe-member-access
+    const u = new URL(this.url);
+    const path = u.pathname.replace('/', '').split('/');
+    const name = path.splice(path.length - 1, 1)[0];
+    const dir = await getDirectoryIfExists([
+      ...directories,
+      filenamize(u.hostname),
+      ...path,
+    ]);
+    if (dir) {
+      const fileHandler = await getFileHandle(dir, name);
+      if (fileHandler) {
+        const file = await fileHandler.getFile();
+        const arrayBuffer = await file.arrayBuffer();
+        const blob = new Blob([arrayBuffer]);
+        /* @ts-expect-error function is private */
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-return
+        return Resource.createImageBitmapFromBlob(blob, {
+          flipY: !!options.flipY,
+          skipColorSpaceConversion: !!options.skipColorSpaceConversion,
+          premultiplyAlpha: false,
+        });
+      }
     }
-  }
 
-  return fetchImageOrig.call(this, options);
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-expect-error
+    return cesiumFetchImageOrig.call(this, options);
+  };
 };
 
 interface ExtentToTileRangeOptions {
@@ -99,13 +100,11 @@ export function extentToTileRange(
 export async function downloadAndPersistImageTiles(options: {
   appName: string;
   subdir: string;
-  prefix: string;
   concurrency: number;
   imageryProvider: ImageryProvider;
   tiles: number[][];
 }): Promise<void> {
-  const {appName, subdir, concurrency, imageryProvider, prefix, tiles} =
-    options;
+  const {appName, subdir, concurrency, imageryProvider, tiles} = options;
   const controller = new AbortController();
 
   return await poolRunner({
@@ -143,19 +142,25 @@ export async function downloadAndPersistImageTiles(options: {
         controller.abort(error);
         throw error;
       }
-      // FIXME: how to choose the suffix (jpg / png / ...)
-      const filename = `zxy_${prefix}_${z}_${x}_${y}`;
-      //todo improve
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-expect-error
       const url = (<Resource>imageryProvider._resource).url;
       const u = new URL(url);
-      const path = decodeURI(u.pathname)
-        .replace('{x}', x.toString())
-        .replace('{y}', y.toString())
-        .replace('{z}', z.toString())
-        .replace('/', '')
-        .split('/');
+      const path = decodeURI(u.pathname).replace('/', '').split('/');
+      path[path.length - 3] = path[path.length - 3].replace(
+        /{\w*}/g,
+        z.toString(),
+      );
+      path[path.length - 2] = path[path.length - 2].replace(
+        /{\w*}/g,
+        x.toString(),
+      );
+      path[path.length - 1] = path[path.length - 1].replace(
+        /{\w*}/g,
+        y.toString(),
+      );
       const name = path.splice(path.length - 1, 1)[0];
-      //todo add layer name dir
+
       const dir = await getOrCreateDirectoryChain([
         appName,
         subdir,

@@ -1,12 +1,11 @@
 import {poolRunner} from './pool-runner.js';
 import {
   streamToFile,
-  filenamize,
   getOrCreateDirectoryChain,
   getDirectoryIfExists,
   getFileHandle,
 } from './storage-utils.js';
-import {Proxy, Resource} from '@cesium/engine';
+import {Resource} from '@cesium/engine';
 
 interface TilesetNode {
   content?: {
@@ -40,32 +39,44 @@ interface ListTilesetOptions {
   extent?: number[];
 }
 
-const fetchOrig = Resource.prototype.fetch;
+// eslint-disable-next-line @typescript-eslint/unbound-method
+export const cesiumFetchOrig = Resource.prototype.fetch;
 
-Resource.prototype.fetch = async function (options): Promise<any> {
-  const filePath = new URL(this.url).pathname;
-  if (
-    options?.responseType === 'arraybuffer' ||
-    (options?.responseType === 'text' &&
-      options?.headers.Accept.includes('application/json'))
-  ) {
-    const path = filePath.replace('/', '').split('/');
-    const name = path.splice(path.length - 1, 1)[0];
-    //todo
-    const dir = await getDirectoryIfExists(['survey', 'tiles3d', ...path]);
-    if (dir) {
-      const fileHandler = await getFileHandle(dir, name);
-      const file = await fileHandler.getFile();
-      if (file) {
-        return options.responseType === 'arraybuffer'
-          ? file.arrayBuffer()
-          : file.text();
+export function cesiumFetchCustom(directories: string[]) {
+  return async function (options?: {
+    responseType?: string;
+    headers?: any;
+    overrideMimeType?: string;
+  }): Promise<any> {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-expect-error
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument,@typescript-eslint/no-unsafe-member-access
+    const filePath = new URL(this.url).pathname;
+    if (
+      options?.responseType === 'arraybuffer' ||
+      (options?.responseType === 'text' &&
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-call
+        options?.headers.Accept.includes('application/json'))
+    ) {
+      const path = filePath.replace('/', '').split('/');
+      const name = path.splice(path.length - 1, 1)[0];
+      const dir = await getDirectoryIfExists([...directories, ...path]);
+      if (dir) {
+        const fileHandler = await getFileHandle(dir, name);
+        const file = await fileHandler.getFile();
+        if (file) {
+          return options.responseType === 'arraybuffer'
+            ? file.arrayBuffer()
+            : file.text();
+        }
       }
     }
-  }
 
-  return fetchOrig.call(this, options);
-};
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-expect-error
+    return cesiumFetchOrig.call(this, options);
+  };
+}
 
 function rectsOverlapping(rect1: number[], rect2: number[], error: number) {
   if (rect1[2] + error < rect2[0] || rect2[2] + error < rect1[0]) {

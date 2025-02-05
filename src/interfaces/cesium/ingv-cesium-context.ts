@@ -9,6 +9,7 @@ import type {
 import type {INGVCatalog} from './ingv-catalog.js';
 
 export interface IngvCesiumContext {
+  name: string;
   cesiumApiKey?: string;
   baseUrl?: string;
   catalogs: Record<
@@ -55,7 +56,7 @@ export interface IngvCesiumContext {
     offline?: {
       rectangle?: number[]; // west, south, east, north
       tiles3d?: string[];
-      imageries?: string[];
+      imageryMaxLevel?: number;
     };
   }[];
   widgetOptions?: ConstructorParameters<typeof CesiumWidget>[1];
@@ -121,5 +122,10 @@ export interface IngvCesiumContext {
       pixelSize?: number;
       disableDepthTestDistance?: number;
     };
+  };
+  offline?: {
+    infoFilename: string;
+    imagerySubdir: string;
+    tiles3dSubdir: string;
   };
 }

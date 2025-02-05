@@ -8,26 +8,35 @@ import {
   removeDirectory,
   removeFile,
 } from '../../utils/storage-utils.js';
-import {downloadAndPersistTileset} from '../../utils/cesium-tileset-downloader.js';
-import {listDirectoryContents} from '../../utils/debug-utils.js';
+import {
+  cesiumFetchCustom,
+  cesiumFetchOrig,
+  downloadAndPersistTileset,
+} from '../../utils/cesium-tileset-downloader.js';
 import type {IngvCesiumContext} from '../../interfaces/cesium/ingv-cesium-context.js';
 import type {INGVCatalog} from '../../interfaces/cesium/ingv-catalog.js';
 import {catalog as demoCatalog} from '../../catalogs/demoCatalog.js';
 import {catalog as cesiumCatalog} from '../../catalogs/cesiumCatalog.js';
 import {catalog as geoadminCatalog} from '../../catalogs/geoadminCatalog.js';
 import type {CesiumWidget} from '@cesium/engine';
+import {Resource} from '@cesium/engine';
 import {Rectangle} from '@cesium/engine';
 import {listTilesInRectangle} from './cesium-utils.js';
-import {downloadAndPersistImageTiles} from '../../utils/cesium-imagery-downloader.js';
+import {
+  cesiumFetchImageCustom,
+  cesiumFetchImageOrig,
+  downloadAndPersistImageTiles,
+} from '../../utils/cesium-imagery-downloader.js';
+import {Task} from '@lit/task';
 
 export type OfflineInfo = {
   appName: string;
+  infoFilename: string;
+  imagerySubdir: string;
+  tiles3dSubdir: string;
   view?: IngvCesiumContext['views'][number];
 };
 
-const OFFLINE_INFO_FILENAME = 'offline-info.json';
-const TILES_SUBDIR = 'tiles3d';
-const IMAGERY_SUBDIR = 'imageries';
 const catalogs: INGVCatalog[] = [demoCatalog, cesiumCatalog, geoadminCatalog];
 
 @customElement('ngv-plugin-cesium-offline')
@@ -52,16 +61,40 @@ export class NgvPluginCesiumOffline extends LitElement {
       width: 100%;
     }
   `;
+
+  // @ts-expect-error TS6133
+  private _changeModeTask = new Task(this, {
+    args: (): [boolean] => [this.offline],
+    task: ([offline]) => {
+      if (offline) {
+        Resource.prototype.fetch = cesiumFetchCustom([
+          this.info.appName,
+          this.info.tiles3dSubdir,
+        ]);
+        Resource.prototype.fetchImage = cesiumFetchImageCustom([
+          this.info.appName,
+          this.info.imagerySubdir,
+        ]);
+      } else {
+        Resource.prototype.fetch = cesiumFetchOrig;
+        Resource.prototype.fetchImage = cesiumFetchImageOrig;
+      }
+    },
+  });
+
   connectedCallback(): void {
     getOrCreateDirectoryChain([this.info.appName])
       .then(async (dir) => {
-        try {
-          const info: OfflineInfo = await getJson(dir, OFFLINE_INFO_FILENAME);
+        const info: OfflineInfo = await getJson(
+          dir,
+          `${this.info.infoFilename}.json`,
+        );
+        if (info) {
           this.offline = true;
           this.dispatchEvent(
             new CustomEvent<OfflineInfo>('offlineInfo', {detail: info}),
           );
-        } catch {
+        } else {
           this.offline = false;
         }
       })
@@ -85,11 +118,11 @@ export class NgvPluginCesiumOffline extends LitElement {
       if (this.info.view?.offline.tiles3d?.length) {
         await this.downloadTiles();
       }
-      await persistJson(dir, OFFLINE_INFO_FILENAME, this.info);
+      await persistJson(dir, `${this.info.infoFilename}.json`, this.info);
     } else {
       await this.removeLayers();
       // todo remove dir when synced with API
-      await removeFile(dir, OFFLINE_INFO_FILENAME);
+      await removeFile(dir, `${this.info.infoFilename}.json`);
     }
     this.dispatchEvent(
       new CustomEvent('switch', {detail: {offline: this.offline}}),
@@ -98,34 +131,27 @@ export class NgvPluginCesiumOffline extends LitElement {
 
   async downloadImageries(): Promise<void> {
     if (!this.info.view?.offline?.rectangle) return;
-    const persistedDir = await getOrCreateDirectoryChain([
-      this.info.appName,
-      IMAGERY_SUBDIR,
-    ]);
     for (let i = 0; i < this.viewer.imageryLayers.length; i++) {
       const provider = this.viewer.imageryLayers.get(i)?.imageryProvider;
       if (provider) {
         const rectangle = Rectangle.fromDegrees(
           ...this.info.view.offline.rectangle,
         );
-        // todo add maximumLevel to config
-        const tiles = listTilesInRectangle(rectangle, provider);
+        const tiles = listTilesInRectangle(
+          rectangle,
+          provider,
+          this.info.view.offline.imageryMaxLevel,
+        );
 
-        const prefix = `imagery-${i}-${Date.now()}`;
         await downloadAndPersistImageTiles({
           appName: this.info.appName,
-          subdir: IMAGERY_SUBDIR,
+          subdir: this.info.imagerySubdir,
           concurrency: 3,
           imageryProvider: provider,
-          prefix,
           tiles: tiles,
         });
-        // todo update type in config
-        this.info.view.offline.imageries.push(prefix);
       }
     }
-    // const mainDir = await getOrCreateDirectoryChain([this.info.appName]);
-    // await listDirectoryContents(mainDir, 10);
   }
 
   async downloadTiles(): Promise<void> {
@@ -138,7 +164,7 @@ export class NgvPluginCesiumOffline extends LitElement {
         if (catalog?.layers[tilesetName]?.type === '3dtiles') {
           await downloadAndPersistTileset({
             appName: this.info.appName,
-            subdir: TILES_SUBDIR,
+            subdir: this.info.tiles3dSubdir,
             concurrency: 3,
             tilesetBasePath: (<string>catalog.layers[tilesetName].url).replace(
               'tileset.json',
@@ -146,8 +172,6 @@ export class NgvPluginCesiumOffline extends LitElement {
             ),
             tilesetName,
           });
-          // const mainDir = await getOrCreateDirectoryChain([this.info.appName]);
-          // await listDirectoryContents(mainDir, 10);
         }
       }),
     );
@@ -155,9 +179,8 @@ export class NgvPluginCesiumOffline extends LitElement {
 
   async removeLayers(): Promise<void> {
     const dir = await getOrCreateDirectoryChain([this.info.appName]);
-    await removeDirectory(dir, TILES_SUBDIR);
-    await removeDirectory(dir, IMAGERY_SUBDIR);
-    await listDirectoryContents(dir, 10);
+    await removeDirectory(dir, this.info.tiles3dSubdir);
+    await removeDirectory(dir, this.info.imagerySubdir);
   }
 
   protected render(): unknown {

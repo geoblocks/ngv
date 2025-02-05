@@ -46,7 +46,6 @@ import type {OfflineInfo} from '../../plugins/cesium/ngv-plugin-cesium-offline.j
 import type {NgvPluginCesiumNavigation} from '../../plugins/cesium/ngv-plugin-cesium-navigation.js';
 import type {IngvCesiumContext} from '../../interfaces/cesium/ingv-cesium-context.js';
 
-const APP_NAME = 'survey';
 const STORAGE_DIR = ['surveys'];
 const STORAGE_LIST_NAME = 'surveys.json';
 
@@ -144,34 +143,31 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
       return;
     }
     this.dataSource.entities.removeAll();
-    try {
-      this.surveys = await getJson<SurveysListItem[]>(
+    this.surveys =
+      (await getJson<SurveysListItem[]>(
         this.persistentDir,
         STORAGE_LIST_NAME,
-      );
-      this.surveys.forEach((s) => {
-        const coords = {...s.coordinate};
-        const projection =
-          this.config.app.cesiumContext.clickInfoOptions?.projection;
-        if (projection) {
-          const projectedCoords = proj4(projection, 'EPSG:4326', [
-            coords.longitude,
-            coords.latitude,
-          ]);
-          coords.longitude = projectedCoords[0];
-          coords.latitude = projectedCoords[1];
-        }
-        const position = Cartesian3.fromDegrees(
+      )) || [];
+    this.surveys.forEach((s) => {
+      const coords = {...s.coordinate};
+      const projection =
+        this.config.app.cesiumContext.clickInfoOptions?.projection;
+      if (projection) {
+        const projectedCoords = proj4(projection, 'EPSG:4326', [
           coords.longitude,
           coords.latitude,
-          coords.height,
-        );
-        this.addPoint(position, s.id);
-        this.viewer.scene.requestRender();
-      });
-    } catch {
-      this.surveys = [];
-    }
+        ]);
+        coords.longitude = projectedCoords[0];
+        coords.latitude = projectedCoords[1];
+      }
+      const position = Cartesian3.fromDegrees(
+        coords.longitude,
+        coords.latitude,
+        coords.height,
+      );
+      this.addPoint(position, s.id);
+      this.viewer.scene.requestRender();
+    });
   }
 
   initializeViewer(details: ViewerInitializedDetails): void {
@@ -281,7 +277,7 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
     if (!view) return;
     this.currentView = view;
     this.persistentDir = await getOrCreateDirectoryChain([
-      APP_NAME,
+      this.config.app.cesiumContext.name,
       this.currentView.id,
       ...STORAGE_DIR,
     ]);
@@ -344,6 +340,13 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
     if (r && !this.config) {
       return r;
     }
+    const offlineInfo: OfflineInfo = this.config.app.cesiumContext.offline
+      ? {
+          appName: this.config.app.cesiumContext.name,
+          view: this.currentView,
+          ...this.config.app.cesiumContext.offline,
+        }
+      : undefined;
     return html`
       <ngv-structure-app .config=${this.config}>
         <div
@@ -363,18 +366,20 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
                   .dataSourceCollection="${this.dataSourceCollection}"
                   .options=${this.config.app.cesiumContext.measureOptions}
                 ></ngv-plugin-cesium-measure>
-                <ngv-plugin-cesium-offline
-                  .viewer="${this.viewer}"
-                  .info="${{appName: APP_NAME, view: this.currentView}}"
-                  @switch="${(evt: {detail: {offline: boolean}}) => {
-                    this.offline = evt.detail.offline;
-                  }}"
-                  @offlineInfo="${(evt: {detail: OfflineInfo}) => {
-                    if (!evt.detail?.view?.id) return;
-                    this.offline = true;
-                    this.navElement.setViewById(evt.detail.view.id);
-                  }}"
-                ></ngv-plugin-cesium-offline>
+                ${offlineInfo
+                  ? html`<ngv-plugin-cesium-offline
+                      .viewer="${this.viewer}"
+                      .info="${offlineInfo}"
+                      @switch="${(evt: {detail: {offline: boolean}}) => {
+                        this.offline = evt.detail.offline;
+                      }}"
+                      @offlineInfo="${(evt: {detail: OfflineInfo}) => {
+                        if (!evt.detail?.view?.id) return;
+                        this.offline = true;
+                        this.navElement.setViewById(evt.detail.view.id);
+                      }}"
+                    ></ngv-plugin-cesium-offline>`
+                  : ''}
                 <ngv-plugin-cesium-navigation
                   .viewer="${this.viewer}"
                   .viewsConfig="${this.config.app.cesiumContext.views}"

@@ -21,6 +21,7 @@ export const config: IIlluminationConfig = {
   },
   app: {
     cesiumContext: {
+      name: 'illumination',
       catalogs: {
         '@geoadmin': () => import('../../catalogs/geoadminCatalog.js'),
       },
