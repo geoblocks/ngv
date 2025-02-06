@@ -162,16 +162,19 @@ export class NgvPluginCesiumOffline extends LitElement {
         const tilesetName = splitted[1];
         const catalog = catalogs.find((c) => c.id === id);
         if (catalog?.layers[tilesetName]?.type === '3dtiles') {
-          await downloadAndPersistTileset({
-            appName: this.info.appName,
-            subdir: this.info.tiles3dSubdir,
-            concurrency: 3,
-            tilesetBasePath: (<string>catalog.layers[tilesetName].url).replace(
-              'tileset.json',
-              '',
-            ),
-            tilesetName,
-          });
+          try {
+            await downloadAndPersistTileset({
+              appName: this.info.appName,
+              subdir: this.info.tiles3dSubdir,
+              concurrency: 3,
+              tilesetBasePath: (<string>(
+                catalog.layers[tilesetName].url
+              )).replace('tileset.json', ''),
+              tilesetName,
+            });
+          } catch (e) {
+            console.error(`Not possible to save tileset ${layer}:`, e);
+          }
         }
       }),
     );
