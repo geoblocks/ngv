@@ -21,6 +21,7 @@ import {
   updateHeightForCartesianPositions,
 } from './interactionHelpers.js';
 import {msg} from '@lit/localize';
+import {classMap} from 'lit/directives/class-map.js';
 
 type NavView = {
   destination: Cartesian3;
@@ -120,6 +121,36 @@ export class NgvPluginCesiumNavigation extends LitElement {
     .divider {
       width: 100%;
       border: 1px solid #e0e3e6;
+    }
+
+    .view-list {
+      border-radius: 4px;
+      border: 1px solid rgba(0, 0, 0, 0.16);
+      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05);
+      padding: 8px 16px;
+    }
+    .view-list summary {
+      cursor: pointer;
+    }
+
+    .view-list > div {
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      row-gap: 5px;
+    }
+
+    .view-list button {
+      height: auto;
+      padding: 6px;
+      border: none;
+      text-align: left;
+    }
+
+    .view-list button.active,
+    .view-list button:active,
+    .view-list button:hover {
+      background-color: lightyellow;
     }
   `;
 
@@ -253,6 +284,22 @@ export class NgvPluginCesiumNavigation extends LitElement {
                 ${msg('Next')}
               </button>
             </div>
+            <details class="view-list">
+              <summary>${msg('Places')}</summary>
+              <div>
+                ${this.viewsConfig.map(
+                  (view, index) =>
+                    html` <button
+                      class="${classMap({
+                        active: this.currentViewIndex === index,
+                      })}"
+                      @click=${() => this.setViewById(view.id)}
+                    >
+                      ${view.title}
+                    </button>`,
+                )}
+              </div>
+            </details>
             <div class="divider"></div>`
         : ''}
       ${!this.currentView
