@@ -28,6 +28,7 @@ import {
   downloadAndPersistImageTiles,
 } from '../../utils/cesium-imagery-downloader.js';
 import {Task} from '@lit/task';
+import {classMap} from 'lit/directives/class-map.js';
 
 export type OfflineInfo = {
   appName: string;
@@ -49,16 +50,36 @@ export class NgvPluginCesiumOffline extends LitElement {
   offline: boolean = false;
 
   static styles = css`
-    button {
+    div {
       border-radius: 4px;
-      padding: 0 16px;
-      height: 40px;
-      cursor: pointer;
+      padding: 10px;
       background-color: white;
       border: 1px solid rgba(0, 0, 0, 0.16);
       box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05);
+      display: flex;
+      column-gap: 10px;
+    }
+
+    div span {
+      display: flex;
+      align-items: center;
+      user-select: none;
+    }
+
+    button {
+      border-radius: 4px;
+      padding: 10px;
+      cursor: pointer;
+      border: 1px solid rgba(0, 0, 0, 0.16);
+      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05);
       transition: background-color 200ms;
-      width: 100%;
+      align-items: center;
+      justify-content: center;
+      background-color: lightgreen;
+    }
+
+    button.offline {
+      background-color: lightcoral;
     }
   `;
 
@@ -188,7 +209,14 @@ export class NgvPluginCesiumOffline extends LitElement {
 
   protected render(): unknown {
     return html` <div>
-      <button @click=${() => this.switchOffline()}>
+      <span>
+        ${this.offline ? msg('Offline') : msg('Online')}
+        ${this.offline ? '🔴' : '🟢'}</span
+      >
+      <button
+        class="${classMap({offline: !this.offline})}"
+        @click=${() => this.switchOffline()}
+      >
         ${this.offline ? msg('Back online') : msg('Go offline')}
       </button>
     </div>`;
