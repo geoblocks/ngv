@@ -29,6 +29,7 @@ import {
 } from '../../utils/cesium-imagery-downloader.js';
 import {Task} from '@lit/task';
 import {classMap} from 'lit/directives/class-map.js';
+import {listDirectoryContents} from '../../utils/debug-utils.js';
 
 export type OfflineInfo = {
   appName: string;
@@ -129,9 +130,9 @@ export class NgvPluginCesiumOffline extends LitElement {
     if (!this.info?.appName) {
       throw new Error('App name is required for offline usage');
     }
-    this.offline = !this.offline;
+    const offline = !this.offline;
     const dir = await getOrCreateDirectoryChain([this.info.appName]);
-    if (this.offline) {
+    if (offline) {
       if (this.info.view?.offline?.rectangle?.length) {
         await this.downloadImageries();
       }
@@ -140,11 +141,13 @@ export class NgvPluginCesiumOffline extends LitElement {
         await this.downloadTiles();
       }
       await persistJson(dir, `${this.info.infoFilename}.json`, this.info);
+      this.offline = offline;
     } else {
       await this.removeLayers();
       // todo remove dir when synced with API
       await removeFile(dir, `${this.info.infoFilename}.json`);
     }
+    this.offline = offline;
     this.dispatchEvent(
       new CustomEvent('switch', {detail: {offline: this.offline}}),
     );
@@ -192,7 +195,13 @@ export class NgvPluginCesiumOffline extends LitElement {
                 catalog.layers[tilesetName].url
               )).replace('tileset.json', ''),
               tilesetName,
+              extent: this.info.view.offline.rectangle,
             });
+            const dir = await getOrCreateDirectoryChain([
+              this.info.appName,
+              this.info.tiles3dSubdir,
+            ]);
+            await listDirectoryContents(dir, 10);
           } catch (e) {
             console.error(`Not possible to save tileset ${layer}:`, e);
           }
