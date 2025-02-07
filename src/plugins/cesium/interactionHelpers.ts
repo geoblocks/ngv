@@ -7,7 +7,7 @@ import type {
   PrimitiveCollection,
   Scene,
 } from '@cesium/engine';
-import {Math as CMath} from '@cesium/engine';
+import {CallbackPositionProperty, Math as CMath} from '@cesium/engine';
 import {ClippingPolygonCollection} from '@cesium/engine';
 import {
   ArcType,
@@ -210,7 +210,10 @@ export function createPlaneEntity(
       : Axis.Z;
 
   dataSource.entities.add({
-    position: new CallbackProperty(() => model.boundingSphere.center, false),
+    position: new CallbackPositionProperty(
+      () => model.boundingSphere.center,
+      false,
+    ),
     orientation: new CallbackProperty(
       () => getRotationQuaternionFromMatrix(model.modelMatrix),
       false,
@@ -265,7 +268,7 @@ export function createCornerPoint(
   const boundingSphere = new BoundingSphere();
   edges.forEach((localEdge) => {
     dataSource.entities.add({
-      position: new CallbackProperty(() => {
+      position: new CallbackPositionProperty(() => {
         const matrix = getTranslationRotationDimensionsMatrix(model);
         Matrix4.multiplyByPoint(matrix, localEdge, position);
         const centerDiff = getModelCenterDiff(model);

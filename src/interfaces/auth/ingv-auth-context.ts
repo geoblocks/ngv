@@ -5,6 +5,7 @@ interface OidcWellKnownConfig {
   authorization_endpoint: string;
   token_endpoint: string;
   logout_endpoint?: string;
+  userinfo_endpoint: string;
 }
 
 export interface OidcProviderConfig {
