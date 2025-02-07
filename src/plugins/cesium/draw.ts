@@ -5,6 +5,7 @@ import type {
   LabelGraphics,
 } from '@cesium/engine';
 import {CallbackPositionProperty} from '@cesium/engine';
+import {CallbackPositionProperty} from '@cesium/engine';
 import {
   EllipsoidGeodesic,
   PositionProperty,
