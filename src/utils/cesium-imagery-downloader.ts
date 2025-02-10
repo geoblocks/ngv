@@ -1,11 +1,13 @@
-import {
-  Resource,
-  type Cartographic,
-  type ImageryProvider,
-  type TilingScheme,
-} from '@cesium/engine';
+import type {ImageryProvider} from '@cesium/engine';
+import {Resource, type Cartographic, type TilingScheme} from '@cesium/engine';
 import {poolRunner} from './pool-runner.js';
-import {getOrCreateDirectoryChain, streamToFile} from './storage-utils.js';
+import {
+  getDirectoryIfExists,
+  getFileHandle,
+  getOrCreateDirectoryChain,
+  getPathAndNameFromUrl,
+  streamToFile,
+} from './storage-utils.js';
 
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 const orig: (...blob: [Blob]) => Promise<{
@@ -19,6 +21,49 @@ Resource.createImageBitmapFromBlob = async function (...args: [Blob]) {
   res.blob = args[0];
   /* eslint-disable-nextline @typescript-eslint/no-unsafe-return */
   return res;
+};
+
+export const cesiumFetchImageOrig: (options?: {
+  preferBlob?: boolean;
+  preferImageBitmap?: boolean;
+  flipY?: boolean;
+  skipColorSpaceConversion?: boolean;
+}) => Promise<ImageBitmap | HTMLImageElement> | undefined =
+  // eslint-disable-next-line @typescript-eslint/unbound-method
+  Resource.prototype.fetchImage;
+
+export const cesiumFetchImageCustom = (directories: string[]) => {
+  return async function (options?: {
+    preferBlob?: boolean;
+    preferImageBitmap?: boolean;
+    flipY?: boolean;
+    skipColorSpaceConversion?: boolean;
+  }): Promise<ImageBitmap | HTMLImageElement> | undefined {
+    // eslint-disable-next-line
+    // @ts-expect-error
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument,@typescript-eslint/no-unsafe-member-access
+    const {name, path} = getPathAndNameFromUrl(this.url);
+    const dir = await getDirectoryIfExists([...directories, ...path]);
+    if (dir) {
+      const fileHandler = await getFileHandle(dir, name);
+      if (fileHandler) {
+        const file = await fileHandler.getFile();
+        const arrayBuffer = await file.arrayBuffer();
+        const blob = new Blob([arrayBuffer]);
+        /* @ts-expect-error function is private */
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-return
+        return Resource.createImageBitmapFromBlob(blob, {
+          flipY: !!options.flipY,
+          skipColorSpaceConversion: !!options.skipColorSpaceConversion,
+          premultiplyAlpha: false,
+        });
+      }
+    }
+
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-expect-error
+    return cesiumFetchImageOrig.call(this, options);
+  };
 };
 
 interface ExtentToTileRangeOptions {
@@ -48,13 +93,12 @@ export function extentToTileRange(
 
 export async function downloadAndPersistImageTiles(options: {
   appName: string;
-  prefix: string;
+  subdir: string;
   concurrency: number;
   imageryProvider: ImageryProvider;
   tiles: number[][];
 }): Promise<void> {
-  const {appName, concurrency, imageryProvider, prefix, tiles} = options;
-  const persistedDir = await getOrCreateDirectoryChain([appName, 'persisted']);
+  const {appName, subdir, concurrency, imageryProvider, tiles} = options;
   const controller = new AbortController();
 
   return await poolRunner({
@@ -92,13 +136,26 @@ export async function downloadAndPersistImageTiles(options: {
         controller.abort(error);
         throw error;
       }
-      // FIXME: how to choose the suffix (jpg / png / ...)
-      const filename = `zxy_${prefix}_${z}_${x}_${y}`;
-      return streamToFile(persistedDir, filename, blob.stream()).catch(
-        (error) => {
-          controller.abort(error);
-        },
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-expect-error
+      const url = (<Resource>imageryProvider._resource).url;
+      let {name} = getPathAndNameFromUrl(url);
+      const {path} = getPathAndNameFromUrl(url);
+      // replaces z,x,y in URL, used regex because it is not always z,x,y (e.g. TileMatrix, TileCol, TileRow in geoadmin imagery)
+      path[path.length - 2] = path[path.length - 2].replace(
+        /{\w*}/g,
+        z.toString(),
       );
+      path[path.length - 1] = path[path.length - 1].replace(
+        /{\w*}/g,
+        x.toString(),
+      );
+      name = name.replace(/{\w*}/g, y.toString());
+
+      const dir = await getOrCreateDirectoryChain([appName, subdir, ...path]);
+      return streamToFile(dir, name, blob.stream()).catch((error) => {
+        controller.abort(error);
+      });
     },
   });
 }

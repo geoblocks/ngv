@@ -9,6 +9,7 @@ import type {
 import type {INGVCatalog} from './ingv-catalog.js';
 
 export interface IngvCesiumContext {
+  name: string;
   cesiumApiKey?: string;
   baseUrl?: string;
   catalogs: Record<
@@ -39,6 +40,7 @@ export interface IngvCesiumContext {
     };
   };
   views?: {
+    id: string; // should be uniq
     positions: [
       [number, number],
       [number, number],
@@ -51,6 +53,11 @@ export interface IngvCesiumContext {
     flyDuration?: number;
     fovAngle: number;
     highlightColor?: string; // css string, default red
+    offline?: {
+      rectangle?: number[]; // west, south, east, north
+      tiles3d?: string[];
+      imageryMaxLevel?: number;
+    };
   }[];
   widgetOptions?: ConstructorParameters<typeof CesiumWidget>[1];
   globeOptions?: Partial<Globe>;
@@ -115,5 +122,10 @@ export interface IngvCesiumContext {
       pixelSize?: number;
       disableDepthTestDistance?: number;
     };
+  };
+  offline?: {
+    infoFilename: string;
+    imagerySubdir: string;
+    tiles3dSubdir: string;
   };
 }

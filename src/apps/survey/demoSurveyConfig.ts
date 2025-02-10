@@ -114,6 +114,7 @@ export const config: ISurveyConfig = {
       },
     ],
     cesiumContext: {
+      name: 'survey',
       catalogs: {
         '@cesium': () => import('../../catalogs/cesiumCatalog.js'),
         '@demo': () => import('../../catalogs/demoCatalog.js'),
@@ -134,6 +135,7 @@ export const config: ISurveyConfig = {
       },
       views: [
         {
+          id: 'eilean-donan-castle',
           positions: [
             [-5.517543730925392, 57.27447291204438],
             [-5.516081775796481, 57.27485081768119],
@@ -145,8 +147,14 @@ export const config: ISurveyConfig = {
           flyDuration: 2,
           title: 'Eilean Donan Castle',
           fovAngle: 45,
+          offline: {
+            rectangle: [-5.51792, 57.273, -5.51372, 57.27516],
+            tiles3d: ['@demo/castle'],
+            imageryMaxLevel: 16,
+          },
         },
         {
+          id: 'blackness-castle-falkirk',
           positions: [
             [-3.5167084426199935, 56.00594918805265],
             [-3.516120373893856, 56.005744756484745],
@@ -158,6 +166,11 @@ export const config: ISurveyConfig = {
           flyDuration: 2,
           title: 'Blackness Castle - Falkirk',
           fovAngle: 45,
+          offline: {
+            rectangle: [-3.51868, 56.00386, -3.51352, 56.00704],
+            tiles3d: ['@demo/castle2'],
+            imageryMaxLevel: 16,
+          },
         },
       ],
       layerOptions: {},
@@ -184,6 +197,11 @@ export const config: ISurveyConfig = {
         tilesClippingEnabled: true,
         terrainClippingEnabled: false,
         storeKey: 'survey-localStoreClipping',
+      },
+      offline: {
+        infoFilename: 'offline-info',
+        tiles3dSubdir: 'tiles3d',
+        imagerySubdir: 'imageries',
       },
     },
   },

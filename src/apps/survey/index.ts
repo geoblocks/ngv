@@ -1,6 +1,6 @@
 import type {HTMLTemplateResult, TemplateResult} from 'lit';
 import {html} from 'lit';
-import {customElement, state} from 'lit/decorators.js';
+import {customElement, query, state} from 'lit/decorators.js';
 
 import '../../structure/ngv-structure-app.js';
 import {localized, msg} from '@lit/localize';
@@ -14,6 +14,7 @@ import '../../plugins/cesium/ngv-plugin-cesium-slicing';
 import '../../plugins/cesium/ngv-plugin-cesium-measure';
 import '../../plugins/cesium/ngv-plugin-cesium-navigation';
 import '../../plugins/cesium/ngv-plugin-cesium-click-info';
+import '../../plugins/cesium/ngv-plugin-cesium-offline';
 import '../../plugins/ui/ngv-survey';
 import type {
   CesiumWidget,
@@ -41,9 +42,11 @@ import {
 import type {Coordinate} from '../../utils/generalTypes.js';
 import proj4 from 'proj4';
 import {Task} from '@lit/task';
+import type {OfflineInfo} from '../../plugins/cesium/ngv-plugin-cesium-offline.js';
+import type {NgvPluginCesiumNavigation} from '../../plugins/cesium/ngv-plugin-cesium-navigation.js';
+import type {IngvCesiumContext} from '../../interfaces/cesium/ingv-cesium-context.js';
 
-const APP_NAME = 'survey';
-const STORAGE_DIR = ['persisted', 'surveys'];
+const STORAGE_DIR = ['surveys'];
 const STORAGE_LIST_NAME = 'surveys.json';
 
 type SurveysListItem = {
@@ -60,6 +63,10 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
   private showSurvey = false;
   @state()
   private surveys: SurveysListItem[] = [];
+  @state()
+  private offline: boolean = false;
+  @query('ngv-plugin-cesium-navigation')
+  private navElement: NgvPluginCesiumNavigation;
   private dataSourceCollection: DataSourceCollection;
   private dataSource: CustomDataSource = new CustomDataSource();
   private lastPoint: Entity | undefined;
@@ -67,6 +74,7 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
   private pointConfig: PointGraphics.ConstructorOptions;
   private pointHighlightConfig: PointGraphics.ConstructorOptions;
   private eventHandler: ScreenSpaceEventHandler | null = null;
+  private currentView: IngvCesiumContext['views'][number] | null = null;
 
   private collections: ViewerInitializedDetails['primitiveCollections'];
   private surveyFieldValues:
@@ -87,7 +95,7 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
   // @ts-expect-error TS6133
   private _configChange = new Task(this, {
     args: (): [ISurveyConfig] => [this.config],
-    task: async ([config]) => {
+    task: ([config]) => {
       const pointConf = config.app.cesiumContext.surveyOptions?.pointOptions;
       this.pointConfig = {
         color: pointConf?.color
@@ -126,52 +134,48 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
             ? pointHighlightConf?.disableDepthTestDistance
             : undefined,
       };
-      if (this.persistentDir) {
-        this.persistentDir = await getOrCreateDirectoryChain([
-          APP_NAME,
-          ...STORAGE_DIR,
-        ]);
-      }
     },
   });
+
+  async loadSurveys(): Promise<void> {
+    if (!this.persistentDir) {
+      console.error('Directory not defined.');
+      return;
+    }
+    this.dataSource.entities.removeAll();
+    this.surveys =
+      (await getJson<SurveysListItem[]>(
+        this.persistentDir,
+        STORAGE_LIST_NAME,
+      )) || [];
+    const projection =
+      this.config.app.cesiumContext.clickInfoOptions?.projection;
+    const transform = projection && proj4(projection, 'EPSG:4326');
+    this.surveys.forEach((s) => {
+      const coords = {...s.coordinate};
+      if (transform) {
+        const projectedCoords = transform.forward([
+          coords.longitude,
+          coords.latitude,
+        ]);
+        coords.longitude = projectedCoords[0];
+        coords.latitude = projectedCoords[1];
+      }
+      const position = Cartesian3.fromDegrees(
+        coords.longitude,
+        coords.latitude,
+        coords.height,
+      );
+      this.addPoint(position, s.id);
+      this.viewer.scene.requestRender();
+    });
+  }
 
   initializeViewer(details: ViewerInitializedDetails): void {
     this.viewer = details.viewer;
     this.dataSourceCollection = details.dataSourceCollection;
     this.dataSourceCollection
       .add(this.dataSource)
-      .then(async () => {
-        if (!this.persistentDir) {
-          this.persistentDir = await getOrCreateDirectoryChain([
-            APP_NAME,
-            ...STORAGE_DIR,
-          ]);
-        }
-        this.surveys = await getJson<SurveysListItem[]>(
-          this.persistentDir,
-          STORAGE_LIST_NAME,
-        );
-        this.surveys.forEach((s) => {
-          const coords = {...s.coordinate};
-          const projection =
-            this.config.app.cesiumContext.clickInfoOptions?.projection;
-          if (projection) {
-            const projectedCoords = proj4(projection, 'EPSG:4326', [
-              coords.longitude,
-              coords.latitude,
-            ]);
-            coords.longitude = projectedCoords[0];
-            coords.latitude = projectedCoords[1];
-          }
-          const position = Cartesian3.fromDegrees(
-            coords.longitude,
-            coords.latitude,
-            coords.height,
-          );
-          this.addPoint(position, s.id);
-          this.viewer.scene.requestRender();
-        });
-      })
       .catch((e) => console.error(e));
     this.collections = details.primitiveCollections;
     this.eventHandler = new ScreenSpaceEventHandler(this.viewer.canvas);
@@ -270,6 +274,17 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
     await this.editSurvey(id);
   }
 
+  async onViewChanged(view: IngvCesiumContext['views'][number]): Promise<void> {
+    if (!view) return;
+    this.currentView = view;
+    this.persistentDir = await getOrCreateDirectoryChain([
+      this.config.app.cesiumContext.name,
+      this.currentView.id,
+      ...STORAGE_DIR,
+    ]);
+    await this.loadSurveys();
+  }
+
   async editSurvey(id: string): Promise<void> {
     if (!id) {
       return;
@@ -326,6 +341,13 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
     if (r && !this.config) {
       return r;
     }
+    const offlineInfo: OfflineInfo = this.config.app.cesiumContext.offline
+      ? {
+          appName: this.config.app.cesiumContext.name,
+          view: this.currentView,
+          ...this.config.app.cesiumContext.offline,
+        }
+      : undefined;
     return html`
       <ngv-structure-app .config=${this.config}>
         <div
@@ -345,10 +367,28 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
                   .dataSourceCollection="${this.dataSourceCollection}"
                   .options=${this.config.app.cesiumContext.measureOptions}
                 ></ngv-plugin-cesium-measure>
+                ${offlineInfo
+                  ? html`<ngv-plugin-cesium-offline
+                      .viewer="${this.viewer}"
+                      .info="${offlineInfo}"
+                      @switch="${(evt: {detail: {offline: boolean}}) => {
+                        this.offline = evt.detail.offline;
+                      }}"
+                      @offlineInfo="${(evt: {detail: OfflineInfo}) => {
+                        if (!evt.detail?.view?.id) return;
+                        this.offline = true;
+                        this.navElement.setViewById(evt.detail.view.id);
+                      }}"
+                    ></ngv-plugin-cesium-offline>`
+                  : ''}
                 <ngv-plugin-cesium-navigation
                   .viewer="${this.viewer}"
                   .viewsConfig="${this.config.app.cesiumContext.views}"
                   .dataSourceCollection="${this.dataSourceCollection}"
+                  .disableViewChange="${this.offline}"
+                  @viewChanged=${(evt: {
+                    detail: IngvCesiumContext['views'][number];
+                  }) => this.onViewChanged(evt.detail)}
                 ></ngv-plugin-cesium-navigation>
                 ${this.showSurvey
                   ? html` <ngv-survey

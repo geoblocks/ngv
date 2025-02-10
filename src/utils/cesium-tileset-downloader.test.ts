@@ -32,6 +32,7 @@ await test(async function testList3dTilesetFunction() {
 await test.only(async function testDownloadAndPersistTileset() {
   await downloadAndPersistTileset({
     appName: 'test',
+    subdir: 'persistent',
     concurrency: 3,
     tilesetBasePath: 'http://localhost:8000/',
     tilesetName: 'clip-test',

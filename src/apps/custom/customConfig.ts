@@ -56,6 +56,7 @@ export const config: CustomConfig = {
   },
   app: {
     cesiumContext: {
+      name: 'custom',
       catalogs: {
         '@geoadmin': () => import('../../catalogs/geoadminCatalog.js'),
       },

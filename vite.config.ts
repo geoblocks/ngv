@@ -25,8 +25,9 @@ export default defineConfig({
     VitePWA({
       strategies: 'injectManifest',
       injectManifest: {
-        swSrc: './src/sw.ts',
+        swSrc: 'src/sw.ts',
         maximumFileSizeToCacheInBytes: 16e6, // 16mb (because of grid file)
+        globPatterns: ['**/*.{js,css,html,svg,png,jpeg,jpg,ico,gsb,json,wasm}'],
       },
       srcDir: 'src',
       filename: 'sw.ts',

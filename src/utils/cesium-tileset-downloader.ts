@@ -1,9 +1,12 @@
 import {poolRunner} from './pool-runner.js';
 import {
-  getOrCreateDirectoryChain,
   streamToFile,
-  filenamize,
+  getOrCreateDirectoryChain,
+  getDirectoryIfExists,
+  getFileHandle,
+  getPathAndNameFromUrl,
 } from './storage-utils.js';
+import {Ellipsoid, Resource} from '@cesium/engine';
 
 interface TilesetNode {
   content?: {
@@ -37,19 +40,53 @@ interface ListTilesetOptions {
   extent?: number[];
 }
 
-function rectsOverlapping(rect1: number[], rect2: number[], error: number) {
-  // console.log("Is overlapping", rect1, rect2, error);
-  if (rect1[2] + error < rect2[0] || rect2[2] + error < rect1[0]) {
-    return false;
-  }
-  if (rect1[1] + error < rect2[3] || rect2[1] + error < rect1[3]) {
-    return false;
-  }
-  return true;
+// eslint-disable-next-line @typescript-eslint/unbound-method
+export const cesiumFetchOrig = Resource.prototype.fetch;
+
+export function cesiumFetchCustom(directories: string[]) {
+  return async function (options?: {
+    responseType?: string;
+    headers?: any;
+    overrideMimeType?: string;
+  }): Promise<any> {
+    if (
+      options?.responseType === 'arraybuffer' ||
+      (options?.responseType === 'text' &&
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-call
+        options?.headers.Accept.includes('application/json'))
+    ) {
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-expect-error
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument,@typescript-eslint/no-unsafe-member-access
+      const {path, name} = getPathAndNameFromUrl(this.url);
+      const dir = await getDirectoryIfExists([...directories, ...path]);
+      if (dir) {
+        const fileHandler = await getFileHandle(dir, name);
+        const file = await fileHandler.getFile();
+        if (file) {
+          return options.responseType === 'arraybuffer'
+            ? file.arrayBuffer()
+            : file.text();
+        }
+      }
+    }
+
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-expect-error
+    return cesiumFetchOrig.call(this, options);
+  };
 }
 
-// Nonsensical computation
-const rads_per_meter = ((2 * Math.PI) / 40_000_000) * 200;
+function rectsOverlapping(rect1: number[], rect2: number[], error: number) {
+  return !(
+    rect1[2] + error < rect2[0] ||
+    rect1[0] - error > rect2[2] ||
+    rect1[3] + error < rect2[1] ||
+    rect1[1] - error > rect2[3]
+  );
+}
+
+const rads_per_meter = 1 / Ellipsoid.WGS84.maximumRadius;
 
 export async function listTilesetUrls(
   basePath: string,
@@ -69,8 +106,10 @@ export async function listTilesetUrls(
     }
   }
   if (node.content) {
-    console.assert(node.content.uri, 'No URI in this node content');
-    const uri = basePath + node.content.uri;
+    const content = <{uri?: string; url?: string}>node.content;
+    const contentUri = content.uri || content.url;
+    console.assert(contentUri, 'No URI in this node content');
+    const uri = basePath + contentUri;
     if (uri.endsWith('.json')) {
       // this is a sub-tileset
       console.log('Fetching', uri);
@@ -98,13 +137,21 @@ export async function listTilesetUrls(
 
 export async function downloadAndPersistTileset(options: {
   appName: string;
+  subdir: string;
   tilesetBasePath: string;
   tilesetFilename?: string;
   tilesetName: string;
   concurrency: number;
+  extent?: number[];
 }): Promise<void> {
-  const {appName, tilesetFilename, tilesetBasePath, concurrency} = options;
-  const persistedDir = await getOrCreateDirectoryChain([appName, 'persisted']);
+  const {
+    appName,
+    subdir,
+    tilesetFilename,
+    tilesetBasePath,
+    concurrency,
+    extent,
+  } = options;
   const controller = new AbortController();
   const allUrls = await listTilesetUrls(
     tilesetBasePath,
@@ -116,6 +163,7 @@ export async function downloadAndPersistTileset(options: {
     {
       signal: controller.signal,
       foundUrls: [],
+      extent,
     },
   );
 
@@ -126,12 +174,11 @@ export async function downloadAndPersistTileset(options: {
       const response = await fetch(url, {
         signal: controller.signal,
       });
-      const filename = filenamize(url);
-      return streamToFile(persistedDir, filename, response.body).catch(
-        (error) => {
-          controller.abort(error);
-        },
-      );
+      const {path, name} = getPathAndNameFromUrl(url);
+      const dir = await getOrCreateDirectoryChain([appName, subdir, ...path]);
+      return streamToFile(dir, name, response.body).catch((error) => {
+        controller.abort(error);
+      });
     },
   });
 }

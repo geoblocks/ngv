@@ -38,12 +38,11 @@ await test.only(async function testDownloadAndPersistImagery() {
   const tiles = listTilesInRectangle(rectangle, imageryProvider);
 
   assert(tiles.length === 32, 'Incorrect number of tiles ' + tiles.length);
-
   await downloadAndPersistImageTiles({
     appName: 'test',
+    subdir: 'persisted',
     concurrency: 3,
     imageryProvider,
-    prefix: 'swissimage',
     tiles: tiles,
   });
   await listDirectoryContents(await navigator.storage.getDirectory(), 5);

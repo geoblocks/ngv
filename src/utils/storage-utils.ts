@@ -26,6 +26,29 @@ export async function getOrCreateDirectoryChain(
 }
 
 /**
+ * Returns directory handler if exists
+ * @param directories the chain of directories to create
+ * @returns the handle to the last created subdirectory
+ */
+export async function getDirectoryIfExists(
+  directories: string | string[],
+): Promise<FileSystemDirectoryHandle> {
+  try {
+    let handle = await navigator.storage.getDirectory();
+    if (typeof directories === 'string') {
+      directories = [directories];
+    }
+    for (const dirName of directories) {
+      handle = await handle.getDirectoryHandle(dirName);
+    }
+
+    return handle;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Stream To a file.
  * @param directory Directory handle
  * @param name Name of the file to write to
@@ -61,7 +84,9 @@ export async function persistJson(
   try {
     const json = JSON.stringify(data);
 
-    const fileHandle = await getFileHandle(directory, name);
+    const fileHandle = await directory.getFileHandle(name, {
+      create: true,
+    });
     const writable = await fileHandle.createWritable({
       keepExistingData: false,
     });
@@ -83,12 +108,16 @@ export async function getJson<T>(
   directory: FileSystemDirectoryHandle,
   name: string,
 ): Promise<T> {
-  const fileHandler = await getFileHandle(directory, name);
-  const file = await fileHandler.getFile();
+  try {
+    const fileHandler = await getFileHandle(directory, name);
+    const file = await fileHandler.getFile();
 
-  const text = await file.text();
+    const text = await file.text();
 
-  return <T>JSON.parse(text);
+    return <T>JSON.parse(text);
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -110,10 +139,10 @@ export async function removeFile(
  * @param directory Directory handle
  * @param name Name of the file
  */
-async function getFileHandle(
+export async function getFileHandle(
   directory: FileSystemDirectoryHandle,
   name: string,
-) {
+): Promise<FileSystemFileHandle> {
   try {
     return await directory.getFileHandle(name);
   } catch (error) {
@@ -125,4 +154,34 @@ async function getFileHandle(
       throw error;
     }
   }
+}
+
+/**
+ * Removes directory
+ * @param directory Directory handle
+ * @param name
+ */
+export async function removeDirectory(
+  directory: FileSystemDirectoryHandle,
+  name: string,
+): Promise<void> {
+  try {
+    await directory.removeEntry(name, {recursive: true});
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+export function getPathAndNameFromUrl(url: string): {
+  name: string;
+  path: string[];
+} {
+  const u = new URL(url);
+  const path = decodeURI(u.pathname)
+    .replace('/', '')
+    .split('/')
+    .map(filenamize);
+  path.unshift(filenamize(u.hostname));
+  const name = filenamize(path.splice(path.length - 1, 1)[0]);
+  return {name, path};
 }
