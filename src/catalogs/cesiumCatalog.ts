@@ -1,5 +1,9 @@
 import type {INGVCatalog} from '../interfaces/cesium/ingv-catalog.js';
 
+export const ION_ASSETS_URL = 'https://assets.ion.cesium.com/';
+export const CESIUM_ASSETS_ENDPOINT =
+  'https://api.cesium.com/v1/assets/{id}/endpoint';
+
 export const catalog: INGVCatalog = {
   id: '@cesium',
   credits: '© Cesium',

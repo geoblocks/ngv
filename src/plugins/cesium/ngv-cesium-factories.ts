@@ -37,6 +37,8 @@ import {
 import type {IngvCesiumContext} from '../../interfaces/cesium/ingv-cesium-context.js';
 import type {INGVCatalog} from '../../interfaces/cesium/ingv-catalog.js';
 import {getClippingPolygon, getDimensions} from './interactionHelpers.js';
+import {ION_ASSETS_URL} from '../../catalogs/cesiumCatalog.js';
+import {getIonAssetToken} from './cesium-utils.js';
 
 function withExtra<T>(options: T, extra: Record<string, any>): T {
   if (!extra) {
@@ -81,7 +83,7 @@ export async function instantiate3dTileset(
   config: INGVCesium3DTiles,
   extraOptions?: Record<string, any>,
 ): Promise<Cesium3DTileset> {
-  const url = config.url;
+  let url = config.url;
   const subtype = config.subtype;
   if (subtype === 'googlePhotorealistic') {
     // this should be treeshaked, at leat parcel does it
@@ -93,18 +95,36 @@ export async function instantiate3dTileset(
     const key = extraOptions?.key as string | undefined;
     return createGooglePhotorealistic3DTileset(key);
   }
-  if (typeof url === 'string') {
-    return Cesium3DTileset.fromUrl(
-      // This allows for offline mode
-      new Resource(url),
-      withExtra(config.options, extraOptions),
-    );
-  } else {
-    return Cesium3DTileset.fromIonAssetId(
-      url,
-      withExtra(config.options, extraOptions),
-    );
+
+  // Replaces Cesium ION id with cesium API url to make it work offline
+  // fixme
+  //  * When the page is loaded offline and then switched to online, the token will be missed and 3d tiles from ION will not work (except tiles loaded offline).
+  //  * The token expires and should be replaced after some period of time
+  let accessToken: string | undefined;
+  if (typeof url === 'number') {
+    accessToken = await getIonAssetToken(url);
+    url = `${ION_ASSETS_URL}${url}/tileset.json`;
   }
+  return Cesium3DTileset.fromUrl(
+    // This allows for offline mode
+    new Resource({
+      url,
+      headers: accessToken ? {Authorization: `Bearer ${accessToken}`} : {},
+    }),
+    withExtra(config.options, extraOptions),
+  );
+  // if (typeof url === 'string') {
+  //   return Cesium3DTileset.fromUrl(
+  //     // This allows for offline mode
+  //     new Resource(url),
+  //     withExtra(config.options, extraOptions),
+  //   );
+  // } else {
+  //   return Cesium3DTileset.fromIonAssetId(
+  //     url,
+  //     withExtra(config.options, extraOptions),
+  //   );
+  // }
 }
 
 export function instantiateImageryProvider(

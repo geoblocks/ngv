@@ -16,11 +16,14 @@ import {
 import type {IngvCesiumContext} from '../../interfaces/cesium/ingv-cesium-context.js';
 import type {INGVCatalog} from '../../interfaces/cesium/ingv-catalog.js';
 import {catalog as demoCatalog} from '../../catalogs/demoCatalog.js';
-import {catalog as cesiumCatalog} from '../../catalogs/cesiumCatalog.js';
+import {
+  catalog as cesiumCatalog,
+  ION_ASSETS_URL,
+} from '../../catalogs/cesiumCatalog.js';
 import {catalog as geoadminCatalog} from '../../catalogs/geoadminCatalog.js';
 import type {CesiumWidget} from '@cesium/engine';
 import {Resource, Math as CMath, Rectangle} from '@cesium/engine';
-import {listTilesInRectangle} from './cesium-utils.js';
+import {getIonAssetToken, listTilesInRectangle} from './cesium-utils.js';
 import {
   cesiumFetchImageCustom,
   cesiumFetchImageOrig,
@@ -142,6 +145,7 @@ export class NgvPluginCesiumOffline extends LitElement {
       this.offline = offline;
     } else {
       await this.removeLayers();
+
       // todo remove dir when synced with API
       await removeFile(dir, `${this.info.infoFilename}.json`);
     }
@@ -184,18 +188,24 @@ export class NgvPluginCesiumOffline extends LitElement {
         const tilesetName = splitted[1];
         const catalog = catalogs.find((c) => c.id === id);
         if (catalog?.layers[tilesetName]?.type === '3dtiles') {
+          let accessToken: string | undefined;
           try {
+            let url = catalog.layers[tilesetName].url;
+            if (typeof url === 'number') {
+              const id = url;
+              url = `${ION_ASSETS_URL}${id}/`;
+              accessToken = await getIonAssetToken(id);
+            }
             await downloadAndPersistTileset({
               appName: this.info.appName,
               subdir: this.info.tiles3dSubdir,
               concurrency: 3,
-              tilesetBasePath: (<string>(
-                catalog.layers[tilesetName].url
-              )).replace('tileset.json', ''),
+              tilesetBasePath: url.replace('tileset.json', ''),
               tilesetName,
               extent: this.info.view.offline.rectangle?.length
                 ? this.info.view.offline.rectangle.map(CMath.toRadians)
                 : undefined,
+              accessToken,
             });
           } catch (e) {
             console.error(`Not possible to save tileset ${layer}:`, e);
