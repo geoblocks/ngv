@@ -15,6 +15,14 @@ export const catalog: INGVCatalog = {
         url: 'https://tile.openstreetmap.org/',
       },
     },
+    castle: {
+      type: '3dtiles',
+      url: 3070271,
+    },
+    castle2: {
+      type: '3dtiles',
+      url: 3070274,
+    },
     // to complete
   },
 };
