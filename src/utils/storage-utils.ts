@@ -171,3 +171,17 @@ export async function removeDirectory(
     console.error(error);
   }
 }
+
+export function getPathAndNameFromUrl(url: string): {
+  name: string;
+  path: string[];
+} {
+  const u = new URL(url);
+  const path = decodeURI(u.pathname)
+    .replace('/', '')
+    .split('/')
+    .map(filenamize);
+  path.unshift(filenamize(u.hostname));
+  const name = filenamize(path.splice(path.length - 1, 1)[0]);
+  return {name, path};
+}

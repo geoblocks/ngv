@@ -19,8 +19,7 @@ import {catalog as demoCatalog} from '../../catalogs/demoCatalog.js';
 import {catalog as cesiumCatalog} from '../../catalogs/cesiumCatalog.js';
 import {catalog as geoadminCatalog} from '../../catalogs/geoadminCatalog.js';
 import type {CesiumWidget} from '@cesium/engine';
-import {Resource} from '@cesium/engine';
-import {Rectangle} from '@cesium/engine';
+import {Resource, Math as CMath, Rectangle} from '@cesium/engine';
 import {listTilesInRectangle} from './cesium-utils.js';
 import {
   cesiumFetchImageCustom,
@@ -29,7 +28,6 @@ import {
 } from '../../utils/cesium-imagery-downloader.js';
 import {Task} from '@lit/task';
 import {classMap} from 'lit/directives/class-map.js';
-import {listDirectoryContents} from '../../utils/debug-utils.js';
 
 export type OfflineInfo = {
   appName: string;
@@ -195,13 +193,10 @@ export class NgvPluginCesiumOffline extends LitElement {
                 catalog.layers[tilesetName].url
               )).replace('tileset.json', ''),
               tilesetName,
-              extent: this.info.view.offline.rectangle,
+              extent: this.info.view.offline.rectangle?.length
+                ? this.info.view.offline.rectangle.map(CMath.toRadians)
+                : undefined,
             });
-            const dir = await getOrCreateDirectoryChain([
-              this.info.appName,
-              this.info.tiles3dSubdir,
-            ]);
-            await listDirectoryContents(dir, 10);
           } catch (e) {
             console.error(`Not possible to save tileset ${layer}:`, e);
           }

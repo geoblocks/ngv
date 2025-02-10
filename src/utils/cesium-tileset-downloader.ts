@@ -4,8 +4,9 @@ import {
   getOrCreateDirectoryChain,
   getDirectoryIfExists,
   getFileHandle,
+  getPathAndNameFromUrl,
 } from './storage-utils.js';
-import {Resource, Math as CMath} from '@cesium/engine';
+import {Resource} from '@cesium/engine';
 
 interface TilesetNode {
   content?: {
@@ -48,18 +49,17 @@ export function cesiumFetchCustom(directories: string[]) {
     headers?: any;
     overrideMimeType?: string;
   }): Promise<any> {
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-expect-error
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument,@typescript-eslint/no-unsafe-member-access
-    const filePath = new URL(this.url).pathname;
     if (
       options?.responseType === 'arraybuffer' ||
       (options?.responseType === 'text' &&
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-call
         options?.headers.Accept.includes('application/json'))
     ) {
-      const path = filePath.replace('/', '').split('/');
-      const name = path.splice(path.length - 1, 1)[0];
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-expect-error
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument,@typescript-eslint/no-unsafe-member-access
+      const {path, name} = getPathAndNameFromUrl(this.url);
+      console.log(path, name);
       const dir = await getDirectoryIfExists([...directories, ...path]);
       if (dir) {
         const fileHandler = await getFileHandle(dir, name);
@@ -97,10 +97,9 @@ export async function listTilesetUrls(
 ): Promise<string[]> {
   const {signal, foundUrls} = options;
   if (node.boundingVolume?.region && options.extent) {
-    const regionDegrees = node.boundingVolume.region.map(CMath.toDegrees);
     if (
       !rectsOverlapping(
-        regionDegrees,
+        node.boundingVolume.region,
         options.extent,
         node.geometricError * rads_per_meter,
       )
@@ -177,9 +176,7 @@ export async function downloadAndPersistTileset(options: {
       const response = await fetch(url, {
         signal: controller.signal,
       });
-      const u = new URL(url);
-      const path = u.pathname.replace('/', '').split('/');
-      const name = path.splice(path.length - 1, 1)[0];
+      const {path, name} = getPathAndNameFromUrl(url);
       const dir = await getOrCreateDirectoryChain([appName, subdir, ...path]);
       return streamToFile(dir, name, response.body).catch((error) => {
         controller.abort(error);

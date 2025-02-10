@@ -148,12 +148,13 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
         this.persistentDir,
         STORAGE_LIST_NAME,
       )) || [];
+    const projection =
+      this.config.app.cesiumContext.clickInfoOptions?.projection;
+    const transform = projection && proj4(projection, 'EPSG:4326');
     this.surveys.forEach((s) => {
       const coords = {...s.coordinate};
-      const projection =
-        this.config.app.cesiumContext.clickInfoOptions?.projection;
-      if (projection) {
-        const projectedCoords = proj4(projection, 'EPSG:4326', [
+      if (transform) {
+        const projectedCoords = transform.forward([
           coords.longitude,
           coords.latitude,
         ]);

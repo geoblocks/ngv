@@ -2,10 +2,10 @@ import type {ImageryProvider} from '@cesium/engine';
 import {Resource, type Cartographic, type TilingScheme} from '@cesium/engine';
 import {poolRunner} from './pool-runner.js';
 import {
-  filenamize,
   getDirectoryIfExists,
   getFileHandle,
   getOrCreateDirectoryChain,
+  getPathAndNameFromUrl,
   streamToFile,
 } from './storage-utils.js';
 
@@ -39,17 +39,11 @@ export const cesiumFetchImageCustom = (directories: string[]) => {
     flipY?: boolean;
     skipColorSpaceConversion?: boolean;
   }): Promise<ImageBitmap | HTMLImageElement> | undefined {
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // eslint-disable-next-line
     // @ts-expect-error
     // eslint-disable-next-line @typescript-eslint/no-unsafe-argument,@typescript-eslint/no-unsafe-member-access
-    const u = new URL(this.url);
-    const path = u.pathname.replace('/', '').split('/');
-    const name = path.splice(path.length - 1, 1)[0];
-    const dir = await getDirectoryIfExists([
-      ...directories,
-      filenamize(u.hostname),
-      ...path,
-    ]);
+    const {name, path} = getPathAndNameFromUrl(this.url);
+    const dir = await getDirectoryIfExists([...directories, ...path]);
     if (dir) {
       const fileHandler = await getFileHandle(dir, name);
       if (fileHandler) {
@@ -145,28 +139,20 @@ export async function downloadAndPersistImageTiles(options: {
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-expect-error
       const url = (<Resource>imageryProvider._resource).url;
-      const u = new URL(url);
-      const path = decodeURI(u.pathname).replace('/', '').split('/');
-      path[path.length - 3] = path[path.length - 3].replace(
+      let {name} = getPathAndNameFromUrl(url);
+      const {path} = getPathAndNameFromUrl(url);
+      // replaces z,x,y in URL, used regex because it is not always z,x,y (e.g. TileMatrix, TileCol, TileRow in geoadmin imagery)
+      path[path.length - 2] = path[path.length - 2].replace(
         /{\w*}/g,
         z.toString(),
       );
-      path[path.length - 2] = path[path.length - 2].replace(
+      path[path.length - 1] = path[path.length - 1].replace(
         /{\w*}/g,
         x.toString(),
       );
-      path[path.length - 1] = path[path.length - 1].replace(
-        /{\w*}/g,
-        y.toString(),
-      );
-      const name = path.splice(path.length - 1, 1)[0];
+      name = name.replace(/{\w*}/g, y.toString());
 
-      const dir = await getOrCreateDirectoryChain([
-        appName,
-        subdir,
-        filenamize(u.hostname),
-        ...path,
-      ]);
+      const dir = await getOrCreateDirectoryChain([appName, subdir, ...path]);
       return streamToFile(dir, name, blob.stream()).catch((error) => {
         controller.abort(error);
       });
