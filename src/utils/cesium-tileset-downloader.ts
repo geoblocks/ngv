@@ -6,7 +6,7 @@ import {
   getFileHandle,
   getPathAndNameFromUrl,
 } from './storage-utils.js';
-import {Resource} from '@cesium/engine';
+import {Ellipsoid, Resource} from '@cesium/engine';
 
 interface TilesetNode {
   content?: {
@@ -59,7 +59,6 @@ export function cesiumFetchCustom(directories: string[]) {
       // @ts-expect-error
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument,@typescript-eslint/no-unsafe-member-access
       const {path, name} = getPathAndNameFromUrl(this.url);
-      console.log(path, name);
       const dir = await getDirectoryIfExists([...directories, ...path]);
       if (dir) {
         const fileHandler = await getFileHandle(dir, name);
@@ -87,8 +86,7 @@ function rectsOverlapping(rect1: number[], rect2: number[], error: number) {
   );
 }
 
-// Nonsensical computation
-const rads_per_meter = ((2 * Math.PI) / 40_000_000) * 200;
+const rads_per_meter = 1 / Ellipsoid.WGS84.maximumRadius;
 
 export async function listTilesetUrls(
   basePath: string,
