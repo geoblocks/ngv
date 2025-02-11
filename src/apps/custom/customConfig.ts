@@ -7,6 +7,8 @@ const wellknown = {
     'https://sso.geomapfish-demo.prod.apps.gs-ch-prod.camptocamp.com/oauth/v2/authorize',
   token_endpoint:
     'https://sso.geomapfish-demo.prod.apps.gs-ch-prod.camptocamp.com/oauth/v2/token',
+  userinfo_endpoint:
+    'https://sso.geomapfish-demo.prod.apps.gs-ch-prod.camptocamp.com/oidc/v1/userinfo',
 };
 
 const authContext: IngvAuthContext = {

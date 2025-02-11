@@ -1,3 +1,5 @@
+import { HTMLTemplateResult } from "lit";
+
 type SurveyFieldBase = {
   required?: boolean;
   label?: string;
@@ -18,20 +20,22 @@ export type SurveyTextarea = Omit<SurveyInput, 'type' | 'inputType'> & {
   rows?: number;
 };
 
+type OptionsFunction = () => Promise<{label: string; value: string}[]>;
+
 export type SurveySelect = SurveyFieldBase & {
   type: 'select';
-  options: {label: string; value: string}[];
+  options: {label: string; value: string}[] | OptionsFunction;
 };
 
 export type SurveyRadio = Omit<SurveyFieldBase, 'defaultValue'> & {
   type: 'radio';
   defaultValue: string;
-  options: {label: string; value: string}[];
+  options: {label: string; value: string}[] | OptionsFunction;
 };
 
 export type SurveyCheckbox = Omit<SurveyFieldBase, 'defaultValue'> & {
   type: 'checkbox';
-  options: {label: string; value: string; checked: boolean}[];
+  options: {label: string; value: string; checked: boolean}[] | OptionsFunction;
 };
 
 export type SurveyCoords = SurveyFieldBase & {
@@ -52,6 +56,16 @@ export type SurveyId = Omit<SurveyFieldBase, 'required' | 'defaultValue'> & {
   type: 'id';
 };
 
+export interface SurveyConditional {
+  visible: (fields: SurveyField[]) => boolean;
+  children: SurveyField[];
+};
+
+export interface SurveyComputed {
+  render: (fields: SurveyField[]) => HTMLTemplateResult
+}
+
+
 export type SurveyField =
   | SurveyInput
   | SurveyTextarea
@@ -60,4 +74,5 @@ export type SurveyField =
   | SurveyCheckbox
   | SurveyCoords
   | SurveyFile
-  | SurveyId;
+  | SurveyId
+  | SurveyConditional;

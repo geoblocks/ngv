@@ -4,6 +4,8 @@ import type {
   CustomDataSource,
   LabelGraphics,
 } from '@cesium/engine';
+import {CallbackPositionProperty} from '@cesium/engine';
+import {CallbackPositionProperty} from '@cesium/engine';
 import {
   EllipsoidGeodesic,
   PositionProperty,
@@ -284,7 +286,7 @@ export class CesiumDraw extends EventTarget {
           false,
         );
         this.drawingDataSource.entities.add({
-          position: new CallbackProperty(() => {
+          position: new CallbackPositionProperty(() => {
             positions = this.activePoints_.length
               ? this.activePoints_
               : positions;
@@ -421,7 +423,7 @@ export class CesiumDraw extends EventTarget {
   }
 
   createSketchPoint_(
-    position: Cartesian3 | CallbackProperty,
+    position: Cartesian3 | CallbackPositionProperty,
     options: {
       edit?: boolean;
       virtual?: boolean;

@@ -91,7 +91,7 @@ export async function instantiate3dTileset(
       '@cesium/engine'
     );
     const key = extraOptions?.key as string | undefined;
-    return createGooglePhotorealistic3DTileset(key);
+    return createGooglePhotorealistic3DTileset({key});
   }
   if (typeof url === 'string') {
     return Cesium3DTileset.fromUrl(
