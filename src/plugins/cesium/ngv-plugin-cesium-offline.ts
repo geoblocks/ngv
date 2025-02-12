@@ -14,16 +14,13 @@ import {
   downloadAndPersistTileset,
 } from '../../utils/cesium-tileset-downloader.js';
 import type {IngvCesiumContext} from '../../interfaces/cesium/ingv-cesium-context.js';
-import type {INGVCatalog} from '../../interfaces/cesium/ingv-catalog.js';
-import {catalog as demoCatalog} from '../../catalogs/demoCatalog.js';
-import {
-  catalog as cesiumCatalog,
-  ION_ASSETS_URL,
-} from '../../catalogs/cesiumCatalog.js';
-import {catalog as geoadminCatalog} from '../../catalogs/geoadminCatalog.js';
 import type {CesiumWidget} from '@cesium/engine';
 import {Resource, Math as CMath, Rectangle} from '@cesium/engine';
-import {getIonAssetToken, listTilesInRectangle} from './cesium-utils.js';
+import {
+  getIonAssetToken,
+  getLayerConfig,
+  listTilesInRectangle,
+} from './cesium-utils.js';
 import {
   cesiumFetchImageCustom,
   cesiumFetchImageOrig,
@@ -40,16 +37,20 @@ export type OfflineInfo = {
   view?: IngvCesiumContext['views'][number];
 };
 
-const catalogs: INGVCatalog[] = [demoCatalog, cesiumCatalog, geoadminCatalog];
-
 @customElement('ngv-plugin-cesium-offline')
 export class NgvPluginCesiumOffline extends LitElement {
   @property({type: Object})
   viewer: CesiumWidget;
+  @property({type: String})
+  public ionAssetUrl: string;
+  @property({type: String})
+  public cesiumApiUrl: string;
   @property({type: Object})
   info: OfflineInfo;
   @state()
   offline: boolean = false;
+  @state()
+  loading: boolean = false;
 
   static styles = css`
     div {
@@ -82,6 +83,29 @@ export class NgvPluginCesiumOffline extends LitElement {
 
     button.offline {
       background-color: lightcoral;
+    }
+
+    .loading {
+      margin-left: 10px;
+      -webkit-animation: spin 4s linear infinite;
+      -moz-animation: spin 4s linear infinite;
+      animation: spin 4s linear infinite;
+    }
+    @-moz-keyframes spin {
+      100% {
+        -moz-transform: rotate(360deg);
+      }
+    }
+    @-webkit-keyframes spin {
+      100% {
+        -webkit-transform: rotate(360deg);
+      }
+    }
+    @keyframes spin {
+      100% {
+        -webkit-transform: rotate(360deg);
+        transform: rotate(360deg);
+      }
     }
   `;
 
@@ -128,9 +152,11 @@ export class NgvPluginCesiumOffline extends LitElement {
   }
 
   async switchOffline(): Promise<void> {
+    if (this.loading) return;
     if (!this.info?.appName) {
       throw new Error('App name is required for offline usage');
     }
+    this.loading = true;
     const offline = !this.offline;
     const dir = await getOrCreateDirectoryChain([this.info.appName]);
     if (offline) {
@@ -138,7 +164,7 @@ export class NgvPluginCesiumOffline extends LitElement {
         await this.downloadImageries();
       }
 
-      if (this.info.view?.offline.tiles3d?.length) {
+      if (this.info.view?.tiles3d?.length) {
         await this.downloadTiles();
       }
       await persistJson(dir, `${this.info.infoFilename}.json`, this.info);
@@ -153,6 +179,7 @@ export class NgvPluginCesiumOffline extends LitElement {
     this.dispatchEvent(
       new CustomEvent('switch', {detail: {offline: this.offline}}),
     );
+    this.loading = false;
   }
 
   async downloadImageries(): Promise<void> {
@@ -182,19 +209,18 @@ export class NgvPluginCesiumOffline extends LitElement {
 
   async downloadTiles(): Promise<void> {
     await Promise.all(
-      this.info.view.offline.tiles3d.map(async (layer) => {
-        const splitted = layer.split('/');
-        const id = splitted[0];
-        const tilesetName = splitted[1];
-        const catalog = catalogs.find((c) => c.id === id);
-        if (catalog?.layers[tilesetName]?.type === '3dtiles') {
+      this.info.view.tiles3d.map(async (layer) => {
+        const config = getLayerConfig(layer);
+        if (config?.type === '3dtiles') {
+          const splitted = layer.split('/');
+          const tilesetName = splitted[1];
           let accessToken: string | undefined;
           try {
-            let url = catalog.layers[tilesetName].url;
+            let url = config.url;
             if (typeof url === 'number') {
               const id = url;
-              url = `${ION_ASSETS_URL}${id}/`;
-              accessToken = await getIonAssetToken(id);
+              url = `${this.ionAssetUrl}${id}/`;
+              accessToken = await getIonAssetToken(id, this.cesiumApiUrl);
             }
             await downloadAndPersistTileset({
               appName: this.info.appName,
@@ -223,11 +249,15 @@ export class NgvPluginCesiumOffline extends LitElement {
 
   protected render(): unknown {
     return html` <div>
-      <span>
-        ${this.offline ? msg('Offline') : msg('Online')}
-        ${this.offline ? '🔴' : '🟢'}</span
-      >
+      ${this.loading
+        ? html`<span>${msg('Loading')} <span class="loading">⌛</span></span>`
+        : html`<span>
+            ${this.offline ? msg('Offline') : msg('Online')}
+            ${this.offline ? '🔴' : '🟢'}</span
+          >`}
+
       <button
+        .disabled="${this.loading}"
         class="${classMap({offline: !this.offline})}"
         @click=${() => this.switchOffline()}
       >

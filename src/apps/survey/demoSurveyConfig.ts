@@ -114,7 +114,7 @@ export const config: ISurveyConfig = {
       },
     ],
     cesiumContext: {
-      cesiumApiKey:
+      ionDefaultAccessToken:
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIxMWU4YzQzNC00NzMxLTQ0NzktYTFlYi01NjMyMDgwMTMyY2EiLCJpZCI6MjI2NjUyLCJpYXQiOjE3MzkxODcxNTZ9.OJJ_pdI3WDMLO3W4vYWA1aW20DilQ2nyocgItAWPs-g',
       name: 'survey',
       catalogs: {
@@ -122,7 +122,7 @@ export const config: ISurveyConfig = {
         '@demo': () => import('../../catalogs/demoCatalog.js'),
       },
       layers: {
-        tiles3d: ['@cesium/castle', '@cesium/castle2'],
+        // tiles3d: ['@cesium/castle', '@cesium/castle2'],
         imageries: ['@cesium/openstreetmap'],
       },
       quickLists: {
@@ -149,9 +149,9 @@ export const config: ISurveyConfig = {
           flyDuration: 2,
           title: 'Eilean Donan Castle',
           fovAngle: 45,
+          tiles3d: ['@cesium/castle'],
           offline: {
             rectangle: [-5.51792, 57.273, -5.51372, 57.27516],
-            tiles3d: ['@cesium/castle'],
             imageryMaxLevel: 16,
           },
         },
@@ -168,9 +168,9 @@ export const config: ISurveyConfig = {
           flyDuration: 2,
           title: 'Blackness Castle - Falkirk',
           fovAngle: 45,
+          tiles3d: ['@cesium/castle2'],
           offline: {
             rectangle: [-3.51868, 56.00386, -3.51352, 56.00704],
-            tiles3d: ['@cesium/castle2'],
             imageryMaxLevel: 16,
           },
         },
