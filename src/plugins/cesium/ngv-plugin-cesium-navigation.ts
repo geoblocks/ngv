@@ -5,6 +5,7 @@ import type {
   CesiumWidget,
   DataSourceCollection,
   DirectionUp,
+  PrimitiveCollection,
 } from '@cesium/engine';
 import type {Cartesian3} from '@cesium/engine';
 import {
@@ -22,6 +23,7 @@ import {
 } from './interactionHelpers.js';
 import {msg} from '@lit/localize';
 import {classMap} from 'lit/directives/class-map.js';
+import {getTilesetForOffline} from './cesium-utils.js';
 
 type NavView = {
   destination: Cartesian3;
@@ -45,10 +47,12 @@ export class NgvPluginCesiumNavigation extends LitElement {
   public viewer: CesiumWidget;
   @property({type: Object})
   public dataSourceCollection: DataSourceCollection;
+  @property({type: Object})
+  public tiles3dCollection: PrimitiveCollection;
   @property({type: Array})
-  public viewsConfig: IngvCesiumContext['views'];
+  public config: IngvCesiumContext;
   @property({type: Boolean})
-  public disableViewChange: boolean = false;
+  public offline: boolean = false;
   @state()
   private currentViewIndex: number;
   private currentView: NavViews;
@@ -154,8 +158,37 @@ export class NgvPluginCesiumNavigation extends LitElement {
     }
   `;
 
+  // @ts-expect-error TS6133
+  private _offlineChangeTask = new Task(this, {
+    args: (): [boolean] => [this.offline],
+    task: ([offline]) => {
+      if (!offline) {
+        this.updateView();
+      }
+    },
+  });
+
   updateView(): void {
-    const v = this.viewsConfig[this.currentViewIndex];
+    const v = this.config.views[this.currentViewIndex];
+    if (v.tiles3d?.length) {
+      this.tiles3dCollection.removeAll();
+      v.tiles3d.forEach((catalogName) => {
+        getTilesetForOffline({
+          catalogName,
+          ionAssetUrl: this.config.ionAssetUrl,
+          extraOptions: this.config.layerOptions,
+          cesiumApiUrl: this.config.cesiumApiUrl,
+        })
+          .then((tileset) => {
+            if (tileset) {
+              this.tiles3dCollection.add(tileset);
+            }
+          })
+          .catch((err) => {
+            console.log(err);
+          });
+      });
+    }
     const positions: Cartographic[] = v.positions.map((p) =>
       Cartographic.fromDegrees(p[0], p[1]),
     );
@@ -220,7 +253,7 @@ export class NgvPluginCesiumNavigation extends LitElement {
     task: ([currentViewIndex]) => {
       this.dispatchEvent(
         new CustomEvent('viewChanged', {
-          detail: this.viewsConfig[currentViewIndex],
+          detail: this.config.views[currentViewIndex],
         }),
       );
       this.updateView();
@@ -233,15 +266,14 @@ export class NgvPluginCesiumNavigation extends LitElement {
       .add(this.dataSource)
       .then(() => {
         this.currentViewIndex = 0;
-        this.updateView();
       })
       .catch((err) => console.error(err));
   }
 
   toNextView(): void {
-    if (!this.viewsConfig) return;
+    if (!this.config.views) return;
     const nextIndx = this.currentViewIndex + 1;
-    if (nextIndx >= this.viewsConfig.length) {
+    if (nextIndx >= this.config.views.length) {
       this.currentViewIndex = 0;
       return;
     }
@@ -249,45 +281,45 @@ export class NgvPluginCesiumNavigation extends LitElement {
   }
 
   toPrevView(): void {
-    if (!this.viewsConfig) return;
+    if (!this.config.views) return;
     const prevIndx = this.currentViewIndex - 1;
     if (prevIndx < 0) {
-      this.currentViewIndex = this.viewsConfig.length - 1;
+      this.currentViewIndex = this.config.views.length - 1;
       return;
     }
     this.currentViewIndex = prevIndx;
   }
 
   public setViewById(id: string): void {
-    if (!this.viewsConfig) return;
-    const index = this.viewsConfig.findIndex((c) => c.id === id);
+    if (!this.config.views) return;
+    const index = this.config.views.findIndex((c) => c.id === id);
     if (index > -1) {
       this.currentViewIndex = index;
     }
   }
 
   render(): HTMLTemplateResult | string {
-    if (!this.viewsConfig?.length) return '';
+    if (!this.config.views?.length) return '';
     return html`<div class="container">
-      ${this.viewsConfig.length > 1
+      ${this.config.views.length > 1
         ? html`<div class="nav-container">
               <button
-                .disabled=${this.disableViewChange}
+                .disabled=${this.offline}
                 @click=${() => this.toPrevView()}
               >
                 ${msg('Previous')}
               </button>
               <button
-                .disabled=${this.disableViewChange}
+                .disabled=${this.offline}
                 @click=${() => this.toNextView()}
               >
                 ${msg('Next')}
               </button>
             </div>
-            <details class="view-list">
+            <details .hidden=${this.offline} class="view-list">
               <summary>${msg('Places')}</summary>
               <div>
-                ${this.viewsConfig.map(
+                ${this.config.views.map(
                   (view, index) =>
                     html` <button
                       class="${classMap({
