@@ -26,14 +26,6 @@ export const catalog: INGVCatalog = {
       height: 374,
       rotation: 239,
     },
-    castle: {
-      type: '3dtiles',
-      url: 'http://localhost:9999/castle1/tileset.json',
-    },
-    castle2: {
-      type: '3dtiles',
-      url: 'http://localhost:9999/castle2/tileset.json',
-    },
     // to complete
   },
 };

@@ -370,6 +370,10 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
                 ${offlineInfo
                   ? html`<ngv-plugin-cesium-offline
                       .viewer="${this.viewer}"
+                      .ionAssetUrl="${this.config.app.cesiumContext
+                        .ionAssetUrl}"
+                      .cesiumApiUrl="${this.config.app.cesiumContext
+                        .cesiumApiUrl}"
                       .info="${offlineInfo}"
                       @switch="${(evt: {detail: {offline: boolean}}) => {
                         this.offline = evt.detail.offline;
@@ -383,9 +387,10 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
                   : ''}
                 <ngv-plugin-cesium-navigation
                   .viewer="${this.viewer}"
-                  .viewsConfig="${this.config.app.cesiumContext.views}"
+                  .config="${this.config.app.cesiumContext}"
                   .dataSourceCollection="${this.dataSourceCollection}"
-                  .disableViewChange="${this.offline}"
+                  .tiles3dCollection="${this.collections.tiles3d}"
+                  .offline="${this.offline}"
                   @viewChanged=${(evt: {
                     detail: IngvCesiumContext['views'][number];
                   }) => this.onViewChanged(evt.detail)}

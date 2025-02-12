@@ -38,6 +38,7 @@ interface ListTilesetOptions {
    * [west, south, east, north] in radians
    */
   extent?: number[];
+  accessToken?: string;
 }
 
 // eslint-disable-next-line @typescript-eslint/unbound-method
@@ -116,6 +117,9 @@ export async function listTilesetUrls(
       const ts = (await (
         await fetch(uri, {
           signal: signal,
+          headers: options.accessToken
+            ? {Authorization: `Bearer ${options.accessToken}`}
+            : {},
         })
       ).json()) as Tileset;
       const truncatedUri = uri
@@ -143,6 +147,7 @@ export async function downloadAndPersistTileset(options: {
   tilesetName: string;
   concurrency: number;
   extent?: number[];
+  accessToken?: string;
 }): Promise<void> {
   const {
     appName,
@@ -151,6 +156,7 @@ export async function downloadAndPersistTileset(options: {
     tilesetBasePath,
     concurrency,
     extent,
+    accessToken,
   } = options;
   const controller = new AbortController();
   const allUrls = await listTilesetUrls(
@@ -164,6 +170,7 @@ export async function downloadAndPersistTileset(options: {
       signal: controller.signal,
       foundUrls: [],
       extent,
+      accessToken,
     },
   );
 
@@ -173,6 +180,7 @@ export async function downloadAndPersistTileset(options: {
     async runTask(url) {
       const response = await fetch(url, {
         signal: controller.signal,
+        headers: accessToken ? {Authorization: `Bearer ${accessToken}`} : {},
       });
       const {path, name} = getPathAndNameFromUrl(url);
       const dir = await getOrCreateDirectoryChain([appName, subdir, ...path]);
