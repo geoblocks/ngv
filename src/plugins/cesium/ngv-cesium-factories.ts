@@ -1,49 +1,39 @@
 import {
+  Cartesian3,
+  Cartographic,
+  Cesium3DTileset,
+  CesiumTerrainProvider,
+  CesiumWidget,
+  DataSourceCollection,
+  DataSourceDisplay,
+  Ellipsoid,
+  HeadingPitchRoll,
   type ImageryProvider,
+  Ion,
+  Math as CesiumMath,
+  Model,
   OpenStreetMapImageryProvider,
   PrimitiveCollection,
   Resource,
-} from '@cesium/engine';
-import {
-  Ion,
-  Math as CesiumMath,
-  CesiumWidget,
-  Cartesian3,
-  Model,
-  DataSourceCollection,
-  DataSourceDisplay,
-  Cartographic,
-  HeadingPitchRoll,
   Transforms,
-  Ellipsoid,
-} from '@cesium/engine';
-
-import type {
-  INGVCesium3DTiles,
-  INGVCesiumModelConfig,
-  INGVCesiumAllTypes,
-  INGVCesiumImageryTypes,
-  INGVCesiumTerrain,
-  INGVIFC,
-  INGVCesiumModel,
-} from '../../interfaces/cesium/ingv-layers.js';
-import {
-  Cesium3DTileset,
-  CesiumTerrainProvider,
   UrlTemplateImageryProvider,
   WebMapServiceImageryProvider,
   WebMapTileServiceImageryProvider,
 } from '@cesium/engine';
+
+import type {
+  INGVCesium3DTiles,
+  INGVCesiumAllTypes,
+  INGVCesiumImageryTypes,
+  INGVCesiumModel,
+  INGVCesiumModelConfig,
+  INGVCesiumTerrain,
+  INGVIFC,
+} from '../../interfaces/cesium/ingv-layers.js';
 import type {IngvCesiumContext} from '../../interfaces/cesium/ingv-cesium-context.js';
 import type {INGVCatalog} from '../../interfaces/cesium/ingv-catalog.js';
 import {getClippingPolygon, getDimensions} from './interactionHelpers.js';
-
-function withExtra<T>(options: T, extra: Record<string, any>): T {
-  if (!extra) {
-    return options;
-  }
-  return Object.assign({}, options, extra) as T;
-}
+import {getTilesetForOffline, withExtra} from './cesium-utils.js';
 
 export async function instantiateTerrain(
   config: INGVCesiumTerrain,
@@ -78,9 +68,11 @@ export async function instantiateModel(
 }
 
 export async function instantiate3dTileset(
+  name: string,
   config: INGVCesium3DTiles,
-  extraOptions?: Record<string, any>,
+  cesiumContext: IngvCesiumContext,
 ): Promise<Cesium3DTileset> {
+  const extraOptions = cesiumContext.layerOptions[name];
   const url = config.url;
   const subtype = config.subtype;
   if (subtype === 'googlePhotorealistic') {
@@ -93,7 +85,15 @@ export async function instantiate3dTileset(
     const key = extraOptions?.key as string | undefined;
     return createGooglePhotorealistic3DTileset(key);
   }
-  if (typeof url === 'string') {
+
+  if (cesiumContext.views?.length) {
+    return getTilesetForOffline({
+      cesiumApiUrl: cesiumContext.cesiumApiUrl,
+      ionAssetUrl: cesiumContext.ionAssetUrl,
+      extraOptions,
+      catalogName: name,
+    });
+  } else if (typeof url === 'string') {
     return Cesium3DTileset.fromUrl(
       // This allows for offline mode
       new Resource(url),
@@ -248,9 +248,18 @@ export async function initCesiumWidget(
   }
   window.CESIUM_BASE_URL = cesiumContext.baseUrl || '/';
 
-  if (cesiumContext.cesiumApiKey) {
-    Ion.defaultAccessToken = cesiumContext.cesiumApiKey;
+  if (cesiumContext.ionDefaultAccessToken) {
+    Ion.defaultAccessToken = cesiumContext.ionDefaultAccessToken;
   }
+
+  if (!cesiumContext.cesiumApiUrl) {
+    cesiumContext.cesiumApiUrl = 'https://api.cesium.com/';
+  }
+
+  if (!cesiumContext.ionAssetUrl) {
+    cesiumContext.ionAssetUrl = 'https://assets.ion.cesium.com/';
+  }
+
   cesiumContext.layerOptions = cesiumContext.layerOptions || {};
 
   // Resolve active layers
@@ -325,11 +334,9 @@ export async function initCesiumWidget(
       throw new Error();
     }
     stuffToDo.push(
-      instantiate3dTileset(config, cesiumContext.layerOptions[name]).then(
-        (tileset) => {
-          primitiveCollections.tiles3d.add(tileset);
-        },
-      ),
+      instantiate3dTileset(name, config, cesiumContext).then((tileset) => {
+        primitiveCollections.tiles3d.add(tileset);
+      }),
     );
   });
 

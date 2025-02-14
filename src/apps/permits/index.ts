@@ -91,7 +91,7 @@ export class NgvAppPermits extends ABaseApp<IPermitsConfig> {
                 ></ngv-plugin-cesium-measure>
                 <ngv-plugin-cesium-navigation
                   .viewer="${this.viewer}"
-                  .viewsConfig="${this.config.app.cesiumContext.views}"
+                  .config="${this.config.app.cesiumContext}"
                   .dataSourceCollection="${this.dataSourceCollection}"
                 ></ngv-plugin-cesium-navigation>
               `

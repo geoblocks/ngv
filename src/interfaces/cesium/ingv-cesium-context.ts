@@ -10,7 +10,9 @@ import type {INGVCatalog} from './ingv-catalog.js';
 
 export interface IngvCesiumContext {
   name: string;
-  cesiumApiKey?: string;
+  ionDefaultAccessToken?: string;
+  ionAssetUrl?: string; // required when using layers from Cesium ION and offline plugin. Default: 'https://assets.ion.cesium.com/'
+  cesiumApiUrl?: string; // required when using layers from Cesium ION and offline plugin. Default: 'https://api.cesium.com/'
   baseUrl?: string;
   catalogs: Record<
     string,
@@ -18,7 +20,7 @@ export interface IngvCesiumContext {
   >;
   layers: {
     terrain?: string;
-    tiles3d?: string[];
+    tiles3d?: string[]; // will be ignored if 3d tiles specified in views
     models?: string[];
     imageries: string[];
   };
@@ -53,9 +55,9 @@ export interface IngvCesiumContext {
     flyDuration?: number;
     fovAngle: number;
     highlightColor?: string; // css string, default red
+    tiles3d?: string[];
     offline?: {
       rectangle?: number[]; // west, south, east, north
-      tiles3d?: string[];
       imageryMaxLevel?: number;
     };
   }[];
