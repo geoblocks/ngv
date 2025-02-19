@@ -1,4 +1,4 @@
-import { HTMLTemplateResult } from "lit";
+import type {HTMLTemplateResult} from 'lit';
 
 type SurveyFieldBase = {
   required?: boolean;
@@ -59,12 +59,11 @@ export type SurveyId = Omit<SurveyFieldBase, 'required' | 'defaultValue'> & {
 export interface SurveyConditional {
   visible: (fields: SurveyField[]) => boolean;
   children: SurveyField[];
-};
-
-export interface SurveyComputed {
-  render: (fields: SurveyField[]) => HTMLTemplateResult
 }
 
+export interface SurveyComputed {
+  render: (fields: SurveyField[]) => HTMLTemplateResult;
+}
 
 export type SurveyField =
   | SurveyInput
@@ -74,5 +73,5 @@ export type SurveyField =
   | SurveyCheckbox
   | SurveyCoords
   | SurveyFile
-  | SurveyId
-  | SurveyConditional;
+  | SurveyId;
+// | SurveyConditional;

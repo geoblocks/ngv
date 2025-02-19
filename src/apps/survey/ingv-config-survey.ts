@@ -5,6 +5,9 @@ import type {SurveyField} from '../../interfaces/ui/ingv-survey.js';
 export interface ISurveyConfig extends INgvStructureApp {
   app: {
     cesiumContext: IngvCesiumContext;
-    survey: SurveyField[];
+    survey: {
+      apiUrl?: string;
+      fields: SurveyField[];
+    };
   };
 }
