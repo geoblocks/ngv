@@ -8,111 +8,114 @@ export const config: ISurveyConfig = {
     },
   },
   app: {
-    survey: [
-      {
-        id: 'survey-id',
-        type: 'id',
-      },
-      {
-        id: 'coords-field',
-        type: 'coordinates',
-      },
-      {
-        id: 'survey-summary',
-        type: 'input',
-        inputType: 'text',
-        required: true,
-        label: 'Summary',
-        placeholder: 'Summary',
-        min: 1,
-        max: 50,
-      },
-      {
-        id: 'survey-date',
-        type: 'input',
-        label: 'Date',
-        inputType: 'date',
-        required: true,
-        min: '2025-01-01',
-      },
-      {
-        id: 'survey-description',
-        type: 'textarea',
-        required: false,
-        label: 'Description',
-        placeholder: 'Describe a problem',
-        min: 1,
-        max: 200,
-      },
-      {
-        id: 'survey-select',
-        type: 'select',
-        label: 'Defect type',
-        required: true,
-        options: [
-          {
-            label: 'Type 1',
-            value: 's1',
-          },
-          {
-            label: 'Type 2',
-            value: 's2',
-          },
-        ],
-      },
-      {
-        id: 'survey-radio',
-        type: 'radio',
-        label: 'Priority',
-        defaultValue: 'r1',
-        options: [
-          {
-            label: 'Low',
-            value: 'r1',
-          },
-          {
-            label: 'Medium',
-            value: 'r2',
-          },
-          {
-            label: 'High',
-            value: 'r3',
-          },
-        ],
-      },
-      {
-        id: 'survey-checkbox',
-        type: 'checkbox',
-        label: 'Choose options (at least one)',
-        required: true,
-        options: [
-          {
-            label: 'Option 1',
-            value: 'c1',
-            checked: false,
-          },
-          {
-            label: 'Option 2',
-            value: 'c2',
-            checked: false,
-          },
-          {
-            label: 'Option 3',
-            value: 'c3',
-            checked: false,
-          },
-        ],
-      },
-      {
-        id: 'survey-file',
-        type: 'file',
-        mainBtnText: 'Attach photo',
-        urlInput: false,
-        fileInput: true,
-        uploadBtnText: 'Upload',
-        accept: 'image/*',
-      },
-    ],
+    survey: {
+      apiUrl: 'https://testext-oracle.hes.scot/apex/hes',
+      fields: [
+        {
+          id: 'survey-id',
+          type: 'id',
+        },
+        {
+          id: 'coords-field',
+          type: 'coordinates',
+        },
+        {
+          id: 'survey-summary',
+          type: 'input',
+          inputType: 'text',
+          required: true,
+          label: 'Summary',
+          placeholder: 'Summary',
+          min: 1,
+          max: 50,
+        },
+        {
+          id: 'survey-date',
+          type: 'input',
+          label: 'Date',
+          inputType: 'date',
+          required: true,
+          min: '2025-01-01',
+        },
+        {
+          id: 'survey-description',
+          type: 'textarea',
+          required: false,
+          label: 'Description',
+          placeholder: 'Describe a problem',
+          min: 1,
+          max: 200,
+        },
+        {
+          id: 'survey-select',
+          type: 'select',
+          label: 'Defect type',
+          required: true,
+          options: [
+            {
+              label: 'Type 1',
+              value: 's1',
+            },
+            {
+              label: 'Type 2',
+              value: 's2',
+            },
+          ],
+        },
+        {
+          id: 'survey-radio',
+          type: 'radio',
+          label: 'Priority',
+          defaultValue: 'r1',
+          options: [
+            {
+              label: 'Low',
+              value: 'r1',
+            },
+            {
+              label: 'Medium',
+              value: 'r2',
+            },
+            {
+              label: 'High',
+              value: 'r3',
+            },
+          ],
+        },
+        {
+          id: 'survey-checkbox',
+          type: 'checkbox',
+          label: 'Choose options (at least one)',
+          required: true,
+          options: [
+            {
+              label: 'Option 1',
+              value: 'c1',
+              checked: false,
+            },
+            {
+              label: 'Option 2',
+              value: 'c2',
+              checked: false,
+            },
+            {
+              label: 'Option 3',
+              value: 'c3',
+              checked: false,
+            },
+          ],
+        },
+        {
+          id: 'survey-file',
+          type: 'file',
+          mainBtnText: 'Attach photo',
+          urlInput: false,
+          fileInput: true,
+          uploadBtnText: 'Upload',
+          accept: 'image/*',
+        },
+      ],
+    },
     cesiumContext: {
       ionDefaultAccessToken:
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIxMWU4YzQzNC00NzMxLTQ0NzktYTFlYi01NjMyMDgwMTMyY2EiLCJpZCI6MjI2NjUyLCJpYXQiOjE3MzkxODcxNTZ9.OJJ_pdI3WDMLO3W4vYWA1aW20DilQ2nyocgItAWPs-g',
@@ -136,6 +139,25 @@ export const config: ISurveyConfig = {
         },
       },
       views: [
+        {
+          id: 'PIC142',
+          positions: [
+            [-2.3748860169453025, 55.93951576485856],
+            [-2.3755178087172557, 55.939443714659156],
+            [-2.375594995947313, 55.93965025820549],
+            [-2.3749574866027636, 55.9397255102316],
+          ],
+          height: 40,
+          elevation: 0,
+          flyDuration: 2,
+          title: 'Dunglass Collegiate Church',
+          fovAngle: 45,
+          tiles3d: [],
+          offline: {
+            rectangle: [-5.51792, 57.273, -5.51372, 57.27516],
+            imageryMaxLevel: 16,
+          },
+        },
         {
           id: 'eilean-donan-castle',
           positions: [

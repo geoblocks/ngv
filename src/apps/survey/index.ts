@@ -45,6 +45,7 @@ import {Task} from '@lit/task';
 import type {OfflineInfo} from '../../plugins/cesium/ngv-plugin-cesium-offline.js';
 import type {NgvPluginCesiumNavigation} from '../../plugins/cesium/ngv-plugin-cesium-navigation.js';
 import type {IngvCesiumContext} from '../../interfaces/cesium/ingv-cesium-context.js';
+import {getSurveys, getToken} from './api.js';
 
 const STORAGE_DIR = ['surveys'];
 const STORAGE_LIST_NAME = 'surveys.json';
@@ -138,6 +139,16 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
   });
 
   async loadSurveys(): Promise<void> {
+    if (!this.offline && this.config.app.survey.apiUrl) {
+      const token = await getToken(this.config.app.survey.apiUrl);
+      const surveys = await getSurveys(
+        this.config.app.survey.apiUrl,
+        token,
+        this.currentView.id,
+      );
+      console.log(surveys);
+      return;
+    }
     if (!this.persistentDir) {
       console.error('Directory not defined.');
       return;
@@ -208,11 +219,11 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
     if (this.lastPoint) this.cancel();
     this.lastPoint = this.addPoint(detail.cartesian3);
     this.showSurvey = true;
-    const idField = this.config.app.survey.find((f) => f.type === 'id');
+    const idField = this.config.app.survey.fields.find((f) => f.type === 'id');
     if (idField) {
       this.surveyFieldValues[idField.id] = this.lastPoint.id;
     }
-    const coordsFiled = this.config.app.survey.find(
+    const coordsFiled = this.config.app.survey.fields.find(
       (f) => f.type === 'coordinates',
     );
     if (coordsFiled) {
@@ -237,9 +248,9 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
   }
 
   async confirm(evt: CustomEvent<FieldValues>): Promise<void> {
-    const idField = this.config.app.survey.find((f) => f.type === 'id');
+    const idField = this.config.app.survey.fields.find((f) => f.type === 'id');
     const id = <string>this.surveyFieldValues[idField?.id];
-    const coordinatesField = this.config.app.survey.find(
+    const coordinatesField = this.config.app.survey.fields.find(
       (f) => f.type === 'coordinates',
     );
     const coordinate = <Coordinate>this.surveyFieldValues[coordinatesField?.id];
