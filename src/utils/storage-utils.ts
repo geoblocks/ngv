@@ -147,10 +147,13 @@ export async function getFileHandle(
     return await directory.getFileHandle(name);
   } catch (error) {
     if ((<DOMException>error).name === 'NotFoundError') {
-      console.log(`File "${name}" does not exist.`);
+      console.log(`File "${directory.name}/${name}" does not exist.`);
       return undefined;
     } else {
-      console.error('Error checking file existence:', error);
+      console.error(
+        `Error checking file existence: "${directory.name}/${name}"`,
+        error,
+      );
       throw error;
     }
   }
@@ -168,7 +171,7 @@ export async function removeDirectory(
   try {
     await directory.removeEntry(name, {recursive: true});
   } catch (error) {
-    console.error(error);
+    console.error(`Could not remove entry ${directory.name}/${name}`, error);
   }
 }
 

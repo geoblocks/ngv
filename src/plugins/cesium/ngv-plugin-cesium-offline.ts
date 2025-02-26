@@ -47,6 +47,9 @@ export class NgvPluginCesiumOffline extends LitElement {
   public cesiumApiUrl: string;
   @property({type: Object})
   info: OfflineInfo;
+  @property({type: Object})
+  beforeSwitchDispatch: (goOffline: boolean) => {};
+
   @state()
   offline: boolean = false;
   @state()
@@ -159,6 +162,11 @@ export class NgvPluginCesiumOffline extends LitElement {
     this.loading = true;
     const offline = !this.offline;
     const dir = await getOrCreateDirectoryChain([this.info.appName]);
+
+    if (this.beforeSwitchDispatch) {
+      await this.beforeSwitchDispatch(offline);
+    }
+
     if (offline) {
       if (this.info.view?.offline?.rectangle?.length) {
         await this.downloadImageries();
@@ -170,15 +178,17 @@ export class NgvPluginCesiumOffline extends LitElement {
       await persistJson(dir, `${this.info.infoFilename}.json`, this.info);
       this.offline = offline;
     } else {
-      await this.removeLayers();
+      await this.removePersistedLayers();
 
       // todo remove dir when synced with API
       await removeFile(dir, `${this.info.infoFilename}.json`);
     }
-    this.offline = offline;
+
     this.dispatchEvent(
       new CustomEvent('switch', {detail: {offline: this.offline}}),
     );
+    this.offline = offline;
+
     this.loading = false;
   }
 
@@ -241,10 +251,18 @@ export class NgvPluginCesiumOffline extends LitElement {
     );
   }
 
-  async removeLayers(): Promise<void> {
+  private async removePersistedLayers(): Promise<void> {
     const dir = await getOrCreateDirectoryChain([this.info.appName]);
-    await removeDirectory(dir, this.info.tiles3dSubdir);
-    await removeDirectory(dir, this.info.imagerySubdir);
+    try {
+      await removeDirectory(dir, this.info.tiles3dSubdir);
+    } catch (error) {
+      console.error(error);
+    }
+    try {
+      await removeDirectory(dir, this.info.imagerySubdir);
+    } catch (error) {
+      console.error(error);
+    }
   }
 
   protected render(): unknown {

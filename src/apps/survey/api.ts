@@ -1,12 +1,14 @@
 // todo cors issue
 
-type TokenResponse = {
+import type {Item, ItemSummary} from './ingv-config-survey.js';
+
+type HESTokenResponse = {
   access_token: string;
   token_type: string;
   expires_in: number;
 };
 
-type DefectItem = {
+type HESDefectItem = {
   defect_id: number;
   event_id: number;
   event_type_code: string;
@@ -53,8 +55,8 @@ type DefectItem = {
   ll_geojson: string;
 };
 
-type DefectsResponse = {
-  items: DefectItem[];
+type HESDefectsResponse = {
+  items: HESDefectItem[];
   hasMore: boolean;
   limit: number;
   offset: number;
@@ -79,43 +81,97 @@ type DefectsResponse = {
   ];
 };
 
-export async function getToken(url: string): Promise<string> {
-  const myHeaders = new Headers();
-  myHeaders.append('Content-Type', 'application/x-www-form-urlencoded');
-  //todo do not push token
-  myHeaders.append(
-    'Authorization',
-    'Basic ...', // todo add token
-  );
+function getHESSecretKey() {
+  const urlSP = new URLSearchParams(document.location.search);
+  let sk = urlSP.get('hes_secret');
+  if (!sk) {
+    console.log('No hes_secret param, trying to use localstorage');
+    sk = localStorage.getItem('hes_secret');
+  }
+  if (!sk) {
+    console.error('No hes_secret in localstorage');
+  }
+  localStorage.setItem('hes_secret', sk);
+  return sk;
+}
+
+const hesSecretKey = getHESSecretKey();
+let bearerCache = {
+  expire_ms: 0,
+  token: '',
+};
+
+export async function getHESBearerToken(): Promise<string> {
+  const now = Date.now();
+  if (now - 60_000 < bearerCache.expire_ms) {
+    return Promise.resolve(bearerCache.token);
+  }
+  const headers = new Headers();
+  headers.append('Content-Type', 'application/x-www-form-urlencoded');
+  console.log('Getting bearer token using', hesSecretKey);
+  headers.append('Authorization', `Basic ${btoa(hesSecretKey)}`);
 
   const urlencoded = new URLSearchParams();
   urlencoded.append('grant_type', 'client_credentials');
 
   //todo remove cors-anywhere host
-  const response = await fetch(`http://localhost:8080/${url}/oauth/token`, {
+  const response = await fetch('/api/oauth/token', {
     method: 'POST',
-    headers: myHeaders,
+    headers: headers,
     body: urlencoded,
   });
-  const res: TokenResponse = <TokenResponse>await response.json();
-  return res['access_token'];
+  const res: HESTokenResponse = <HESTokenResponse>await response.json();
+  const {access_token, expires_in} = res;
+  bearerCache = {
+    expire_ms: Date.now() + expires_in * 1000,
+    token: access_token,
+  };
+  return access_token;
 }
 
-export async function getSurveys(
-  url: string,
-  token: string,
-  id: string,
-): Promise<DefectsResponse> {
+async function getFromHES<T>(path: string): Promise<T> {
+  const token = await getHESBearerToken();
   const myHeaders = new Headers();
   myHeaders.append('Authorization', `Bearer ${token}`);
 
-  //todo remove cors-anywhere host
-  const response = await fetch(
-    `http://localhost:8080/${url}/picams-external/list_defects?site_code=${id}&inspection_type=evHLFInsp`,
-    {
-      method: 'GET',
-      headers: myHeaders,
-    },
+  // Use todo remove cors-anywhere host
+  const response = await fetch(`/api${path}`, {
+    method: 'GET',
+    headers: myHeaders,
+  });
+  return <T>await response.json();
+}
+
+export async function getHESSurveys(siteId: string): Promise<ItemSummary[]> {
+  // FIXME: why do we limit the inspection type?
+  // &inspection_type=evHLFInsp
+  const result = await getFromHES<HESDefectsResponse>(
+    `/picams-external/list_defects?site_code=${siteId}&limit=100000`,
   );
-  return <DefectsResponse>await response.json();
+  return result['items']
+    .filter(
+      (s) => s.lat_degrees && s.long_degrees && s.elevation && s.updated_dt,
+    )
+    .map((s) => ({
+      id: s.defect_id.toString(),
+      title: s.title,
+      // FIXME: flatten and convert to radians?
+      coordinates: [s.long_degrees, s.lat_degrees, s.elevation],
+      lastModifiedMs: new Date(s.updated_dt).getTime(),
+    }));
+}
+
+export async function getHESSurvey(defectId: string): Promise<Item> {
+  const result = await getFromHES<HESDefectsResponse>(
+    `/picams-external/defect?defect_id=${defectId}`,
+  );
+  const s = result['items'][0];
+  return {
+    id: s.defect_id.toString(),
+    title: s.title,
+    // FIXME: flatten and convert to radians?
+    coordinates: [s.long_degrees, s.lat_degrees, s.elevation],
+    lastModifiedMs: new Date(s.updated_dt).getTime(),
+    // FIXME: add all other values
+  };
 }

@@ -18,17 +18,12 @@ import {classMap} from 'lit/directives/class-map.js';
 import './ngv-upload';
 import type {FileUploadDetails} from './ngv-upload.js';
 import {fileToBase64} from '../../utils/file-utils.js';
-import type {Coordinate} from '../../utils/generalTypes.js';
-
-export type FieldValues = Record<
-  string,
-  string | number | Record<string, boolean> | Coordinate
->;
+import type {Coordinate, FieldValues} from '../../utils/generalTypes.js';
 
 @customElement('ngv-survey')
 export class NgvSurvey extends LitElement {
-  @property({type: Object})
-  public surveyConfig: SurveyField[];
+  @property({type: Array})
+  public surveyFields: SurveyField[];
   @property({type: Object})
   public fieldValues: FieldValues | undefined;
   @state()
@@ -97,7 +92,7 @@ export class NgvSurvey extends LitElement {
 
   // @ts-expect-error TS6133
   private _surveyConfigChange = new Task(this, {
-    args: (): [SurveyField[]] => [this.surveyConfig],
+    args: (): [SurveyField[]] => [this.surveyFields],
     task: ([surveyConfig]) => {
       const fields: Record<string, any> = {...this.fieldValues};
       surveyConfig.forEach((item) => {
@@ -377,7 +372,7 @@ ${this.fieldValues[options.id] || ''}</textarea
   }
 
   validate(): boolean {
-    this.surveyConfig.forEach((field) => {
+    this.surveyFields.forEach((field) => {
       if (
         field.type !== 'coordinates' &&
         field.type !== 'id' &&
@@ -399,9 +394,10 @@ ${this.fieldValues[options.id] || ''}</textarea
   }
 
   render(): HTMLTemplateResult | string {
-    if (!this.surveyConfig || !this.fieldValues) return '';
+    if (!this.surveyFields || !this.fieldValues) return '';
+    console.log('xxx', this.surveyFields);
     return html` <div class="survey">
-      ${this.surveyConfig.map((field) => this.renderField(field))}
+      ${this.surveyFields.map((field) => this.renderField(field))}
       <div class="btns-container">
         <button
           .hidden=${false}

@@ -15,10 +15,10 @@ export type LayerListOptions = {
 
 @customElement('ngv-layers-list')
 export class NgvLayersList extends LitElement {
+  @property({type: Array})
+  layers: LayerListItem[];
   @property({type: Object})
-  private layers: LayerListItem[];
-  @property({type: Object})
-  private options?: LayerListOptions;
+  options?: LayerListOptions;
 
   static styles = css`
     .list {

@@ -1,4 +1,6 @@
-import type {ISurveyConfig} from './ingv-config-survey.js';
+import type {FieldValues} from '../../utils/generalTypes.js';
+import {getHESSurvey, getHESSurveys} from './api.js';
+import type {ISurveyConfig, Item} from './ingv-config-survey.js';
 
 export const config: ISurveyConfig = {
   languages: ['en'],
@@ -9,7 +11,34 @@ export const config: ISurveyConfig = {
   },
   app: {
     survey: {
-      apiUrl: 'https://testext-oracle.hes.scot/apex/hes',
+      async listItems(context) {
+        const {id} = context;
+        if (!id) {
+          throw new Error('Missing id in context');
+        }
+        // move function in this file
+        return getHESSurveys(id);
+      },
+      async getItem(id, _) {
+        // move function in this file
+        return getHESSurvey(id);
+      },
+      fieldsToItem(_: FieldValues) {
+        throw new Error('not implemented');
+      },
+      itemToFields(item: Item) {
+        const c = item.coordinates;
+        const values: FieldValues = {
+          'survey-id': item.id,
+          'coords-field': {
+            longitude: c[0],
+            latitude: c[1],
+            height: c[2],
+          },
+          'survey-summary': item.title,
+        };
+        return values;
+      },
       fields: [
         {
           id: 'survey-id',
