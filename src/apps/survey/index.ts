@@ -45,6 +45,7 @@ import type {OfflineInfo} from '../../plugins/cesium/ngv-plugin-cesium-offline.j
 import type {NgvPluginCesiumNavigation} from '../../plugins/cesium/ngv-plugin-cesium-navigation.js';
 import type {IngvCesiumContext} from '../../interfaces/cesium/ingv-cesium-context.js';
 import {poolRunner} from '../../utils/pool-runner.js';
+import type { LabelValue, SurveyField } from '../../interfaces/ui/ingv-survey.js';
 
 const STORAGE_DIR = ['surveys'];
 const STORAGE_LIST_NAME = 'surveys.json';
@@ -52,6 +53,7 @@ const STORAGE_LIST_NAME = 'surveys.json';
 @customElement('ngv-app-survey')
 @localized()
 export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
+
   @state()
   private viewer: CesiumWidget;
   @state()
@@ -60,6 +62,8 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
   private surveys: ItemSummary[] = [];
   @state()
   private offline: boolean = false;
+  @state()
+  private initialized = false;
   @query('ngv-plugin-cesium-navigation')
   private navElement: NgvPluginCesiumNavigation;
   private dataSourceCollection: DataSourceCollection;
@@ -87,10 +91,40 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
     super(() => import('./demoSurveyConfig.js'));
   }
 
+  async resolveFieldsConfig(offline: boolean, surveyFields: SurveyField[]) {
+    const promises = surveyFields.map(v => {
+      if ((v.type !== 'select' && v.type !== 'radio' && v.type !== 'checkbox') || typeof v.options !== 'function') {
+        return null;
+      }
+      const filename = `field-${v.id}.json`;
+      if (offline) {
+        return readJsonFile<LabelValue[]>(this.persistentDir, filename).then(result => v.options = result);
+      }
+      return v.options().then(async result => {
+        v.options = result;
+        await persistJson(this.persistentDir, filename, result);
+        return result;
+      });
+    });
+    await Promise.all(promises);
+  }
+
   // @ts-expect-error TS6133
   private _configChange = new Task(this, {
     args: (): [ISurveyConfig] => [this.config],
-    task: ([config]) => {
+    task: async ([config]) => {
+      if (config.app.cesiumContext.offline) {
+        const appName = config.app.cesiumContext.name
+        this.offline = localStorage.getItem(`${appName}_offline`) === 'true';
+      }
+
+      this.persistentDir = await getOrCreateDirectoryChain([
+        this.config.app.cesiumContext.name,
+        // we have only a global persistence to simplify initialization
+        // this.currentView.id,
+        ...STORAGE_DIR,
+      ]);
+
       const pointConf = config.app.cesiumContext.surveyOptions?.pointOptions;
       this.pointConfig = {
         color: pointConf?.color
@@ -129,20 +163,24 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
             ? pointHighlightConf?.disableDepthTestDistance
             : undefined,
       };
+      await this.resolveFieldsConfig(this.offline, config.app.survey.fields);
+      this.initialized = true;
     },
   });
 
-  async loadSurveys(): Promise<void> {
+  async loadSurveys(offline: boolean): Promise<void> {
     if (!this.persistentDir) {
-      // FIXME: just wait on a promise?
       console.error('Directory not defined.');
       return;
     }
-    if (!this.offline && this.config.app.survey.listItems) {
+    if (!offline && this.config.app.survey.listItems) {
       this.surveys = await this.config.app.survey.listItems({
         id: this.currentView.id,
       });
+      await persistJson(this.persistentDir, STORAGE_LIST_NAME, this.surveys);
+      console.log('Persisted surveys');
     } else {
+      console.log('Reading surveys from storage')
       this.surveys = await readJsonFile<ItemSummary[]>(
         this.persistentDir,
         STORAGE_LIST_NAME,
@@ -279,12 +317,7 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
   async onViewChanged(view: IngvCesiumContext['views'][number]): Promise<void> {
     if (!view) return;
     this.currentView = view;
-    this.persistentDir = await getOrCreateDirectoryChain([
-      this.config.app.cesiumContext.name,
-      this.currentView.id,
-      ...STORAGE_DIR,
-    ]);
-    await this.loadSurveys();
+    await this.loadSurveys(this.offline);
   }
 
   async editSurvey(id: string): Promise<void> {
@@ -345,7 +378,7 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
   async beforeSwitchDispatch(goingOffline: boolean): Promise<void> {
     if (goingOffline) {
       // refresh survey list
-      await this.loadSurveys();
+      await this.loadSurveys(!goingOffline);
       // download all the survey items
       await poolRunner({
         concurrency: 7,
@@ -376,6 +409,9 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
   render(): HTMLTemplateResult {
     const r = super.render();
     if (r && !this.config) {
+      return r;
+    }
+    if (!this.initialized) {
       return r;
     }
     const offlineInfo: OfflineInfo = this.config.app.cesiumContext.offline

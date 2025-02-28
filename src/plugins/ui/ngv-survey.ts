@@ -93,11 +93,14 @@ export class NgvSurvey extends LitElement {
   // @ts-expect-error TS6133
   private _surveyConfigChange = new Task(this, {
     args: (): [SurveyField[]] => [this.surveyFields],
-    task: ([surveyConfig]) => {
+    task: async ([surveyConfig]) => {
       const fields: Record<string, any> = {...this.fieldValues};
       surveyConfig.forEach((item) => {
         if (!fields[item.id]) {
           if (item.type === 'checkbox') {
+            if (typeof item.options === "function") {
+              throw new Error(`The option field ${item.id} should have been resolved`);
+            }
             item.options.forEach((opt) => {
               if (!fields[item.id]) {
                 fields[item.id] = {};
@@ -395,7 +398,6 @@ ${this.fieldValues[options.id] || ''}</textarea
 
   render(): HTMLTemplateResult | string {
     if (!this.surveyFields || !this.fieldValues) return '';
-    console.log('xxx', this.surveyFields);
     return html` <div class="survey">
       ${this.surveyFields.map((field) => this.renderField(field))}
       <div class="btns-container">

@@ -176,7 +176,7 @@ export class NgvPluginCesiumOffline extends LitElement {
         await this.downloadTiles();
       }
       await persistJson(dir, `${this.info.infoFilename}.json`, this.info);
-      this.offline = offline;
+      this.offline = true;
     } else {
       await this.removePersistedLayers();
 
@@ -188,6 +188,7 @@ export class NgvPluginCesiumOffline extends LitElement {
       new CustomEvent('switch', {detail: {offline: this.offline}}),
     );
     this.offline = offline;
+    localStorage.setItem(`${this.info.appName}_offline`, offline.toString());
 
     this.loading = false;
   }

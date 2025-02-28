@@ -1,5 +1,11 @@
 import type {HTMLTemplateResult} from 'lit';
 
+export type LabelValue = {
+  label: string;
+  value: string;
+  checked?: boolean;
+}
+
 type SurveyFieldBase = {
   required?: boolean;
   label?: string;
@@ -24,18 +30,18 @@ type OptionsFunction = () => Promise<{label: string; value: string}[]>;
 
 export type SurveySelect = SurveyFieldBase & {
   type: 'select';
-  options: {label: string; value: string}[] | OptionsFunction;
+  options: LabelValue[] | OptionsFunction;
 };
 
 export type SurveyRadio = Omit<SurveyFieldBase, 'defaultValue'> & {
   type: 'radio';
   defaultValue: string;
-  options: {label: string; value: string}[] | OptionsFunction;
+  options: LabelValue[] | OptionsFunction;
 };
 
 export type SurveyCheckbox = Omit<SurveyFieldBase, 'defaultValue'> & {
   type: 'checkbox';
-  options: {label: string; value: string; checked: boolean}[] | OptionsFunction;
+  options: LabelValue[] | OptionsFunction;
 };
 
 export type SurveyCoords = SurveyFieldBase & {
