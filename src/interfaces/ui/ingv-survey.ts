@@ -4,7 +4,7 @@ export type LabelValue = {
   label: string;
   value: string;
   checked?: boolean;
-}
+};
 
 type SurveyFieldBase = {
   required?: boolean;
@@ -18,7 +18,7 @@ export type SurveyInput = SurveyFieldBase & {
   placeholder?: string;
   min?: number | string;
   max?: number | string;
-  inputType?: 'text' | 'number' | 'date';
+  inputType?: 'text' | 'number' | 'date' | 'datetime-local';
 };
 
 export type SurveyTextarea = Omit<SurveyInput, 'type' | 'inputType'> & {
@@ -26,22 +26,27 @@ export type SurveyTextarea = Omit<SurveyInput, 'type' | 'inputType'> & {
   rows?: number;
 };
 
-type OptionsFunction = () => Promise<{label: string; value: string}[]>;
+export type FieldOptions = LabelValue[] | Record<string, LabelValue[]>;
+
+type OptionsFunction = () => Promise<FieldOptions>;
 
 export type SurveySelect = SurveyFieldBase & {
   type: 'select';
-  options: LabelValue[] | OptionsFunction;
+  options: FieldOptions | OptionsFunction;
+  keyPropId?: string;
 };
 
 export type SurveyRadio = Omit<SurveyFieldBase, 'defaultValue'> & {
   type: 'radio';
   defaultValue: string;
-  options: LabelValue[] | OptionsFunction;
+  options: FieldOptions | OptionsFunction;
+  keyPropId?: string;
 };
 
 export type SurveyCheckbox = Omit<SurveyFieldBase, 'defaultValue'> & {
   type: 'checkbox';
-  options: LabelValue[] | OptionsFunction;
+  options: FieldOptions | OptionsFunction;
+  keyPropId?: string;
 };
 
 export type SurveyCoords = SurveyFieldBase & {
@@ -62,6 +67,11 @@ export type SurveyId = Omit<SurveyFieldBase, 'required' | 'defaultValue'> & {
   type: 'id';
 };
 
+export type SurveyReadonly = Omit<SurveyFieldBase, 'required'> & {
+  type: 'readonly';
+  renderCallback?: (...args: any[]) => Promise<string>;
+};
+
 export interface SurveyConditional {
   visible: (fields: SurveyField[]) => boolean;
   children: SurveyField[];
@@ -79,5 +89,6 @@ export type SurveyField =
   | SurveyCheckbox
   | SurveyCoords
   | SurveyFile
-  | SurveyId;
+  | SurveyId
+  | SurveyReadonly;
 // | SurveyConditional;

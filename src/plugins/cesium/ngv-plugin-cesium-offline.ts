@@ -48,7 +48,7 @@ export class NgvPluginCesiumOffline extends LitElement {
   @property({type: Object})
   info: OfflineInfo;
   @property({type: Object})
-  beforeSwitchDispatch: (goOffline: boolean) => {};
+  beforeSwitchDispatch: (goOffline: boolean) => Promise<void>;
 
   @state()
   offline: boolean = false;

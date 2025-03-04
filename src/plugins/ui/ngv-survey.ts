@@ -3,15 +3,18 @@ import type {HTMLTemplateResult, TemplateResult} from 'lit';
 import {customElement, property, state} from 'lit/decorators.js';
 import {msg} from '@lit/localize';
 import type {
+  LabelValue,
   SurveyCheckbox,
   SurveyCoords,
   SurveyField,
   SurveyFile,
-  SurveyId,
+  SurveyReadonly,
   SurveyInput,
   SurveyRadio,
   SurveySelect,
   SurveyTextarea,
+  SurveyId,
+  FieldOptions,
 } from '../../interfaces/ui/ingv-survey.js';
 import {Task} from '@lit/task';
 import {classMap} from 'lit/directives/class-map.js';
@@ -19,6 +22,8 @@ import './ngv-upload';
 import type {FileUploadDetails} from './ngv-upload.js';
 import {fileToBase64} from '../../utils/file-utils.js';
 import type {Coordinate, FieldValues} from '../../utils/generalTypes.js';
+import {until} from 'lit/directives/until.js';
+import proj4 from 'proj4';
 
 @customElement('ngv-survey')
 export class NgvSurvey extends LitElement {
@@ -26,6 +31,8 @@ export class NgvSurvey extends LitElement {
   public surveyFields: SurveyField[];
   @property({type: Object})
   public fieldValues: FieldValues | undefined;
+  @property({type: String})
+  public projection: string;
   @state()
   notValid: Record<string, boolean> = {};
 
@@ -93,21 +100,25 @@ export class NgvSurvey extends LitElement {
   // @ts-expect-error TS6133
   private _surveyConfigChange = new Task(this, {
     args: (): [SurveyField[]] => [this.surveyFields],
-    task: async ([surveyConfig]) => {
+    task: ([surveyConfig]) => {
       const fields: Record<string, any> = {...this.fieldValues};
       surveyConfig.forEach((item) => {
         if (!fields[item.id]) {
           if (item.type === 'checkbox') {
-            if (typeof item.options === "function") {
-              throw new Error(`The option field ${item.id} should have been resolved`);
+            if (typeof item.options === 'function') {
+              throw new Error(
+                `The option field ${item.id} should have been resolved`,
+              );
             }
-            item.options.forEach((opt) => {
-              if (!fields[item.id]) {
-                fields[item.id] = {};
-              }
-              (<Record<string, boolean>>fields[item.id])[opt.value] =
-                opt.checked;
-            });
+            if (Array.isArray(item.options)) {
+              item.options.forEach((opt) => {
+                if (!fields[item.id]) {
+                  fields[item.id] = {};
+                }
+                (<Record<string, boolean>>fields[item.id])[opt.value] =
+                  opt.checked;
+              });
+            }
           } else if (item.type === 'input' && item.inputType === 'date') {
             const date = new Date().toISOString();
             fields[item.id] = date.substring(0, date.indexOf('T'));
@@ -117,6 +128,18 @@ export class NgvSurvey extends LitElement {
                 ? item.defaultValue
                 : '';
           }
+        }
+        if (item.type === 'coordinates' && this.projection) {
+          const coords = <Coordinate>fields[item.id];
+          const projected = proj4('EPSG:4326', this.projection, [
+            coords.longitude,
+            coords.latitude,
+          ]);
+          fields[item.id] = <Coordinate>{
+            ...fields[item.id],
+            longitude: projected[0],
+            latitude: projected[1],
+          };
         }
       });
       this.fieldValues = {...fields};
@@ -187,34 +210,48 @@ ${this.fieldValues[options.id] || ''}</textarea
     </div>`;
   }
 
-  renderSelect(options: SurveySelect): TemplateResult<1> | '' {
+  resolveOptions(
+    config: SurveyRadio | SurveyCheckbox | SurveySelect,
+  ): LabelValue[] | undefined {
+    // options resolved in index.ts, resolveFieldsConfig
+    let options = <FieldOptions>config.options;
+    if (!Array.isArray(options) && config.keyPropId) {
+      const key = <string>this.fieldValues[config.keyPropId];
+      options = options[key];
+    }
+    if (Array.isArray(options) && options?.length) return options;
+    else return undefined;
+  }
+
+  renderSelect(config: SurveySelect): TemplateResult<1> | '' {
+    const options = this.resolveOptions(config);
+    if (!options) return '';
     return html`<div class="field">
-      <label .hidden="${!options.label}"
-        >${options.label}
-        ${options.required
-          ? html`<span style="color: red">*</span>`
-          : ''}</label
+      <label .hidden="${!config.label}"
+        >${config.label}
+        ${config.required ? html`<span style="color: red">*</span>` : ''}</label
       >
       <select
-        class="${classMap({warning: this.notValid[options.id]})}"
-        .required="${options.required}"
+        class="${classMap({warning: this.notValid[config.id]})}"
+        .required="${config.required}"
         @change=${(evt: Event) => {
-          this.fieldValues[options.id] = (<HTMLSelectElement>evt.target).value;
-          if (this.notValid[options.id]) {
-            this.notValid = {...this.notValid, [options.id]: false};
+          this.fieldValues[config.id] = (<HTMLSelectElement>evt.target).value;
+          if (this.notValid[config.id]) {
+            this.notValid = {...this.notValid, [config.id]: false};
           }
+          this.requestUpdate();
         }}
       >
-        ${options.defaultValue
+        ${config.defaultValue
           ? ''
           : html`<option value="" disabled selected>
               ${msg('Select an option')}
             </option>`}
-        ${options.options.map(
+        ${options.map(
           (option) =>
             html`<option
               .value="${option.value}"
-              .selected="${option.value === this.fieldValues[options.id]}"
+              .selected="${option.value === this.fieldValues[config.id]}"
             >
               ${option.label}
             </option>`,
@@ -223,69 +260,75 @@ ${this.fieldValues[options.id] || ''}</textarea
     </div>`;
   }
 
-  renderCheckbox(options: SurveyCheckbox): TemplateResult<1> | '' {
-    const checkbox = (option: SurveyCheckbox['options'][number]) =>
+  renderCheckbox(config: SurveyCheckbox): TemplateResult<1> | '' {
+    const options = this.resolveOptions(config);
+    if (!options) return '';
+    const checkbox = (option: LabelValue) =>
       html`<div
         class="line-field ${classMap({
-          warning: this.notValid[options.id] && options.options?.length === 1,
+          warning: this.notValid[config.id] && config.options?.length === 1,
         })}"
       >
         <label>${option.label}</label>
         <input
           type="checkbox"
-          .checked=${(<Record<string, boolean>>this.fieldValues[options.id])[
+          .checked=${(<Record<string, boolean>>this.fieldValues[config.id])[
             option.value
           ]}
           @click=${(evt: Event) => {
-            if (!this.fieldValues[options.id]) {
-              this.fieldValues[options.id] = {};
+            if (!this.fieldValues[config.id]) {
+              this.fieldValues[config.id] = {};
             }
-            (<Record<string, boolean>>this.fieldValues[options.id])[
+            (<Record<string, boolean>>this.fieldValues[config.id])[
               option.value
             ] = (<HTMLInputElement>evt.target).checked;
-            if (this.notValid[options.id]) {
-              this.notValid = {...this.notValid, [options.id]: false};
+            if (this.notValid[config.id]) {
+              this.notValid = {...this.notValid, [config.id]: false};
             }
+            this.requestUpdate();
           }}
         />
       </div>`;
-    return options.options?.length > 1
+    return html`${options?.length > 1
       ? html` <fieldset
-          class="${classMap({warning: this.notValid[options.id]})}"
+          class="${classMap({warning: this.notValid[config.id]})}"
         >
-          <legend .hidden="${!options.label}">
-            ${options.label}
-            ${options.required ? html`<span style="color: red">*</span>` : ''}
+          <legend .hidden="${!config.label}">
+            ${config.label}
+            ${config.required ? html`<span style="color: red">*</span>` : ''}
           </legend>
-          ${options.options.map(checkbox)}
+          ${options.map(checkbox)}
         </fieldset>`
-      : checkbox(options.options[0]);
+      : checkbox(options[0])}`;
   }
 
-  renderRadio(options: SurveyRadio): TemplateResult<1> | '' {
+  renderRadio(config: SurveyRadio): TemplateResult<1> | '' {
+    const options = this.resolveOptions(config);
+    if (!options) return '';
     return html` <fieldset
-      class="${classMap({warning: this.notValid[options.id]})}"
+      class="${classMap({warning: this.notValid[config.id]})}"
     >
-      <legend .hidden="${!options.label}">
-        ${options.label}
-        ${options.required ? html`<span style="color: red">*</span>` : ''}
+      <legend .hidden="${!config.label}">
+        ${config.label}
+        ${config.required ? html`<span style="color: red">*</span>` : ''}
       </legend>
-      ${options.options.map(
+      ${options.map(
         (option) =>
           html`<div class="line-field">
             <label>${option.label}</label>
             <input
               type="radio"
-              .name="${options.id}"
-              .checked="${option.value === this.fieldValues[options.id]}"
+              .name="${config.id}"
+              .checked="${option.value === this.fieldValues[config.id]}"
               .value=${option.value}
               @click=${(evt: Event) => {
-                this.fieldValues[options.id] = (<HTMLInputElement>(
+                this.fieldValues[config.id] = (<HTMLInputElement>(
                   evt.target
                 )).value;
-                if (this.notValid[options.id]) {
-                  this.notValid = {...this.notValid, [options.id]: false};
+                if (this.notValid[config.id]) {
+                  this.notValid = {...this.notValid, [config.id]: false};
                 }
+                this.requestUpdate();
               }}
             />
           </div>`,
@@ -293,12 +336,23 @@ ${this.fieldValues[options.id] || ''}</textarea
     </fieldset>`;
   }
 
-  renderId(options: SurveyId): TemplateResult<1> | '' {
-    return html`
-      <div class="field" style="font-size: small">
-        <span><b>${msg('ID')}: </b>${this.fieldValues[options.id]}</span>
-      </div>
-    `;
+  renderReadonly(options: SurveyReadonly | SurveyId): TemplateResult<1> | '' {
+    const value =
+      options.type === 'readonly' && options.renderCallback
+        ? options.renderCallback(this.fieldValues)
+        : Promise.resolve(this.fieldValues[options.id]);
+    return !this.fieldValues[options.id]
+      ? ''
+      : html`
+          <div class="field" style="font-size: small">
+            <span
+              ><b>${msg(options.label)}: </b>${until(
+                value,
+                msg('Loading...'),
+              )}</span
+            >
+          </div>
+        `;
   }
 
   renderCoordinates(options: SurveyCoords): TemplateResult<1> | '' {
@@ -368,7 +422,8 @@ ${this.fieldValues[options.id] || ''}</textarea
       case 'file':
         return this.renderFile(field);
       case 'id':
-        return this.renderId(field);
+      case 'readonly':
+        return this.renderReadonly(field);
       default:
         return '';
     }
@@ -378,6 +433,7 @@ ${this.fieldValues[options.id] || ''}</textarea
     this.surveyFields.forEach((field) => {
       if (
         field.type !== 'coordinates' &&
+        field.type !== 'readonly' &&
         field.type !== 'id' &&
         field.required
       ) {

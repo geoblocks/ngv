@@ -1,4 +1,4 @@
-import type {HTMLTemplateResult, TemplateResult} from 'lit';
+import type {HTMLTemplateResult} from 'lit';
 import {html} from 'lit';
 import {customElement, query, state} from 'lit/decorators.js';
 
@@ -6,7 +6,7 @@ import '../../structure/ngv-structure-app.js';
 import {localized, msg} from '@lit/localize';
 import {ABaseApp} from '../../structure/BaseApp.js';
 
-import type {ISurveyConfig, Item, ItemSummary} from './ingv-config-survey.js';
+import type {ISurveyConfig} from './ingv-config-survey.js';
 import '../../plugins/cesium/ngv-plugin-cesium-widget';
 import '../../plugins/cesium/ngv-plugin-cesium-upload';
 import '../../plugins/cesium/ngv-plugin-cesium-model-interact';
@@ -32,28 +32,31 @@ import {
 } from '@cesium/engine';
 import type {ViewerInitializedDetails} from '../../plugins/cesium/ngv-plugin-cesium-widget.js';
 import type {ClickDetail} from '../../plugins/cesium/ngv-plugin-cesium-click-info.js';
-import type {FieldValues} from '../../plugins/ui/ngv-survey.js';
 import {
   getJson as readJsonFile,
   getOrCreateDirectoryChain,
   persistJson,
   removeFile,
 } from '../../utils/storage-utils.js';
-import type {Coordinate} from '../../utils/generalTypes.js';
+import type {Coordinate, FieldValues} from '../../utils/generalTypes.js';
 import {Task} from '@lit/task';
 import type {OfflineInfo} from '../../plugins/cesium/ngv-plugin-cesium-offline.js';
 import type {NgvPluginCesiumNavigation} from '../../plugins/cesium/ngv-plugin-cesium-navigation.js';
 import type {IngvCesiumContext} from '../../interfaces/cesium/ingv-cesium-context.js';
 import {poolRunner} from '../../utils/pool-runner.js';
-import type { LabelValue, SurveyField } from '../../interfaces/ui/ingv-survey.js';
+import type {LabelValue, SurveyField} from '../../interfaces/ui/ingv-survey.js';
+import type {config} from './demoSurveyConfig.js';
+
+type ItemSummary =
+  typeof config extends ISurveyConfig<infer I, any> ? I : never;
+type Item = typeof config extends ISurveyConfig<any, infer I> ? I : never;
 
 const STORAGE_DIR = ['surveys'];
 const STORAGE_LIST_NAME = 'surveys.json';
 
 @customElement('ngv-app-survey')
 @localized()
-export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
-
+export class NgvAppSurvey extends ABaseApp<typeof config> {
   @state()
   private viewer: CesiumWidget;
   @state()
@@ -76,31 +79,30 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
   private currentView: IngvCesiumContext['views'][number] | null = null;
 
   private collections: ViewerInitializedDetails['primitiveCollections'];
-  private surveyFieldValues:
-    | Record<
-        string,
-        | string
-        | number
-        | Record<string, boolean>
-        | Coordinate
-        | TemplateResult<1>
-      >
-    | undefined = {};
+  private surveyFieldValues: FieldValues = {};
 
   constructor() {
     super(() => import('./demoSurveyConfig.js'));
   }
 
-  async resolveFieldsConfig(offline: boolean, surveyFields: SurveyField[]) {
-    const promises = surveyFields.map(v => {
-      if ((v.type !== 'select' && v.type !== 'radio' && v.type !== 'checkbox') || typeof v.options !== 'function') {
+  async resolveFieldsConfig(
+    offline: boolean,
+    surveyFields: SurveyField[],
+  ): Promise<void> {
+    const promises = surveyFields.map((v) => {
+      if (
+        (v.type !== 'select' && v.type !== 'radio' && v.type !== 'checkbox') ||
+        typeof v.options !== 'function'
+      ) {
         return null;
       }
       const filename = `field-${v.id}.json`;
       if (offline) {
-        return readJsonFile<LabelValue[]>(this.persistentDir, filename).then(result => v.options = result);
+        return readJsonFile<LabelValue[]>(this.persistentDir, filename).then(
+          (result) => (v.options = result),
+        );
       }
-      return v.options().then(async result => {
+      return v.options().then(async (result) => {
         v.options = result;
         await persistJson(this.persistentDir, filename, result);
         return result;
@@ -111,10 +113,10 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
 
   // @ts-expect-error TS6133
   private _configChange = new Task(this, {
-    args: (): [ISurveyConfig] => [this.config],
+    args: (): [typeof config] => [this.config],
     task: async ([config]) => {
       if (config.app.cesiumContext.offline) {
-        const appName = config.app.cesiumContext.name
+        const appName = config.app.cesiumContext.name;
         this.offline = localStorage.getItem(`${appName}_offline`) === 'true';
       }
 
@@ -180,7 +182,7 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
       await persistJson(this.persistentDir, STORAGE_LIST_NAME, this.surveys);
       console.log('Persisted surveys');
     } else {
-      console.log('Reading surveys from storage')
+      console.log('Reading surveys from storage');
       this.surveys = await readJsonFile<ItemSummary[]>(
         this.persistentDir,
         STORAGE_LIST_NAME,
@@ -226,6 +228,8 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
   }
 
   addPoint(position: Cartesian3, id?: string): Entity {
+    const entExists = id && this.dataSource.entities.getById(id);
+    if (entExists) return entExists;
     return this.dataSource.entities.add({
       id,
       position,
@@ -277,6 +281,7 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
     if (!id) return;
     if (!this.surveys.find((s) => s.id === id)) {
       this.surveys.push({
+        ...evt.detail,
         id,
         coordinates: [
           coordinates.longitude,
@@ -284,7 +289,6 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
           coordinates.height,
         ],
         lastModifiedMs: Date.now(), // FIXME timezone?
-        title: 'Some hardcoded title',
       });
       await persistJson(this.persistentDir, STORAGE_LIST_NAME, this.surveys);
     }
@@ -333,12 +337,11 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
   async getOrReadSurvey(id: string): Promise<FieldValues> {
     let item: Item;
     if (this.offline) {
-      item = await readJsonFile<Item>(this.persistentDir, `${id}.json`);
+      return await readJsonFile<FieldValues>(this.persistentDir, `${id}.json`);
     } else {
-      item = await this.config.app.survey.getItem(id, {});
+      item = await this.config.app.survey.getItem({id});
+      return this.config.app.survey.itemToFields(item);
     }
-    const survey = this.config.app.survey.itemToFields(item);
-    return survey;
   }
 
   highlightEntity(id: string): void {
@@ -384,7 +387,7 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
         concurrency: 7,
         tasks: this.surveys,
         runTask: async (s) => {
-          const item = await this.config.app.survey.getItem(s.id, {});
+          const item = await this.config.app.survey.getItem({id: s.id});
           await persistJson(this.persistentDir, `${item.id}.json`, item);
           console.log('->', `${item.id}.json`, item);
           // FIXME: here we can download all the photos (or append to a list to be downloaded later)
@@ -475,6 +478,8 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
                   ? html` <ngv-survey
                       .surveyFields="${this.config.app.survey.fields}"
                       .fieldValues="${this.surveyFieldValues}"
+                      .projection=${this.config.app.cesiumContext
+                        .clickInfoOptions?.projection}
                       @confirm=${(evt: CustomEvent<FieldValues>) => {
                         this.confirm(evt).catch((e) => console.error(e));
                       }}

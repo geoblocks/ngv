@@ -6,19 +6,22 @@ import type {FieldValues} from '../../utils/generalTypes.js';
 export interface ItemSummary {
   id: string;
   lastModifiedMs: number;
-  title: string;
   coordinates: number[];
 }
 
-export interface Item extends ItemSummary {}
+export type Context = {
+  id: string;
+};
+
+export type Item = ItemSummary;
 
 export interface ISurveyConfig<ItemSummaryType = ItemSummary, ItemType = Item>
   extends INgvStructureApp {
   app: {
     cesiumContext: IngvCesiumContext;
     survey: {
-      listItems: (context: any) => Promise<ItemSummaryType[]>;
-      getItem: (id: string, context: any) => Promise<ItemType>;
+      listItems: (context: Context) => Promise<ItemSummaryType[]>;
+      getItem: (context: Context) => Promise<ItemType>;
       itemToFields: (item: ItemType) => FieldValues;
       fieldsToItem: (values: FieldValues) => Item;
       fields: SurveyField[];

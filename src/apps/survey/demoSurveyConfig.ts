@@ -1,5 +1,9 @@
 import type {FieldValues} from '../../utils/generalTypes.js';
-import type {ISurveyConfig, Item, ItemSummary} from './ingv-config-survey.js';
+import type {
+  Context,
+  ISurveyConfig,
+  ItemSummary,
+} from './ingv-config-survey.js';
 
 // todo cors issue
 
@@ -9,36 +13,29 @@ type HESTokenResponse = {
   expires_in: number;
 };
 
-type HESDefectItem = {
+type HESDefectResponse = {
   defect_id: number;
   event_id: number;
   event_type_code: string;
-  event_type: 'High-Level Fabric Inspection';
+  event_type: string;
   hlf_defect_id: string;
   site_id: number;
   site_code: string;
   site_name: string;
   title: string;
   notes: string;
-  defect_type_code: 'dtMasonBrick';
-  defect_type: 'Masonry & Brickwork';
+  defect_type_code: string;
+  defect_type: string;
   section?: null;
-  defect_status_code: 'dsOpen';
-  defect_status: 'Open';
-  defect_priority_code: 'dpLow';
-  defect_priority: 'Low';
-  residual_risk_rating: number; // RiskRating_Descriptions.csv
-  fall_probability: 1 | 2 | 3 | 4 | 5; // ProbabilityDescription.csv
-  fall_consequence: 1 | 2 | 3 | 4 | 5; // ConsequenceDescription.csv
-  material_code: 'dmMasonry';
-  // todo ? check if values correct
-  defect_material:
-    | 'Masonry'
-    | 'Masonry - Drystone'
-    | 'Timber'
-    | 'Metal'
-    | 'Glass'
-    | 'Other';
+  defect_status_code: string;
+  defect_status: string;
+  defect_priority_code: string;
+  defect_priority: string;
+  residual_risk_rating: number;
+  fall_probability: 1 | 2 | 3 | 4 | 5;
+  fall_consequence: 1 | 2 | 3 | 4 | 5;
+  material_code: string;
+  defect_material: string;
   reporter?: string;
   date_recorded: string;
   entered_dt: string;
@@ -54,10 +51,26 @@ type HESDefectItem = {
   long_degrees: number;
   lat_degrees: number;
   ll_geojson: string;
+  defect_tags?: Record<'defect_tag', string>[];
+};
+
+type HESDefectItem = ItemSummary & {
+  hlfDefectId?: string;
+  siteName: string;
+  siteCode: string;
+  reporter: string;
+  dateRecorded: string;
+  defectStatus: string;
+  defectMaterial: string;
+  defectTag: string;
+  defectNotes?: string;
+  fallProbability: string;
+  fallConsequence: string;
+  identifiedRiskRating: string;
 };
 
 type HESDefectsResponse = {
-  items: HESDefectItem[];
+  items: HESDefectResponse[];
   hasMore: boolean;
   limit: number;
   offset: number;
@@ -82,6 +95,17 @@ type HESDefectsResponse = {
   ];
 };
 
+type HESDefectTagResponse = {
+  items: {
+    material: string;
+    material_code: string;
+    defect_tags: {
+      code: string;
+      code_text: string;
+    }[];
+  }[];
+};
+
 function getHESSecretKey() {
   const urlSP = new URLSearchParams(document.location.search);
   let sk = urlSP.get('hes_secret');
@@ -94,7 +118,7 @@ function getHESSecretKey() {
   }
   localStorage.setItem('hes_secret', sk);
   if (urlSP.has('hes_secret')) {
-    urlSP.delete('hes_secret')
+    urlSP.delete('hes_secret');
     document.location.search = urlSP.toString();
   }
   return sk;
@@ -118,8 +142,6 @@ async function getHESBearerToken(): Promise<string> {
 
   const urlencoded = new URLSearchParams();
   urlencoded.append('grant_type', 'client_credentials');
-
-  //todo remove cors-anywhere host
   const response = await fetch('/api/oauth/token', {
     method: 'POST',
     headers: headers,
@@ -138,8 +160,6 @@ async function getFromHES<T>(path: string): Promise<T> {
   const token = await getHESBearerToken();
   const myHeaders = new Headers();
   myHeaders.append('Authorization', `Bearer ${token}`);
-
-  // Use todo remove cors-anywhere host
   const response = await fetch(`/api${path}`, {
     method: 'GET',
     headers: myHeaders,
@@ -159,43 +179,83 @@ async function getHESSurveys(siteId: string): Promise<ItemSummary[]> {
     )
     .map((s) => ({
       id: s.defect_id.toString(),
-      title: s.title,
       // FIXME: flatten and convert to radians?
       coordinates: [s.long_degrees, s.lat_degrees, s.elevation],
       lastModifiedMs: new Date(s.updated_dt).getTime(),
     }));
 }
 
-async function getHESSurvey(defectId: string): Promise<Item> {
+async function getRating(fallConsequence: number, fallProbability: number) {
+  const rating = String(fallConsequence * fallProbability);
+  const result = await getFromHES<{
+    items: {
+      code: string;
+      code_text: string;
+      description: string;
+    }[];
+  }>('/picams-external/list_lkup?code_type=DEFECT_RISK_RATING');
+  const riskInfo = result.items.find((i) => i.code === rating);
+  return `${riskInfo.code_text}, ${riskInfo.description}`;
+}
+
+async function getHESSurvey(defectId: string): Promise<HESDefectItem> {
   const result = await getFromHES<HESDefectsResponse>(
     `/picams-external/defect?defect_id=${defectId}`,
   );
   const s = result['items'][0];
+  const identifiedRiskRating = await getRating(
+    s.fall_consequence,
+    s.fall_probability,
+  );
   return {
     id: s.defect_id.toString(),
-    title: s.title,
+    hlfDefectId: s.hlf_defect_id,
+    siteName: s.site_name,
+    siteCode: s.site_code,
+    reporter: s.reporter,
+    dateRecorded: s.date_recorded.replace('Z', ''),
+    defectStatus: s.defect_status_code,
+    defectMaterial: s.material_code,
+    defectTag: s.defect_tags?.length ? s.defect_tags[0]?.defect_tag : '',
+    defectNotes: s.notes,
+    fallProbability: String(s.fall_probability),
+    fallConsequence: String(s.fall_consequence),
+    identifiedRiskRating,
     // FIXME: flatten and convert to radians?
     coordinates: [s.long_degrees, s.lat_degrees, s.elevation],
     lastModifiedMs: new Date(s.updated_dt).getTime(),
-    // FIXME: add all other values
   };
 }
 
 async function getHESFieldOptions(type: string) {
   const result = await getFromHES<{
     items: {
-      code: string,
-      code_text: string,
-    }[],
+      code: string;
+      code_text: string;
+    }[];
   }>(`/picams-external/list_lkup?code_type=${type}`);
-  return result.items.map(item => ({
+  return result.items.map((item) => ({
     label: item.code_text,
     value: item.code,
-  }))
+  }));
 }
 
+async function getHESDefectTags() {
+  const res = await getFromHES<HESDefectTagResponse>(
+    `/picams-external/defect_tag`,
+  );
+  return Object.fromEntries(
+    res.items.map((i) => [
+      i.material_code,
+      i.defect_tags.map((item) => ({
+        label: item.code_text,
+        value: item.code_text, // todo replace with code when changed in API
+      })),
+    ]),
+  );
+}
 
-export const config: ISurveyConfig = {
+export const config: ISurveyConfig<ItemSummary, HESDefectItem> = {
   languages: ['en'],
   header: {
     title: {
@@ -212,113 +272,169 @@ export const config: ISurveyConfig = {
         // move function in this file
         return getHESSurveys(id);
       },
-      async getItem(id, _) {
+      async getItem(context: Context) {
         // move function in this file
-        return getHESSurvey(id);
+        return getHESSurvey(context?.id);
       },
       fieldsToItem(_: FieldValues) {
         throw new Error('not implemented');
       },
-      itemToFields(item: Item) {
+      itemToFields(item: HESDefectItem) {
         const c = item.coordinates;
         const values: FieldValues = {
-          'survey-id': item.id,
-          'coords-field': {
+          defectId: item.id,
+          hlfDefectId: item.hlfDefectId,
+          siteCode: item.siteCode,
+          siteName: item.siteName,
+          reporter: item.reporter,
+          dateRecorded: item.dateRecorded,
+          defectStatus: item.defectStatus,
+          defectMaterial: item.defectMaterial,
+          defectTag: item.defectTag,
+          defectNotes: item.defectNotes,
+          fallProbability: item.fallProbability,
+          fallConsequence: item.fallConsequence,
+          identifiedRiskRating: item.identifiedRiskRating,
+          defectCoordinate: {
             longitude: c[0],
             latitude: c[1],
             height: c[2],
           },
-          'survey-summary': item.title,
         };
         return values;
       },
       fields: [
         {
-          id: 'survey-id',
+          id: 'siteCode',
+          label: 'Site code',
+          type: 'readonly',
+        },
+        {
+          id: 'siteName',
+          label: 'Site name',
+          type: 'readonly',
+        },
+        {
+          id: 'defectId',
+          label: 'Defect ID',
           type: 'id',
         },
         {
-          id: 'coords-field',
-          type: 'coordinates',
+          id: 'hlfDefectId',
+          label: 'HLF Defect ID',
+          type: 'readonly',
         },
         {
-          id: 'survey-summary',
-          type: 'input',
-          inputType: 'text',
-          required: true,
-          label: 'Summary',
-          placeholder: 'Summary',
-          min: 1,
-          max: 50,
+          id: 'reporter',
+          label: 'Reporter',
+          type: 'readonly',
         },
         {
-          id: 'survey-date',
+          id: 'dateRecorded',
           type: 'input',
           label: 'Date',
-          inputType: 'date',
+          inputType: 'datetime-local',
           required: true,
-          min: '2025-01-01',
         },
         {
-          id: 'survey-description',
+          id: 'defectStatus',
+          type: 'radio',
+          label: 'Status',
+          defaultValue: 'open',
+          required: true,
+          options: getHESFieldOptions.bind(undefined, 'DEFECT_STATUS'),
+        },
+        {
+          id: 'defectMaterial',
+          type: 'select',
+          label: 'Defect material',
+          required: true,
+          options: getHESFieldOptions.bind(undefined, 'DEFECT_MATERIAL'),
+        },
+        {
+          id: 'defectTag',
+          type: 'select',
+          label: 'Defect tag',
+          required: true,
+          options: getHESDefectTags.bind(undefined),
+          keyPropId: 'defectMaterial',
+        },
+        {
+          id: 'defectNotes',
           type: 'textarea',
           required: false,
-          label: 'Description',
-          placeholder: 'Describe a problem',
-          min: 1,
-          max: 200,
+          label: 'Description of defect',
+          placeholder: 'Optional free text',
         },
         {
-          id: 'survey-select',
+          id: 'fallProbability',
           type: 'select',
-          label: 'Defect type',
+          label: 'Fall probability',
           required: true,
           options: [
             {
-              label: 'Type 1',
-              value: 's1',
+              label: 'Fabric fall highly unlikely',
+              value: '1',
             },
             {
-              label: 'Type 2',
-              value: 's2',
+              label: 'Fabric fall unlikely',
+              value: '2',
+            },
+            {
+              label: 'Fabric fall likely',
+              value: '3',
+            },
+            {
+              label: 'Fabric fall highly likely',
+              value: '4',
+            },
+            {
+              label: 'Fabric fall almost certain',
+              value: '5',
             },
           ],
         },
         {
-          id: 'survey-radio',
-          type: 'radio',
-          label: 'Priority',
-          defaultValue: 'r1',
+          id: 'fallConsequence',
+          type: 'select',
+          label: 'Fall consequence',
+          required: true,
           options: [
             {
-              label: 'Low',
-              value: 'r1',
+              label: 'No injury',
+              value: '1',
             },
             {
-              label: 'Medium',
-              value: 'r2',
+              label: 'Minor injury',
+              value: '2',
             },
             {
-              label: 'High',
-              value: 'r3',
+              label: 'Moderate injury',
+              value: '3',
+            },
+            {
+              label: 'Major injury',
+              value: '4',
+            },
+            {
+              label: 'Fatal or life-altering injury',
+              value: '5',
             },
           ],
         },
         {
-          id: 'survey-checkbox',
-          type: 'checkbox',
-          label: 'Choose options (at least one)',
-          required: true,
-          options: getHESFieldOptions.bind(undefined, 'DEFECT_PRIORITY'),
+          id: 'identifiedRiskRating',
+          type: 'readonly',
+          label: 'Identified risk rating',
+          renderCallback: async (item: HESDefectItem) =>
+            getRating(
+              Number(item.fallConsequence),
+              Number(item.fallProbability),
+            ),
         },
         {
-          id: 'survey-file',
-          type: 'file',
-          mainBtnText: 'Attach photo',
-          urlInput: false,
-          fileInput: true,
-          uploadBtnText: 'Upload',
-          accept: 'image/*',
+          id: 'defectCoordinate',
+          type: 'coordinates',
         },
       ],
     },
