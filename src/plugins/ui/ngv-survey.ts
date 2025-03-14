@@ -148,6 +148,9 @@ export class NgvSurvey extends LitElement {
 
   renderInput(options: SurveyInput): TemplateResult<1> | '' {
     const isText = options.inputType === 'text';
+    const value = options.valueCallback
+      ? options.valueCallback(this.fieldValues)
+      : this.fieldValues[options.id] || '';
     return html`
       <div class="field">
         <label .hidden="${!options.label?.length}"
@@ -160,7 +163,8 @@ export class NgvSurvey extends LitElement {
           class="${classMap({warning: this.notValid[options.id]})}"
           .type="${options.inputType}"
           .placeholder="${options.placeholder || ''}"
-          .value="${this.fieldValues[options.id] || ''}"
+          .value="${value}"
+          disabled="${options.disabled}"
           .minlength="${isText && options.min ? options.min : null}"
           .maxlength="${isText && options.max ? options.max : null}"
           .min="${!isText && options.min ? options.min : null}"
@@ -216,11 +220,9 @@ ${this.fieldValues[options.id] || ''}</textarea
     // options resolved in index.ts, resolveFieldsConfig
     let options = <FieldOptions>config.options;
     if (!Array.isArray(options) && (config.keyPropId || config.keyCallback)) {
-      const key = <string>(
-        this.fieldValues[
-          config.keyPropId || config.keyCallback(this.fieldValues)
-        ]
-      );
+      const key = config.keyCallback
+        ? config.keyCallback(this.fieldValues)
+        : <string>this.fieldValues[config.keyPropId];
       options = options[key];
     }
     if (Array.isArray(options) && options?.length) return options;
@@ -359,19 +361,17 @@ ${this.fieldValues[options.id] || ''}</textarea
       const options = config.options;
       const key = config.keyPropId || config.keyCallback(this.fieldValues);
       value = options[key];
-      this.fieldValues[config.id] = key;
+      this.fieldValues[config.id] = value;
     } else {
       value = <TemplateResult<1> | ''>this.fieldValues[config.id];
     }
-    return !this.fieldValues[config.id]
+    return !this.fieldValues[config.id] || config.hidden
       ? ''
       : html`
           <div class="field" style="font-size: small">
             <span
-              ><b>${msg(config.label)}: </b>${until(
-                value,
-                msg('Loading...'),
-              )}</span
+              >${config.label ? html`<b>${config.label}: </b>` : ''}
+              ${until(value, msg('Loading...'))}</span
             >
           </div>
         `;

@@ -73,7 +73,8 @@ type HESDefectItem = ItemSummary & {
   defectNotes?: string;
   fallProbability: string;
   fallConsequence: string;
-  identifiedRiskRating: string;
+  identifiedRiskRatingDescription: string;
+  identifiedRiskRatingText: string;
   inspectionAction: string;
 };
 
@@ -246,6 +247,8 @@ async function getHESSurvey(defectId: string): Promise<HESDefectItem> {
       defectTag = s.defect_tags[0];
     }
   }
+  const ratings = await getIdentifiedRiskRating();
+  const rating = ratings.items.find((r) => r.code === identifiedRiskRating);
   return {
     id: s.defect_id.toString(),
     hlfDefectId: s.hlf_defect_id,
@@ -260,7 +263,8 @@ async function getHESSurvey(defectId: string): Promise<HESDefectItem> {
     fallProbability: String(s.fall_probability),
     fallConsequence: String(s.fall_consequence),
     inspectionAction: s.inspection_action_code,
-    identifiedRiskRating,
+    identifiedRiskRatingDescription: `${rating.code_text}, ${rating.description}`,
+    identifiedRiskRatingText: rating.code_text,
     // FIXME: flatten and convert to radians?
     coordinates: [s.long_degrees, s.lat_degrees, s.elevation],
     lastModifiedMs: new Date(s.updated_dt).getTime(),
@@ -280,17 +284,26 @@ async function getHESFieldOptions(type: string) {
   }));
 }
 
-async function getIdentifiedRiskRatings() {
-  const result = await getFromHES<{
+async function getIdentifiedRiskRating() {
+  return await getFromHES<{
     items: {
       code: string;
       code_text: string;
       description?: string;
     }[];
   }>('/picams-external/list_lkup?code_type=DEFECT_IDENTIFIED_RISK_RATING');
+}
+
+async function getIdentifiedRiskRatingsDescription() {
+  const result = await getIdentifiedRiskRating();
   return Object.fromEntries(
     result.items.map((i) => [i.code, `${i.code_text}, ${i.description}`]),
   );
+}
+
+async function getIdentifiedRiskRatingTexts() {
+  const result = await getIdentifiedRiskRating();
+  return Object.fromEntries(result.items.map((i) => [i.code, i.code_text]));
 }
 
 async function getHESDefectTags() {
@@ -306,6 +319,19 @@ async function getHESDefectTags() {
       })),
     ]),
   );
+}
+
+function getRiskColor(identifiedRiskRating: string) {
+  switch (identifiedRiskRating) {
+    case 'Low':
+      return '#008000';
+    case 'Medium':
+      return '#ffff00';
+    case 'High':
+      return '#ff0000';
+    default:
+      return '#808080';
+  }
 }
 
 export const config: ISurveyConfig<ItemSummary, HESDefectItem> = {
@@ -347,7 +373,7 @@ export const config: ISurveyConfig<ItemSummary, HESDefectItem> = {
           defectNotes: item.defectNotes,
           fallProbability: item.fallProbability,
           fallConsequence: item.fallConsequence,
-          identifiedRiskRating: item.identifiedRiskRating,
+          identifiedRiskRatingDescription: item.identifiedRiskRatingDescription,
           inspectionAction: item.inspectionAction,
           coordinates: {
             longitude: c[0],
@@ -477,14 +503,34 @@ export const config: ISurveyConfig<ItemSummary, HESDefectItem> = {
           ],
         },
         {
-          id: 'identifiedRiskRating',
+          id: 'identifiedRiskRatingDescription',
           type: 'readonly',
           label: 'Identified risk rating',
-          options: getIdentifiedRiskRatings.bind(undefined),
+          options: getIdentifiedRiskRatingsDescription.bind(undefined),
           keyCallback: (item: HESDefectItem): string => {
             const rating =
               Number(item.fallConsequence) * Number(item.fallProbability);
             return rating ? String(rating) : '';
+          },
+        },
+        {
+          id: 'identifiedRiskRatingText',
+          type: 'readonly',
+          hidden: true,
+          options: getIdentifiedRiskRatingTexts.bind(undefined),
+          keyCallback: (item: HESDefectItem): string => {
+            const rating =
+              Number(item.fallConsequence) * Number(item.fallProbability);
+            return rating ? String(rating) : '';
+          },
+        },
+        {
+          id: 'identifiedRiskRatingColor',
+          type: 'input',
+          inputType: 'color',
+          disabled: true,
+          valueCallback: (item: FieldValues): string => {
+            return getRiskColor(<string>item.identifiedRiskRatingText);
           },
         },
         {
@@ -493,7 +539,11 @@ export const config: ISurveyConfig<ItemSummary, HESDefectItem> = {
           label: 'Inspection action',
           required: true,
           options: getInspectionActions.bind(undefined),
-          keyPropId: 'identifiedRiskRating',
+          keyCallback: (item: FieldValues): string => {
+            const rating =
+              Number(item.fallConsequence) * Number(item.fallProbability);
+            return rating ? String(rating) : '';
+          },
         },
         {
           id: 'coordinates',
@@ -614,18 +664,8 @@ export const config: ISurveyConfig<ItemSummary, HESDefectItem> = {
       },
       surveyOptions: {
         pointOptions: {
-          colorCallback: (values: HESDefectItemSummary) => {
-            switch (values.identifiedRiskRating) {
-              case 'Low':
-                return Color.GREEN;
-              case 'Medium':
-                return Color.YELLOW;
-              case 'High':
-                return Color.RED;
-              default:
-                return Color.GRAY;
-            }
-          },
+          colorCallback: (values: HESDefectItemSummary) =>
+            Color.fromCssColorString(getRiskColor(values.identifiedRiskRating)),
         },
       },
     },
