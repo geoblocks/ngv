@@ -1,5 +1,3 @@
-import type {HTMLTemplateResult} from 'lit';
-
 export type LabelValue = {
   label: string;
   value: string;
@@ -32,21 +30,24 @@ type OptionsFunction = () => Promise<FieldOptions>;
 
 export type SurveySelect = SurveyFieldBase & {
   type: 'select';
-  options: FieldOptions | OptionsFunction;
+  options?: FieldOptions | OptionsFunction;
   keyPropId?: string;
+  keyCallback?: (...args: any[]) => string;
 };
 
 export type SurveyRadio = Omit<SurveyFieldBase, 'defaultValue'> & {
   type: 'radio';
   defaultValue: string;
-  options: FieldOptions | OptionsFunction;
+  options?: FieldOptions | OptionsFunction;
   keyPropId?: string;
+  keyCallback?: (...args: any[]) => string;
 };
 
 export type SurveyCheckbox = Omit<SurveyFieldBase, 'defaultValue'> & {
   type: 'checkbox';
-  options: FieldOptions | OptionsFunction;
+  options?: FieldOptions | OptionsFunction;
   keyPropId?: string;
+  keyCallback?: (...args: any[]) => string;
 };
 
 export type SurveyCoords = SurveyFieldBase & {
@@ -67,19 +68,14 @@ export type SurveyId = Omit<SurveyFieldBase, 'required' | 'defaultValue'> & {
   type: 'id';
 };
 
+type ReadonlyOptionsFunction = () => Promise<Record<string, string>>;
+
 export type SurveyReadonly = Omit<SurveyFieldBase, 'required'> & {
   type: 'readonly';
-  renderCallback?: (...args: any[]) => Promise<string>;
+  options?: Record<string, string> | ReadonlyOptionsFunction;
+  keyPropId?: string;
+  keyCallback?: (...args: any[]) => string;
 };
-
-export interface SurveyConditional {
-  visible: (fields: SurveyField[]) => boolean;
-  children: SurveyField[];
-}
-
-export interface SurveyComputed {
-  render: (fields: SurveyField[]) => HTMLTemplateResult;
-}
 
 export type SurveyField =
   | SurveyInput
@@ -91,4 +87,3 @@ export type SurveyField =
   | SurveyFile
   | SurveyId
   | SurveyReadonly;
-// | SurveyConditional;

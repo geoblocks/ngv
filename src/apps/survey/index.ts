@@ -1,4 +1,5 @@
 import type {HTMLTemplateResult} from 'lit';
+import {css} from 'lit';
 import {html} from 'lit';
 import {customElement, query, state} from 'lit/decorators.js';
 
@@ -81,6 +82,19 @@ export class NgvAppSurvey extends ABaseApp<typeof config> {
   private collections: ViewerInitializedDetails['primitiveCollections'];
   private surveyFieldValues: FieldValues = {};
 
+  static styles = css`
+    details {
+      border-radius: 4px;
+      border: 1px solid rgba(0, 0, 0, 0.16);
+      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05);
+      padding: 8px 16px;
+      user-select: none;
+    }
+    summary {
+      cursor: pointer;
+    }
+  `;
+
   constructor() {
     super(() => import('./demoSurveyConfig.js'));
   }
@@ -91,7 +105,10 @@ export class NgvAppSurvey extends ABaseApp<typeof config> {
   ): Promise<void> {
     const promises = surveyFields.map((v) => {
       if (
-        (v.type !== 'select' && v.type !== 'radio' && v.type !== 'checkbox') ||
+        (v.type !== 'select' &&
+          v.type !== 'radio' &&
+          v.type !== 'checkbox' &&
+          v.type !== 'readonly') ||
         typeof v.options !== 'function'
       ) {
         return null;
@@ -113,8 +130,8 @@ export class NgvAppSurvey extends ABaseApp<typeof config> {
 
   // @ts-expect-error TS6133
   private _configChange = new Task(this, {
-    args: (): [typeof config] => [this.config],
-    task: async ([config]) => {
+    args: (): [typeof config, ItemSummary[]] => [this.config, this.surveys],
+    task: async ([config, _surveys]) => {
       if (config.app.cesiumContext.offline) {
         const appName = config.app.cesiumContext.name;
         this.offline = localStorage.getItem(`${appName}_offline`) === 'true';
@@ -130,7 +147,9 @@ export class NgvAppSurvey extends ABaseApp<typeof config> {
       const pointConf = config.app.cesiumContext.surveyOptions?.pointOptions;
       this.pointConfig = {
         color: pointConf?.color
-          ? Color.fromCssColorString(pointConf?.color)
+          ? typeof pointConf.color === 'string'
+            ? Color.fromCssColorString(pointConf?.color)
+            : pointConf.color
           : Color.RED,
         outlineWidth:
           typeof pointConf?.outlineWidth === 'number'
@@ -197,7 +216,7 @@ export class NgvAppSurvey extends ABaseApp<typeof config> {
     this.surveys.forEach((s) => {
       const coords = s.coordinates;
       const position = Cartesian3.fromDegrees(coords[0], coords[1], coords[2]);
-      this.addPoint(position, s.id);
+      this.addPoint(position, s.id, s);
       this.viewer.scene.requestRender();
     });
   }
@@ -227,13 +246,19 @@ export class NgvAppSurvey extends ABaseApp<typeof config> {
     );
   }
 
-  addPoint(position: Cartesian3, id?: string): Entity {
+  addPoint(position: Cartesian3, id?: string, item?: ItemSummary): Entity {
     const entExists = id && this.dataSource.entities.getById(id);
     if (entExists) return entExists;
+    let color = this.pointConfig.color;
+    const colorCallback =
+      this.config.app.cesiumContext.surveyOptions?.pointOptions.colorCallback;
+    if (item && colorCallback) {
+      color = colorCallback(item);
+    }
     return this.dataSource.entities.add({
       id,
       position,
-      point: this.pointConfig,
+      point: {...this.pointConfig, color},
     });
   }
 
@@ -432,19 +457,9 @@ export class NgvAppSurvey extends ABaseApp<typeof config> {
         >
           ${this.viewer
             ? html`
-                <ngv-plugin-cesium-slicing
-                  .viewer="${this.viewer}"
-                  .tiles3dCollection="${this.collections.tiles3d}"
-                  .dataSourceCollection="${this.dataSourceCollection}"
-                  .options="${this.config.app.cesiumContext.clippingOptions}"
-                ></ngv-plugin-cesium-slicing>
-                <ngv-plugin-cesium-measure
-                  .viewer="${this.viewer}"
-                  .dataSourceCollection="${this.dataSourceCollection}"
-                  .options=${this.config.app.cesiumContext.measureOptions}
-                ></ngv-plugin-cesium-measure>
                 ${offlineInfo
                   ? html`<ngv-plugin-cesium-offline
+                      .hidden=${this.showSurvey}
                       .viewer="${this.viewer}"
                       .ionAssetUrl="${this.config.app.cesiumContext
                         .ionAssetUrl}"
@@ -464,16 +479,37 @@ export class NgvAppSurvey extends ABaseApp<typeof config> {
                       }}"
                     ></ngv-plugin-cesium-offline>`
                   : ''}
-                <ngv-plugin-cesium-navigation
-                  .viewer="${this.viewer}"
-                  .config="${this.config.app.cesiumContext}"
-                  .dataSourceCollection="${this.dataSourceCollection}"
-                  .tiles3dCollection="${this.collections.tiles3d}"
-                  .offline="${this.offline}"
-                  @viewChanged=${(evt: {
-                    detail: IngvCesiumContext['views'][number];
-                  }) => this.onViewChanged(evt.detail)}
-                ></ngv-plugin-cesium-navigation>
+                <details .hidden=${this.showSurvey} open>
+                  <summary>${msg('Tools')}</summary>
+                  <div style="margin: 12px 0;">
+                    <ngv-plugin-cesium-slicing
+                      .viewer="${this.viewer}"
+                      .tiles3dCollection="${this.collections.tiles3d}"
+                      .dataSourceCollection="${this.dataSourceCollection}"
+                      .options="${this.config.app.cesiumContext
+                        .clippingOptions}"
+                    ></ngv-plugin-cesium-slicing>
+                  </div>
+                  <div style="margin-bottom: 12px;">
+                    <ngv-plugin-cesium-measure
+                      .viewer="${this.viewer}"
+                      .dataSourceCollection="${this.dataSourceCollection}"
+                      .options=${this.config.app.cesiumContext.measureOptions}
+                    ></ngv-plugin-cesium-measure>
+                  </div>
+                  <div>
+                    <ngv-plugin-cesium-navigation
+                      .viewer="${this.viewer}"
+                      .config="${this.config.app.cesiumContext}"
+                      .dataSourceCollection="${this.dataSourceCollection}"
+                      .tiles3dCollection="${this.collections.tiles3d}"
+                      .offline="${this.offline}"
+                      @viewChanged=${(evt: {
+                        detail: IngvCesiumContext['views'][number];
+                      }) => this.onViewChanged(evt.detail)}
+                    ></ngv-plugin-cesium-navigation>
+                  </div>
+                </details>
                 ${this.showSurvey
                   ? html` <ngv-survey
                       .surveyFields="${this.config.app.survey.fields}"
@@ -487,47 +523,51 @@ export class NgvAppSurvey extends ABaseApp<typeof config> {
                         this.cancel();
                       }}
                     ></ngv-survey>`
-                  : html`<ngv-layers-list
-                      .layers="${this.surveys.map((s) => {
-                        return {
-                          name: s.id,
-                        };
-                      })}"
-                      .options="${{
-                        title: msg('Surveys'),
-                        showDeleteBtns: true,
-                        showZoomBtns: true,
-                        showEditBtns: true,
-                      }}"
-                      @remove=${async (evt: {detail: number}) =>
-                        this.onRemove(evt.detail)}
-                      @zoom=${(evt: {detail: number}) => {
-                        const id = this.surveys[evt.detail]?.id;
-                        if (id) {
-                          const ent = this.dataSource.entities.getById(id);
-                          // todo decide how and improve
-                          const sphere = new BoundingSphere(
-                            ent.position.getValue(JulianDate.now()),
-                            2,
-                          );
-                          this.viewer.camera.flyToBoundingSphere(sphere);
-                        }
-                      }}
-                      @edit="${(evt: {detail: number}) =>
-                        this.onEdit(evt.detail)}"
-                      @zoomEnter=${(e: {detail: number}) => {
-                        const id = this.surveys[e.detail]?.id;
-                        if (id) {
-                          this.highlightEntity(id);
-                        }
-                      }}
-                      @zoomOut=${(e: {detail: number}) => {
-                        const id = this.surveys[e.detail]?.id;
-                        if (id) {
-                          this.removeEntityHighlight(id);
-                        }
-                      }}
-                    ></ngv-layers-list>`}
+                  : html`<details>
+                      <summary>${msg('Surveys')}</summary>
+                      <div style="margin-top: 12px;">
+                        <ngv-layers-list
+                          .layers="${this.surveys.map((s) => {
+                            return {
+                              name: s.id,
+                            };
+                          })}"
+                          .options="${{
+                            showDeleteBtns: true,
+                            showZoomBtns: true,
+                            showEditBtns: true,
+                          }}"
+                          @remove=${async (evt: {detail: number}) =>
+                            this.onRemove(evt.detail)}
+                          @zoom=${(evt: {detail: number}) => {
+                            const id = this.surveys[evt.detail]?.id;
+                            if (id) {
+                              const ent = this.dataSource.entities.getById(id);
+                              // todo decide how and improve
+                              const sphere = new BoundingSphere(
+                                ent.position.getValue(JulianDate.now()),
+                                2,
+                              );
+                              this.viewer.camera.flyToBoundingSphere(sphere);
+                            }
+                          }}
+                          @edit="${(evt: {detail: number}) =>
+                            this.onEdit(evt.detail)}"
+                          @zoomEnter=${(e: {detail: number}) => {
+                            const id = this.surveys[e.detail]?.id;
+                            if (id) {
+                              this.highlightEntity(id);
+                            }
+                          }}
+                          @zoomOut=${(e: {detail: number}) => {
+                            const id = this.surveys[e.detail]?.id;
+                            if (id) {
+                              this.removeEntityHighlight(id);
+                            }
+                          }}
+                        ></ngv-layers-list>
+                      </div>
+                    </details>`}
               `
             : ''}
         </div>

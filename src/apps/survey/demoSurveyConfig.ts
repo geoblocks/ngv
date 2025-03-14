@@ -4,6 +4,7 @@ import type {
   ISurveyConfig,
   ItemSummary,
 } from './ingv-config-survey.js';
+import {Color} from '@cesium/engine';
 
 // todo cors issue
 
@@ -31,6 +32,8 @@ type HESDefectResponse = {
   defect_status: string;
   defect_priority_code: string;
   defect_priority: string;
+  inspection_action_code: string;
+  inspection_action: string;
   residual_risk_rating: number;
   fall_probability: 1 | 2 | 3 | 4 | 5;
   fall_consequence: 1 | 2 | 3 | 4 | 5;
@@ -51,7 +54,11 @@ type HESDefectResponse = {
   long_degrees: number;
   lat_degrees: number;
   ll_geojson: string;
-  defect_tags?: Record<'defect_tag', string>[];
+  defect_tags?: string; // todo should be replaced with string[]
+};
+
+type HESDefectItemSummary = ItemSummary & {
+  identifiedRiskRating: string;
 };
 
 type HESDefectItem = ItemSummary & {
@@ -67,6 +74,7 @@ type HESDefectItem = ItemSummary & {
   fallProbability: string;
   fallConsequence: string;
   identifiedRiskRating: string;
+  inspectionAction: string;
 };
 
 type HESDefectsResponse = {
@@ -167,35 +175,56 @@ async function getFromHES<T>(path: string): Promise<T> {
   return <T>await response.json();
 }
 
-async function getHESSurveys(siteId: string): Promise<ItemSummary[]> {
+async function getHESSurveys(siteId: string): Promise<HESDefectItemSummary[]> {
   // FIXME: why do we limit the inspection type?
   // &inspection_type=evHLFInsp
   const result = await getFromHES<HESDefectsResponse>(
     `/picams-external/list_defects?site_code=${siteId}&limit=100000`,
   );
-  return result['items']
-    .filter(
-      (s) => s.lat_degrees && s.long_degrees && s.elevation && s.updated_dt,
-    )
-    .map((s) => ({
-      id: s.defect_id.toString(),
-      // FIXME: flatten and convert to radians?
-      coordinates: [s.long_degrees, s.lat_degrees, s.elevation],
-      lastModifiedMs: new Date(s.updated_dt).getTime(),
-    }));
-}
-
-async function getRating(fallConsequence: number, fallProbability: number) {
-  const rating = String(fallConsequence * fallProbability);
-  const result = await getFromHES<{
+  const risks = await getFromHES<{
     items: {
       code: string;
       code_text: string;
       description: string;
     }[];
-  }>('/picams-external/list_lkup?code_type=DEFECT_RISK_RATING');
-  const riskInfo = result.items.find((i) => i.code === rating);
-  return `${riskInfo.code_text}, ${riskInfo.description}`;
+  }>('/picams-external/list_lkup?code_type=DEFECT_IDENTIFIED_RISK_RATING');
+  return result['items']
+    .filter(
+      (s) => s.lat_degrees && s.long_degrees && s.elevation && s.updated_dt,
+    )
+    .map((s) => {
+      const rating = String(s.fall_consequence * s.fall_probability);
+      const riskInfo = risks.items.find((i) => i.code === rating);
+      return {
+        id: s.defect_id.toString(),
+        // FIXME: flatten and convert to radians?
+        coordinates: [s.long_degrees, s.lat_degrees, s.elevation],
+        lastModifiedMs: new Date(s.updated_dt).getTime(),
+        identifiedRiskRating: riskInfo.code_text,
+      };
+    });
+}
+
+async function getInspectionActions() {
+  const result = await getFromHES<{
+    items: {
+      identified_risk_rating: string;
+      identified_risk_rating_code: string;
+      inspection_action: {
+        code: string;
+        code_text: string;
+      }[];
+    }[];
+  }>(`/picams-external/inspection_action`);
+  return Object.fromEntries(
+    result.items.map((i) => [
+      i.identified_risk_rating_code,
+      i.inspection_action.map((a) => ({
+        label: a.code_text,
+        value: a.code,
+      })),
+    ]),
+  );
 }
 
 async function getHESSurvey(defectId: string): Promise<HESDefectItem> {
@@ -203,10 +232,20 @@ async function getHESSurvey(defectId: string): Promise<HESDefectItem> {
     `/picams-external/defect?defect_id=${defectId}`,
   );
   const s = result['items'][0];
-  const identifiedRiskRating = await getRating(
-    s.fall_consequence,
-    s.fall_probability,
-  );
+  const identifiedRiskRating = String(s.fall_consequence * s.fall_probability);
+  let defectTag = '';
+  if (s.defect_tags?.length) {
+    if (typeof s.defect_tags === 'string') {
+      try {
+        const defectTags: string[] = <string[]>JSON.parse(s.defect_tags);
+        defectTag = defectTags[0];
+      } catch (e) {
+        console.error('Error during defect tags parse:', e);
+      }
+    } else if (Array.isArray(s.defect_tags)) {
+      defectTag = s.defect_tags[0];
+    }
+  }
   return {
     id: s.defect_id.toString(),
     hlfDefectId: s.hlf_defect_id,
@@ -216,10 +255,11 @@ async function getHESSurvey(defectId: string): Promise<HESDefectItem> {
     dateRecorded: s.date_recorded.replace('Z', ''),
     defectStatus: s.defect_status_code,
     defectMaterial: s.material_code,
-    defectTag: s.defect_tags?.length ? s.defect_tags[0]?.defect_tag : '',
+    defectTag,
     defectNotes: s.notes,
     fallProbability: String(s.fall_probability),
     fallConsequence: String(s.fall_consequence),
+    inspectionAction: s.inspection_action_code,
     identifiedRiskRating,
     // FIXME: flatten and convert to radians?
     coordinates: [s.long_degrees, s.lat_degrees, s.elevation],
@@ -240,6 +280,19 @@ async function getHESFieldOptions(type: string) {
   }));
 }
 
+async function getIdentifiedRiskRatings() {
+  const result = await getFromHES<{
+    items: {
+      code: string;
+      code_text: string;
+      description?: string;
+    }[];
+  }>('/picams-external/list_lkup?code_type=DEFECT_IDENTIFIED_RISK_RATING');
+  return Object.fromEntries(
+    result.items.map((i) => [i.code, `${i.code_text}, ${i.description}`]),
+  );
+}
+
 async function getHESDefectTags() {
   const res = await getFromHES<HESDefectTagResponse>(
     `/picams-external/defect_tag`,
@@ -249,7 +302,7 @@ async function getHESDefectTags() {
       i.material_code,
       i.defect_tags.map((item) => ({
         label: item.code_text,
-        value: item.code_text, // todo replace with code when changed in API
+        value: item.code,
       })),
     ]),
   );
@@ -295,6 +348,7 @@ export const config: ISurveyConfig<ItemSummary, HESDefectItem> = {
           fallProbability: item.fallProbability,
           fallConsequence: item.fallConsequence,
           identifiedRiskRating: item.identifiedRiskRating,
+          inspectionAction: item.inspectionAction,
           defectCoordinate: {
             longitude: c[0],
             latitude: c[1],
@@ -426,11 +480,20 @@ export const config: ISurveyConfig<ItemSummary, HESDefectItem> = {
           id: 'identifiedRiskRating',
           type: 'readonly',
           label: 'Identified risk rating',
-          renderCallback: async (item: HESDefectItem) =>
-            getRating(
-              Number(item.fallConsequence),
-              Number(item.fallProbability),
-            ),
+          options: getIdentifiedRiskRatings.bind(undefined),
+          keyCallback: (item: HESDefectItem): string => {
+            return String(
+              Number(item.fallConsequence) * Number(item.fallProbability),
+            );
+          },
+        },
+        {
+          id: 'inspectionAction',
+          type: 'select',
+          label: 'Inspection action',
+          required: true,
+          options: getInspectionActions.bind(undefined),
+          keyPropId: 'identifiedRiskRating',
         },
         {
           id: 'defectCoordinate',
@@ -548,6 +611,22 @@ export const config: ISurveyConfig<ItemSummary, HESDefectItem> = {
         infoFilename: 'offline-info',
         tiles3dSubdir: 'tiles3d',
         imagerySubdir: 'imageries',
+      },
+      surveyOptions: {
+        pointOptions: {
+          colorCallback: (values: HESDefectItemSummary) => {
+            switch (values.identifiedRiskRating) {
+              case 'Low':
+                return Color.GREEN;
+              case 'Medium':
+                return Color.YELLOW;
+              case 'High':
+                return Color.RED;
+              default:
+                return Color.GRAY;
+            }
+          },
+        },
       },
     },
   },

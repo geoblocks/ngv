@@ -129,7 +129,7 @@ export class NgvSurvey extends LitElement {
                 : '';
           }
         }
-        if (item.type === 'coordinates' && this.projection) {
+        if (item.type === 'coordinates' && this.projection?.length) {
           const coords = <Coordinate>fields[item.id];
           const projected = proj4('EPSG:4326', this.projection, [
             coords.longitude,
@@ -215,8 +215,12 @@ ${this.fieldValues[options.id] || ''}</textarea
   ): LabelValue[] | undefined {
     // options resolved in index.ts, resolveFieldsConfig
     let options = <FieldOptions>config.options;
-    if (!Array.isArray(options) && config.keyPropId) {
-      const key = <string>this.fieldValues[config.keyPropId];
+    if (!Array.isArray(options) && (config.keyPropId || config.keyCallback)) {
+      const key = <string>(
+        this.fieldValues[
+          config.keyPropId || config.keyCallback(this.fieldValues)
+        ]
+      );
       options = options[key];
     }
     if (Array.isArray(options) && options?.length) return options;
@@ -336,17 +340,35 @@ ${this.fieldValues[options.id] || ''}</textarea
     </fieldset>`;
   }
 
-  renderReadonly(options: SurveyReadonly | SurveyId): TemplateResult<1> | '' {
-    const value =
-      options.type === 'readonly' && options.renderCallback
-        ? options.renderCallback(this.fieldValues)
-        : Promise.resolve(this.fieldValues[options.id]);
-    return !this.fieldValues[options.id]
+  promiseRenderWrap(
+    render: () => Promise<TemplateResult<1> | ''>,
+  ): TemplateResult<1> | '' {
+    return html`${until(
+      render(),
+      html`<div class="line-field">${msg('Loading...')}</div>`,
+    )}`;
+  }
+
+  renderReadonly(config: SurveyReadonly | SurveyId): TemplateResult<1> | '' {
+    let value: TemplateResult<1> | string = '';
+    if (
+      config.type === 'readonly' &&
+      typeof config.options === 'object' &&
+      (config.keyPropId || config.keyCallback)
+    ) {
+      const options = config.options;
+      const key = config.keyPropId || config.keyCallback(this.fieldValues);
+      value = options[key];
+      this.fieldValues[config.id] = key;
+    } else {
+      value = <TemplateResult<1> | ''>this.fieldValues[config.id];
+    }
+    return !this.fieldValues[config.id]
       ? ''
       : html`
           <div class="field" style="font-size: small">
             <span
-              ><b>${msg(options.label)}: </b>${until(
+              ><b>${msg(config.label)}: </b>${until(
                 value,
                 msg('Loading...'),
               )}</span
