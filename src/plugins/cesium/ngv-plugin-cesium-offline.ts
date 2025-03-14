@@ -183,12 +183,12 @@ export class NgvPluginCesiumOffline extends LitElement {
       // todo remove dir when synced with API
       await removeFile(dir, `${this.info.infoFilename}.json`);
     }
+    this.offline = offline;
+    localStorage.setItem(`${this.info.appName}_offline`, offline.toString());
 
     this.dispatchEvent(
       new CustomEvent('switch', {detail: {offline: this.offline}}),
     );
-    this.offline = offline;
-    localStorage.setItem(`${this.info.appName}_offline`, offline.toString());
 
     this.loading = false;
   }
