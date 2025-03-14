@@ -335,7 +335,7 @@ export const config: ISurveyConfig<ItemSummary, HESDefectItem> = {
       itemToFields(item: HESDefectItem) {
         const c = item.coordinates;
         const values: FieldValues = {
-          defectId: item.id,
+          id: item.id,
           hlfDefectId: item.hlfDefectId,
           siteCode: item.siteCode,
           siteName: item.siteName,
@@ -349,7 +349,7 @@ export const config: ISurveyConfig<ItemSummary, HESDefectItem> = {
           fallConsequence: item.fallConsequence,
           identifiedRiskRating: item.identifiedRiskRating,
           inspectionAction: item.inspectionAction,
-          defectCoordinate: {
+          coordinates: {
             longitude: c[0],
             latitude: c[1],
             height: c[2],
@@ -369,7 +369,7 @@ export const config: ISurveyConfig<ItemSummary, HESDefectItem> = {
           type: 'readonly',
         },
         {
-          id: 'defectId',
+          id: 'id',
           label: 'Defect ID',
           type: 'id',
         },
@@ -496,7 +496,7 @@ export const config: ISurveyConfig<ItemSummary, HESDefectItem> = {
           keyPropId: 'identifiedRiskRating',
         },
         {
-          id: 'defectCoordinate',
+          id: 'coordinates',
           type: 'coordinates',
         },
       ],

@@ -274,15 +274,8 @@ export class NgvAppSurvey extends ABaseApp<typeof config> {
       (f) => f.type === 'coordinates',
     );
     if (coordsFiled) {
-      const longitude = detail.projection
-        ? detail.projected.longitude
-        : detail.wgs84.longitude;
-      const latitude = detail.projection
-        ? detail.projected.latitude
-        : detail.wgs84.latitude;
       this.surveyFieldValues[coordsFiled.id] = {
-        longitude,
-        latitude,
+        ...detail.wgs84,
         height: Number(detail.elevation.toFixed(2)),
       };
     }
@@ -362,11 +355,11 @@ export class NgvAppSurvey extends ABaseApp<typeof config> {
   async getOrReadSurvey(id: string): Promise<FieldValues> {
     let item: Item;
     if (this.offline) {
-      return await readJsonFile<FieldValues>(this.persistentDir, `${id}.json`);
+      item = await readJsonFile<Item>(this.persistentDir, `${id}.json`);
     } else {
       item = await this.config.app.survey.getItem({id});
-      return this.config.app.survey.itemToFields(item);
     }
+    return this.config.app.survey.itemToFields(item);
   }
 
   highlightEntity(id: string): void {
