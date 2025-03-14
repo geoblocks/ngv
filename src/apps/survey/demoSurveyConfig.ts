@@ -482,9 +482,9 @@ export const config: ISurveyConfig<ItemSummary, HESDefectItem> = {
           label: 'Identified risk rating',
           options: getIdentifiedRiskRatings.bind(undefined),
           keyCallback: (item: HESDefectItem): string => {
-            return String(
-              Number(item.fallConsequence) * Number(item.fallProbability),
-            );
+            const rating =
+              Number(item.fallConsequence) * Number(item.fallProbability);
+            return rating ? String(rating) : '';
           },
         },
         {
