@@ -1,6 +1,340 @@
-import type {ISurveyConfig} from './ingv-config-survey.js';
+import type {FieldValues} from '../../utils/generalTypes.js';
+import type {
+  Context,
+  ISurveyConfig,
+  ItemSummary,
+} from './ingv-config-survey.js';
+import {Color} from '@cesium/engine';
 
-export const config: ISurveyConfig = {
+// todo cors issue
+
+type HESTokenResponse = {
+  access_token: string;
+  token_type: string;
+  expires_in: number;
+};
+
+type HESDefectResponse = {
+  defect_id: number;
+  event_id: number;
+  event_type_code: string;
+  event_type: string;
+  hlf_defect_id: string;
+  site_id: number;
+  site_code: string;
+  site_name: string;
+  title: string;
+  notes: string;
+  defect_type_code: string;
+  defect_type: string;
+  section?: null;
+  defect_status_code: string;
+  defect_status: string;
+  defect_priority_code: string;
+  defect_priority: string;
+  inspection_action_code: string;
+  inspection_action: string;
+  residual_risk_rating: number;
+  fall_probability: 1 | 2 | 3 | 4 | 5;
+  fall_consequence: 1 | 2 | 3 | 4 | 5;
+  material_code: string;
+  defect_material: string;
+  reporter?: string;
+  date_recorded: string;
+  entered_dt: string;
+  entered_by: string;
+  updated_dt: string;
+  updated_by: string;
+  ref_no?: string;
+  entered_by_name?: string;
+  entered_by_email?: string;
+  updated_by_name?: string;
+  updated_by_email?: string;
+  elevation: number;
+  long_degrees: number;
+  lat_degrees: number;
+  ll_geojson: string;
+  defect_tags?: string; // todo should be replaced with string[]
+};
+
+type HESDefectItemSummary = ItemSummary & {
+  identifiedRiskRating: string;
+};
+
+type HESDefectItem = ItemSummary & {
+  hlfDefectId?: string;
+  siteName: string;
+  siteCode: string;
+  reporter: string;
+  dateRecorded: string;
+  defectStatus: string;
+  defectMaterial: string;
+  defectTag: string;
+  defectNotes?: string;
+  fallProbability: string;
+  fallConsequence: string;
+  identifiedRiskRatingDescription: string;
+  identifiedRiskRatingText: string;
+  inspectionAction: string;
+};
+
+type HESDefectsResponse = {
+  items: HESDefectResponse[];
+  hasMore: boolean;
+  limit: number;
+  offset: number;
+  count: number;
+  links: [
+    {
+      rel: 'self';
+      href: string;
+    },
+    {
+      rel: 'describedby';
+      href: string;
+    },
+    {
+      rel: 'first';
+      href: string;
+    },
+    {
+      rel: 'next';
+      href: string;
+    },
+  ];
+};
+
+type HESDefectTagResponse = {
+  items: {
+    material: string;
+    material_code: string;
+    defect_tags: {
+      code: string;
+      code_text: string;
+    }[];
+  }[];
+};
+
+function getHESSecretKey() {
+  const urlSP = new URLSearchParams(document.location.search);
+  let sk = urlSP.get('hes_secret');
+  if (!sk) {
+    console.log('No hes_secret param, trying to use localstorage');
+    sk = localStorage.getItem('hes_secret');
+  }
+  if (!sk) {
+    console.error('No hes_secret in localstorage');
+  }
+  localStorage.setItem('hes_secret', sk);
+  if (urlSP.has('hes_secret')) {
+    urlSP.delete('hes_secret');
+    document.location.search = urlSP.toString();
+  }
+  return sk;
+}
+
+const hesSecretKey = getHESSecretKey();
+let bearerCache = {
+  expire_ms: 0,
+  token: '',
+};
+
+async function getHESBearerToken(): Promise<string> {
+  const now = Date.now();
+  if (now - 60_000 < bearerCache.expire_ms) {
+    return Promise.resolve(bearerCache.token);
+  }
+  const headers = new Headers();
+  headers.append('Content-Type', 'application/x-www-form-urlencoded');
+  console.log('Getting bearer token using', hesSecretKey);
+  headers.append('Authorization', `Basic ${btoa(hesSecretKey)}`);
+
+  const urlencoded = new URLSearchParams();
+  urlencoded.append('grant_type', 'client_credentials');
+  const response = await fetch('/api/oauth/token', {
+    method: 'POST',
+    headers: headers,
+    body: urlencoded,
+  });
+  const res: HESTokenResponse = <HESTokenResponse>await response.json();
+  const {access_token, expires_in} = res;
+  bearerCache = {
+    expire_ms: Date.now() + expires_in * 1000,
+    token: access_token,
+  };
+  return access_token;
+}
+
+async function getFromHES<T>(path: string): Promise<T> {
+  const token = await getHESBearerToken();
+  const myHeaders = new Headers();
+  myHeaders.append('Authorization', `Bearer ${token}`);
+  const response = await fetch(`/api${path}`, {
+    method: 'GET',
+    headers: myHeaders,
+  });
+  return <T>await response.json();
+}
+
+async function getHESSurveys(siteId: string): Promise<HESDefectItemSummary[]> {
+  // FIXME: why do we limit the inspection type?
+  // &inspection_type=evHLFInsp
+  const result = await getFromHES<HESDefectsResponse>(
+    `/picams-external/list_defects?site_code=${siteId}&limit=100000`,
+  );
+  const risks = await getFromHES<{
+    items: {
+      code: string;
+      code_text: string;
+      description: string;
+    }[];
+  }>('/picams-external/list_lkup?code_type=DEFECT_IDENTIFIED_RISK_RATING');
+  return result['items']
+    .filter(
+      (s) => s.lat_degrees && s.long_degrees && s.elevation && s.updated_dt,
+    )
+    .map((s) => {
+      const rating = String(s.fall_consequence * s.fall_probability);
+      const riskInfo = risks.items.find((i) => i.code === rating);
+      return {
+        id: s.defect_id.toString(),
+        // FIXME: flatten and convert to radians?
+        coordinates: [s.long_degrees, s.lat_degrees, s.elevation],
+        lastModifiedMs: new Date(s.updated_dt).getTime(),
+        identifiedRiskRating: riskInfo.code_text,
+      };
+    });
+}
+
+async function getInspectionActions() {
+  const result = await getFromHES<{
+    items: {
+      identified_risk_rating: string;
+      identified_risk_rating_code: string;
+      inspection_action: {
+        code: string;
+        code_text: string;
+      }[];
+    }[];
+  }>(`/picams-external/inspection_action`);
+  return Object.fromEntries(
+    result.items.map((i) => [
+      i.identified_risk_rating_code,
+      i.inspection_action.map((a) => ({
+        label: a.code_text,
+        value: a.code,
+      })),
+    ]),
+  );
+}
+
+async function getHESSurvey(defectId: string): Promise<HESDefectItem> {
+  const result = await getFromHES<HESDefectsResponse>(
+    `/picams-external/defect?defect_id=${defectId}`,
+  );
+  const s = result['items'][0];
+  const identifiedRiskRating = String(s.fall_consequence * s.fall_probability);
+  let defectTag = '';
+  if (s.defect_tags?.length) {
+    if (typeof s.defect_tags === 'string') {
+      try {
+        const defectTags: string[] = <string[]>JSON.parse(s.defect_tags);
+        defectTag = defectTags[0];
+      } catch (e) {
+        console.error('Error during defect tags parse:', e);
+      }
+    } else if (Array.isArray(s.defect_tags)) {
+      defectTag = s.defect_tags[0];
+    }
+  }
+  const ratings = await getIdentifiedRiskRating();
+  const rating = ratings.items.find((r) => r.code === identifiedRiskRating);
+  return {
+    id: s.defect_id.toString(),
+    hlfDefectId: s.hlf_defect_id,
+    siteName: s.site_name,
+    siteCode: s.site_code,
+    reporter: s.reporter,
+    dateRecorded: s.date_recorded.replace('Z', ''),
+    defectStatus: s.defect_status_code,
+    defectMaterial: s.material_code,
+    defectTag,
+    defectNotes: s.notes,
+    fallProbability: String(s.fall_probability),
+    fallConsequence: String(s.fall_consequence),
+    inspectionAction: s.inspection_action_code,
+    identifiedRiskRatingDescription: `${rating.code_text}, ${rating.description}`,
+    identifiedRiskRatingText: rating.code_text,
+    // FIXME: flatten and convert to radians?
+    coordinates: [s.long_degrees, s.lat_degrees, s.elevation],
+    lastModifiedMs: new Date(s.updated_dt).getTime(),
+  };
+}
+
+async function getHESFieldOptions(type: string) {
+  const result = await getFromHES<{
+    items: {
+      code: string;
+      code_text: string;
+    }[];
+  }>(`/picams-external/list_lkup?code_type=${type}`);
+  return result.items.map((item) => ({
+    label: item.code_text,
+    value: item.code,
+  }));
+}
+
+async function getIdentifiedRiskRating() {
+  return await getFromHES<{
+    items: {
+      code: string;
+      code_text: string;
+      description?: string;
+    }[];
+  }>('/picams-external/list_lkup?code_type=DEFECT_IDENTIFIED_RISK_RATING');
+}
+
+async function getIdentifiedRiskRatingsDescription() {
+  const result = await getIdentifiedRiskRating();
+  return Object.fromEntries(
+    result.items.map((i) => [i.code, `${i.code_text}, ${i.description}`]),
+  );
+}
+
+async function getIdentifiedRiskRatingTexts() {
+  const result = await getIdentifiedRiskRating();
+  return Object.fromEntries(result.items.map((i) => [i.code, i.code_text]));
+}
+
+async function getHESDefectTags() {
+  const res = await getFromHES<HESDefectTagResponse>(
+    `/picams-external/defect_tag`,
+  );
+  return Object.fromEntries(
+    res.items.map((i) => [
+      i.material_code,
+      i.defect_tags.map((item) => ({
+        label: item.code_text,
+        value: item.code,
+      })),
+    ]),
+  );
+}
+
+function getRiskColor(identifiedRiskRating: string) {
+  switch (identifiedRiskRating) {
+    case 'Low':
+      return '#008000';
+    case 'Medium':
+      return '#ffff00';
+    case 'High':
+      return '#ff0000';
+    default:
+      return '#808080';
+  }
+}
+
+export const config: ISurveyConfig<ItemSummary, HESDefectItem> = {
   languages: ['en'],
   header: {
     title: {
@@ -8,111 +342,215 @@ export const config: ISurveyConfig = {
     },
   },
   app: {
-    survey: [
-      {
-        id: 'survey-id',
-        type: 'id',
+    survey: {
+      async listItems(context) {
+        const {id} = context;
+        if (!id) {
+          throw new Error('Missing id in context');
+        }
+        // move function in this file
+        return getHESSurveys(id);
       },
-      {
-        id: 'coords-field',
-        type: 'coordinates',
+      async getItem(context: Context) {
+        // move function in this file
+        return getHESSurvey(context?.id);
       },
-      {
-        id: 'survey-summary',
-        type: 'input',
-        inputType: 'text',
-        required: true,
-        label: 'Summary',
-        placeholder: 'Summary',
-        min: 1,
-        max: 50,
+      fieldsToItem(_: FieldValues) {
+        throw new Error('not implemented');
       },
-      {
-        id: 'survey-date',
-        type: 'input',
-        label: 'Date',
-        inputType: 'date',
-        required: true,
-        min: '2025-01-01',
-      },
-      {
-        id: 'survey-description',
-        type: 'textarea',
-        required: false,
-        label: 'Description',
-        placeholder: 'Describe a problem',
-        min: 1,
-        max: 200,
-      },
-      {
-        id: 'survey-select',
-        type: 'select',
-        label: 'Defect type',
-        required: true,
-        options: [
-          {
-            label: 'Type 1',
-            value: 's1',
+      itemToFields(item: HESDefectItem) {
+        const c = item.coordinates;
+        const values: FieldValues = {
+          id: item.id,
+          hlfDefectId: item.hlfDefectId,
+          siteCode: item.siteCode,
+          siteName: item.siteName,
+          reporter: item.reporter,
+          dateRecorded: item.dateRecorded,
+          defectStatus: item.defectStatus,
+          defectMaterial: item.defectMaterial,
+          defectTag: item.defectTag,
+          defectNotes: item.defectNotes,
+          fallProbability: item.fallProbability,
+          fallConsequence: item.fallConsequence,
+          identifiedRiskRatingDescription: item.identifiedRiskRatingDescription,
+          inspectionAction: item.inspectionAction,
+          coordinates: {
+            longitude: c[0],
+            latitude: c[1],
+            height: c[2],
           },
-          {
-            label: 'Type 2',
-            value: 's2',
-          },
-        ],
+        };
+        return values;
       },
-      {
-        id: 'survey-radio',
-        type: 'radio',
-        label: 'Priority',
-        defaultValue: 'r1',
-        options: [
-          {
-            label: 'Low',
-            value: 'r1',
+      fields: [
+        {
+          id: 'siteCode',
+          label: 'Site code',
+          type: 'readonly',
+        },
+        {
+          id: 'siteName',
+          label: 'Site name',
+          type: 'readonly',
+        },
+        {
+          id: 'id',
+          label: 'Defect ID',
+          type: 'id',
+        },
+        {
+          id: 'hlfDefectId',
+          label: 'HLF Defect ID',
+          type: 'readonly',
+        },
+        {
+          id: 'reporter',
+          label: 'Reporter',
+          type: 'readonly',
+        },
+        {
+          id: 'dateRecorded',
+          type: 'input',
+          label: 'Date',
+          inputType: 'datetime-local',
+          required: true,
+        },
+        {
+          id: 'defectStatus',
+          type: 'radio',
+          label: 'Status',
+          defaultValue: 'open',
+          required: true,
+          options: getHESFieldOptions.bind(undefined, 'DEFECT_STATUS'),
+        },
+        {
+          id: 'defectMaterial',
+          type: 'select',
+          label: 'Defect material',
+          required: true,
+          options: getHESFieldOptions.bind(undefined, 'DEFECT_MATERIAL'),
+        },
+        {
+          id: 'defectTag',
+          type: 'select',
+          label: 'Defect tag',
+          required: true,
+          options: getHESDefectTags.bind(undefined),
+          keyPropId: 'defectMaterial',
+        },
+        {
+          id: 'defectNotes',
+          type: 'textarea',
+          required: false,
+          label: 'Description of defect',
+          placeholder: 'Optional free text',
+        },
+        {
+          id: 'fallProbability',
+          type: 'select',
+          label: 'Fall probability',
+          required: true,
+          options: [
+            {
+              label: 'Fabric fall highly unlikely',
+              value: '1',
+            },
+            {
+              label: 'Fabric fall unlikely',
+              value: '2',
+            },
+            {
+              label: 'Fabric fall likely',
+              value: '3',
+            },
+            {
+              label: 'Fabric fall highly likely',
+              value: '4',
+            },
+            {
+              label: 'Fabric fall almost certain',
+              value: '5',
+            },
+          ],
+        },
+        {
+          id: 'fallConsequence',
+          type: 'select',
+          label: 'Fall consequence',
+          required: true,
+          options: [
+            {
+              label: 'No injury',
+              value: '1',
+            },
+            {
+              label: 'Minor injury',
+              value: '2',
+            },
+            {
+              label: 'Moderate injury',
+              value: '3',
+            },
+            {
+              label: 'Major injury',
+              value: '4',
+            },
+            {
+              label: 'Fatal or life-altering injury',
+              value: '5',
+            },
+          ],
+        },
+        {
+          id: 'identifiedRiskRatingDescription',
+          type: 'readonly',
+          label: 'Identified risk rating',
+          options: getIdentifiedRiskRatingsDescription.bind(undefined),
+          keyCallback: (item: HESDefectItem): string => {
+            const rating =
+              Number(item.fallConsequence) * Number(item.fallProbability);
+            return rating ? String(rating) : '';
           },
-          {
-            label: 'Medium',
-            value: 'r2',
+        },
+        {
+          id: 'identifiedRiskRatingText',
+          type: 'readonly',
+          hidden: true,
+          options: getIdentifiedRiskRatingTexts.bind(undefined),
+          keyCallback: (item: HESDefectItem): string => {
+            const rating =
+              Number(item.fallConsequence) * Number(item.fallProbability);
+            return rating ? String(rating) : '';
           },
-          {
-            label: 'High',
-            value: 'r3',
+        },
+        {
+          id: 'identifiedRiskRatingColor',
+          type: 'input',
+          inputType: 'color',
+          disabled: true,
+          valueCallback: (item: FieldValues): string => {
+            return getRiskColor(<string>item.identifiedRiskRatingText);
           },
-        ],
-      },
-      {
-        id: 'survey-checkbox',
-        type: 'checkbox',
-        label: 'Choose options (at least one)',
-        required: true,
-        options: [
-          {
-            label: 'Option 1',
-            value: 'c1',
-            checked: false,
+        },
+        {
+          id: 'inspectionAction',
+          type: 'select',
+          label: 'Inspection action',
+          required: true,
+          options: getInspectionActions.bind(undefined),
+          keyCallback: (item: FieldValues): string => {
+            const rating =
+              Number(item.fallConsequence) * Number(item.fallProbability);
+            return rating ? String(rating) : '';
           },
-          {
-            label: 'Option 2',
-            value: 'c2',
-            checked: false,
-          },
-          {
-            label: 'Option 3',
-            value: 'c3',
-            checked: false,
-          },
-        ],
-      },
-      {
-        id: 'survey-file',
-        type: 'file',
-        mainBtnText: 'Attach photo',
-        urlInput: false,
-        fileInput: true,
-        uploadBtnText: 'Upload',
-        accept: 'image/*',
-      },
-    ],
+        },
+        {
+          id: 'coordinates',
+          type: 'coordinates',
+        },
+      ],
+    },
     cesiumContext: {
       ionDefaultAccessToken:
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIxMWU4YzQzNC00NzMxLTQ0NzktYTFlYi01NjMyMDgwMTMyY2EiLCJpZCI6MjI2NjUyLCJpYXQiOjE3MzkxODcxNTZ9.OJJ_pdI3WDMLO3W4vYWA1aW20DilQ2nyocgItAWPs-g',
@@ -136,6 +574,25 @@ export const config: ISurveyConfig = {
         },
       },
       views: [
+        {
+          id: 'PIC142',
+          positions: [
+            [-2.3748860169453025, 55.93951576485856],
+            [-2.3755178087172557, 55.939443714659156],
+            [-2.375594995947313, 55.93965025820549],
+            [-2.3749574866027636, 55.9397255102316],
+          ],
+          height: 40,
+          elevation: 0,
+          flyDuration: 2,
+          title: 'Dunglass Collegiate Church',
+          fovAngle: 45,
+          tiles3d: [],
+          offline: {
+            rectangle: [-5.51792, 57.273, -5.51372, 57.27516],
+            imageryMaxLevel: 16,
+          },
+        },
         {
           id: 'eilean-donan-castle',
           positions: [
@@ -204,6 +661,12 @@ export const config: ISurveyConfig = {
         infoFilename: 'offline-info',
         tiles3dSubdir: 'tiles3d',
         imagerySubdir: 'imageries',
+      },
+      surveyOptions: {
+        pointOptions: {
+          colorCallback: (values: HESDefectItemSummary) =>
+            Color.fromCssColorString(getRiskColor(values.identifiedRiskRating)),
+        },
       },
     },
   },

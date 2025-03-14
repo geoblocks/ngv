@@ -1,7 +1,17 @@
+import type {FieldValues} from '../../utils/generalTypes.js';
+
+export type LabelValue = {
+  label: string;
+  value: string;
+  checked?: boolean;
+};
+
+type DefaultValueFunction = (...args: any[]) => string;
+
 type SurveyFieldBase = {
   required?: boolean;
   label?: string;
-  defaultValue?: string;
+  defaultValue?: string | DefaultValueFunction;
   id: string;
 };
 
@@ -10,7 +20,9 @@ export type SurveyInput = SurveyFieldBase & {
   placeholder?: string;
   min?: number | string;
   max?: number | string;
-  inputType?: 'text' | 'number' | 'date';
+  inputType?: 'text' | 'number' | 'date' | 'datetime-local' | 'color';
+  valueCallback?: (value: FieldValues) => string;
+  disabled?: boolean;
 };
 
 export type SurveyTextarea = Omit<SurveyInput, 'type' | 'inputType'> & {
@@ -18,20 +30,30 @@ export type SurveyTextarea = Omit<SurveyInput, 'type' | 'inputType'> & {
   rows?: number;
 };
 
+export type FieldOptions = LabelValue[] | Record<string, LabelValue[]>;
+
+type OptionsFunction = () => Promise<FieldOptions>;
+
 export type SurveySelect = SurveyFieldBase & {
   type: 'select';
-  options: {label: string; value: string}[];
+  options?: FieldOptions | OptionsFunction;
+  keyPropId?: string;
+  keyCallback?: (value: FieldValues) => string;
 };
 
 export type SurveyRadio = Omit<SurveyFieldBase, 'defaultValue'> & {
   type: 'radio';
   defaultValue: string;
-  options: {label: string; value: string}[];
+  options?: FieldOptions | OptionsFunction;
+  keyPropId?: string;
+  keyCallback?: (value: FieldValues) => string;
 };
 
 export type SurveyCheckbox = Omit<SurveyFieldBase, 'defaultValue'> & {
   type: 'checkbox';
-  options: {label: string; value: string; checked: boolean}[];
+  options?: FieldOptions | OptionsFunction;
+  keyPropId?: string;
+  keyCallback?: (value: FieldValues) => string;
 };
 
 export type SurveyCoords = SurveyFieldBase & {
@@ -50,6 +72,17 @@ export type SurveyFile = Omit<SurveyFieldBase, 'defaultValue'> & {
 
 export type SurveyId = Omit<SurveyFieldBase, 'required' | 'defaultValue'> & {
   type: 'id';
+  hidden?: boolean;
+};
+
+type ReadonlyOptionsFunction = () => Promise<Record<string, string>>;
+
+export type SurveyReadonly = Omit<SurveyFieldBase, 'required'> & {
+  type: 'readonly';
+  options?: Record<string, string> | ReadonlyOptionsFunction;
+  keyPropId?: string;
+  keyCallback?: (...args: any[]) => string;
+  hidden?: boolean;
 };
 
 export type SurveyField =
@@ -60,4 +93,5 @@ export type SurveyField =
   | SurveyCheckbox
   | SurveyCoords
   | SurveyFile
-  | SurveyId;
+  | SurveyId
+  | SurveyReadonly;

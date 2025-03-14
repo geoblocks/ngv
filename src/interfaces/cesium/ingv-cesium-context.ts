@@ -1,9 +1,11 @@
 import type {
   CesiumWidget,
+  Color,
   Globe,
   HeightReference,
   HorizontalOrigin,
   LabelStyle,
+  Property,
   VerticalOrigin,
 } from '@cesium/engine';
 import type {INGVCatalog} from './ingv-catalog.js';
@@ -110,7 +112,8 @@ export interface IngvCesiumContext {
   };
   surveyOptions?: {
     pointOptions?: {
-      color?: string;
+      color?: string | Property;
+      colorCallback?: (...args: any[]) => Color;
       outlineWidth?: number;
       outlineColor?: string;
       pixelSize?: number;
