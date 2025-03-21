@@ -7,7 +7,7 @@ export default defineConfig({
     strictPort: true,
     port: 1234,
     proxy: {
-      '/api': {
+      '/api_hes': {
         target: 'https://testext-oracle.hes.scot/apex/hes',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ''),

@@ -15,6 +15,11 @@ server {
 
   gzip_types application/javascript text/css application/json;
 
+  location /hes_api/ {
+      # avoid CORS issues
+      proxy_pass https://testext-oracle.hes.scot/apex/hes/;
+  }
+
 
   location / {
 # root and alias cannot be use here, because we need to access common files at the root

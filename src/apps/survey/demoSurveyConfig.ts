@@ -7,6 +7,8 @@ import type {
 import {Color} from '@cesium/engine';
 
 // todo cors issue
+// const prefix = 'https://testext-oracle.hes.scot/apex/hes';
+const prefix = '/hes_api';
 
 type HESTokenResponse = {
   access_token: string;
@@ -151,7 +153,7 @@ async function getHESBearerToken(): Promise<string> {
 
   const urlencoded = new URLSearchParams();
   urlencoded.append('grant_type', 'client_credentials');
-  const response = await fetch('/api/oauth/token', {
+  const response = await fetch(`${prefix}/oauth/token`, {
     method: 'POST',
     headers: headers,
     body: urlencoded,
@@ -169,7 +171,7 @@ async function getFromHES<T>(path: string): Promise<T> {
   const token = await getHESBearerToken();
   const myHeaders = new Headers();
   myHeaders.append('Authorization', `Bearer ${token}`);
-  const response = await fetch(`/api${path}`, {
+  const response = await fetch(`${prefix}${path}`, {
     method: 'GET',
     headers: myHeaders,
   });
