@@ -270,14 +270,23 @@ export class NgvAppSurvey extends ABaseApp<typeof config> {
     if (idField) {
       this.surveyFieldValues[idField.id] = this.lastPoint.id;
     }
-    const coordsFiled = this.config.app.survey.fields.find(
+    const coordsField = this.config.app.survey.fields.find(
       (f) => f.type === 'coordinates',
     );
-    if (coordsFiled) {
-      this.surveyFieldValues[coordsFiled.id] = {
+    if (coordsField) {
+      this.surveyFieldValues[coordsField.id] = {
         ...detail.wgs84,
         height: Number(detail.elevation.toFixed(2)),
       };
+    }
+    const requiredDateField = this.config.app.survey.fields.find(
+      (f) =>
+        f.type === 'input' && f.inputType === 'datetime-local' && f.required,
+    );
+    if (requiredDateField) {
+      this.surveyFieldValues[requiredDateField.id] = new Date()
+        .toISOString()
+        .split('.')[0];
     }
   }
 
