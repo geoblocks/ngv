@@ -555,7 +555,7 @@ export const config: ISurveyConfig<ItemSummary, HESDefectItem> = {
     },
     cesiumContext: {
       ionDefaultAccessToken:
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIxMWU4YzQzNC00NzMxLTQ0NzktYTFlYi01NjMyMDgwMTMyY2EiLCJpZCI6MjI2NjUyLCJpYXQiOjE3MzkxODcxNTZ9.OJJ_pdI3WDMLO3W4vYWA1aW20DilQ2nyocgItAWPs-g',
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJhYWI5OThhNS04YmFhLTQxNmQtOGZjMC1iNDNmMTNlMmYwYzkiLCJpZCI6MjY5NDg1LCJpYXQiOjE3MzcwMzgyNzl9.ruI2nAUv00XwzUSNqf7pX5yip6l89eAyF0FmZbmlrpY',
       name: 'survey',
       catalogs: {
         '@cesium': () => import('../../catalogs/cesiumCatalog.js'),
@@ -579,17 +579,17 @@ export const config: ISurveyConfig<ItemSummary, HESDefectItem> = {
         {
           id: 'PIC142',
           positions: [
-            [-2.3748860169453025, 55.93951576485856],
-            [-2.3755178087172557, 55.939443714659156],
-            [-2.375594995947313, 55.93965025820549],
-            [-2.3749574866027636, 55.9397255102316],
+            [-2.3755, 55.93941],
+            [-2.37556, 55.93963],
+            [-2.37498, 55.93968],
+            [-2.37493, 55.93945],
           ],
-          height: 40,
-          elevation: 0,
+          height: 16,
+          elevation: 65,
           flyDuration: 2,
           title: 'Dunglass Collegiate Church',
           fovAngle: 45,
-          tiles3d: [],
+          tiles3d: ['@cesium/dunglass'],
           offline: {
             rectangle: [-5.51792, 57.273, -5.51372, 57.27516],
             imageryMaxLevel: 16,

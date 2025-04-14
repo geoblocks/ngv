@@ -216,7 +216,8 @@ export class NgvPluginCesiumNavigation extends LitElement {
           material: v.highlightColor
             ? Color.fromCssColorString(v.highlightColor)
             : Color.RED.withAlpha(0.6),
-          extrudedHeight: v.height,
+          extrudedHeight: v.elevation + v.height,
+          height: v.elevation,
         },
       }),
     );

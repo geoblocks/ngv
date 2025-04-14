@@ -21,11 +21,15 @@ export const catalog: INGVCatalog = {
     },
     castle: {
       type: '3dtiles',
-      url: 3070271,
+      url: 2980529,
     },
     castle2: {
       type: '3dtiles',
-      url: 3070274,
+      url: 3008675,
+    },
+    dunglass: {
+      type: '3dtiles',
+      url: 3300571,
     },
     // to complete
   },
