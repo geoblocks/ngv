@@ -584,7 +584,7 @@ export const config: ISurveyConfig<ItemSummary, HESDefectItem> = {
             [-2.37498, 55.93968],
             [-2.37493, 55.93945],
           ],
-          height: 16,
+          height: 17,
           elevation: 65,
           flyDuration: 2,
           title: 'Dunglass Collegiate Church',
