@@ -106,7 +106,7 @@ export class NgvPluginCesiumClickInfo extends LitElement {
     const globElev =
       this.viewer.scene.globe.getHeight(cartographicPosition) || 0;
     const distToTerrain = elevation - globElev;
-    const wgs84Text = `${longitude.toFixed(5)},  ${latitude.toFixed(5)}`;
+    const wgs84Text = `${longitude.toFixed(8)},  ${latitude.toFixed(8)}`;
     const elevationText = `${elevation.toFixed(2)}m`;
     const distToTerrainText = `${distToTerrain.toFixed(2)}m`;
     let projectedText = '';

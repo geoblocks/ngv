@@ -29,7 +29,7 @@ export const catalog: INGVCatalog = {
     },
     dunglass: {
       type: '3dtiles',
-      url: 3300571,
+      url: 3309935,
     },
     // to complete
   },
