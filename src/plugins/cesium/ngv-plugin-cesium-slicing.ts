@@ -1,5 +1,5 @@
 import {customElement, property, state} from 'lit/decorators.js';
-import {css, html, type HTMLTemplateResult, LitElement} from 'lit';
+import {html, type HTMLTemplateResult, LitElement} from 'lit';
 import type {
   Cesium3DTileset,
   CesiumWidget,
@@ -28,6 +28,7 @@ import type {StoredClipping} from './localStore.js';
 import {getStoredClipping, updateClippingInLocalStore} from './localStore.js';
 import type {IngvCesiumContext} from '../../interfaces/cesium/ingv-cesium-context.js';
 import {Task} from '@lit/task';
+import {classMap} from 'lit/directives/class-map.js';
 
 export type ClippingData = {
   clipping: ClippingPolygon;
@@ -59,39 +60,12 @@ export class NgvPluginCesiumSlicing extends LitElement {
   private terrainClippingEnabled: boolean = true;
   @state()
   private tilesClippingEnabled: boolean = true;
+  @state()
+  private active: boolean = false;
   private draw: CesiumDraw;
   private slicingDataSource: CustomDataSource = new CustomDataSource();
   private drawDataSource: CustomDataSource = new CustomDataSource();
   private julianDate = new JulianDate();
-
-  static styles = css`
-    button {
-      border-radius: 4px;
-      padding: 0 16px;
-      height: 40px;
-      cursor: pointer;
-      background-color: white;
-      border: 1px solid rgba(0, 0, 0, 0.16);
-      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05);
-      transition: background-color 200ms;
-    }
-
-    .slicing-container {
-      display: flex;
-      flex-direction: column;
-      margin-left: auto;
-      margin-right: auto;
-      padding: 10px;
-      gap: 10px;
-      border-radius: 4px;
-      border: 1px solid rgba(0, 0, 0, 0.16);
-      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05);
-    }
-
-    .add-slicing-btn {
-      width: 100%;
-    }
-  `;
 
   // @ts-expect-error TS6133
   private _changeViewTask = new Task(this, {
@@ -299,133 +273,169 @@ export class NgvPluginCesiumSlicing extends LitElement {
     this.removeTilesClipping(clippingPolygon);
   }
 
+  cancel(): void {
+    if (this.draw?.entityForEdit) {
+      this.applyClipping(this.editingClipping);
+    }
+    this.draw.active = false;
+    this.draw.clear();
+    this.requestUpdate();
+  }
+
   render(): HTMLTemplateResult | string {
-    return html`<div class="slicing-container">
-      <button
-        class="add-slicing-btn"
-        .hidden=${this.draw?.active}
-        @click=${() => this.addClippingPolygon()}
+    return html` <wa-button
+        class="${classMap({
+          'ngv-active': this.active,
+        })}"
+        appearance="filled"
+        @click=${() => {
+          this.active = !this.active;
+          if (this.draw?.active) {
+            this.cancel();
+          }
+        }}
       >
-        ${msg('Choose region to hide')}
-      </button>
-      ${this.draw?.active
-        ? html` <ngv-layer-details
-            .layer="${{
-              name: this.activePolygon?.name,
-              clippingOptions:
-                this.terrainClippingEnabled && this.tilesClippingEnabled
-                  ? {
-                      terrainClipping: this.activePolygon
-                        ? <boolean>(
-                            (<ConstantProperty>(
-                              this.activePolygon.properties.terrainClipping
-                            )).getValue()
-                          )
-                        : true,
-                      tilesClipping: this.activePolygon
-                        ? <boolean>(
-                            (<ConstantProperty>(
-                              this.activePolygon.properties.tilesClipping
-                            )).getValue()
-                          )
-                        : true,
-                    }
-                  : undefined,
-            }}"
-            .showDone=${this.draw?.entityForEdit}
-            .showCancel=${true}
-            @clippingChange=${(evt: {detail: ClippingChangeDetail}) => {
-              this.activePolygon.properties.terrainClipping =
-                new ConstantProperty(evt.detail.terrainClipping);
-              this.activePolygon.properties.tilesClipping =
-                new ConstantProperty(evt.detail.tilesClipping);
-            }}
-            @done="${() => {
-              if (this.draw.entityForEdit) {
-                const positions: Cartesian3[] = (<PolygonHierarchy>(
-                  this.draw.entityForEdit.polygon.hierarchy.getValue(
-                    this.julianDate,
-                  )
-                )).positions;
-                this.editingClipping.entity.polygon.hierarchy =
-                  new ConstantProperty(new PolygonHierarchy(positions));
-                this.editingClipping.clipping = new ClippingPolygon({
-                  positions,
-                });
-                this.applyClipping(this.editingClipping);
-                this.activePolygon = undefined;
-                this.draw.active = false;
-                this.draw.clear();
-                this.requestUpdate();
-                this.saveToLocalStore();
-              }
-            }}"
-            @cancel="${() => {
-              if (this.draw?.entityForEdit) {
-                this.applyClipping(this.editingClipping);
-              }
-              this.draw.active = false;
-              this.draw.clear();
-              this.requestUpdate();
-            }}"
-          ></ngv-layer-details>`
-        : html` <ngv-layers-list
-            .options="${{
-              title: msg('Clipping polygons'),
-              showDeleteBtns: true,
-              showZoomBtns: true,
-              showEditBtns: true,
-            }}"
-            .layers=${this.clippingPolygons.map((c) => {
-              return {name: c.entity.name};
-            })}
-            @remove=${(evt: {detail: number}) => {
-              const polygonToRemove = this.clippingPolygons[evt.detail];
-              if (polygonToRemove) {
-                this.slicingDataSource.entities.removeById(
-                  polygonToRemove.entity.id,
-                );
-                this.removeClipping(polygonToRemove.clipping);
-                this.clippingPolygons.splice(evt.detail, 1);
-                this.requestUpdate();
-                this.saveToLocalStore();
-              }
-            }}
-            @zoom=${(evt: {detail: number}) => {
-              const entToZoom = this.clippingPolygons[evt.detail]?.entity;
-              if (entToZoom) {
-                entToZoom.show = true;
-                this.viewer
-                  .flyTo(entToZoom, {
-                    duration: 0,
-                  })
-                  .then(() => (entToZoom.show = false))
-                  .catch((e: Error) => console.error(e));
-              }
-            }}
-            @edit=${(evt: {detail: number}) => {
-              const polToEdit = this.clippingPolygons[evt.detail];
-              if (polToEdit) {
-                this.editingClipping = polToEdit;
-                this.removeClipping(polToEdit.clipping);
-                this.draw.type = 'polygon';
-                this.activePolygon = polToEdit.entity;
-                this.draw.entityForEdit = this.drawDataSource.entities.add(
-                  new Entity({polygon: polToEdit.entity.polygon.clone()}),
-                );
-                this.draw.active = true;
-                this.requestUpdate();
-              }
-            }}
-            @zoomEnter=${(e: {detail: number}) => {
-              const entToZoom = this.clippingPolygons[e.detail]?.entity;
-              if (entToZoom) entToZoom.show = true;
-            }}
-            @zoomOut=${(e: {detail: number}) => {
-              const entToZoom = this.clippingPolygons[e.detail]?.entity;
-              if (entToZoom) entToZoom.show = false;
-            }}
-          ></ngv-layers-list>`}
-    </div>`;
+        <wa-icon src="../../../icons/slice.svg"></wa-icon>
+      </wa-button>
+      <div
+        class="ngv-submenu-overlay ${classMap({
+          'wa-visually-hidden': !this.active,
+        })}"
+      >
+        ${this.draw?.active
+          ? html`<ngv-layer-details
+              .layer="${{
+                name: this.activePolygon?.name,
+                clippingOptions:
+                  this.terrainClippingEnabled && this.tilesClippingEnabled
+                    ? {
+                        terrainClipping: this.activePolygon
+                          ? <boolean>(
+                              (<ConstantProperty>(
+                                this.activePolygon.properties.terrainClipping
+                              )).getValue()
+                            )
+                          : true,
+                        tilesClipping: this.activePolygon
+                          ? <boolean>(
+                              (<ConstantProperty>(
+                                this.activePolygon.properties.tilesClipping
+                              )).getValue()
+                            )
+                          : true,
+                      }
+                    : undefined,
+              }}"
+              .showDone=${this.draw?.entityForEdit}
+              .showCancel=${true}
+              @clippingChange=${(evt: {detail: ClippingChangeDetail}) => {
+                if (typeof evt.detail.terrainClipping === 'boolean') {
+                  this.activePolygon.properties.terrainClipping =
+                    new ConstantProperty(evt.detail.terrainClipping);
+                }
+
+                if (typeof evt.detail.tilesClipping === 'boolean') {
+                  this.activePolygon.properties.tilesClipping =
+                    new ConstantProperty(evt.detail.tilesClipping);
+                }
+              }}
+              @done="${() => {
+                if (this.draw.entityForEdit) {
+                  const positions: Cartesian3[] = (<PolygonHierarchy>(
+                    this.draw.entityForEdit.polygon.hierarchy.getValue(
+                      this.julianDate,
+                    )
+                  )).positions;
+                  this.editingClipping.entity.polygon.hierarchy =
+                    new ConstantProperty(new PolygonHierarchy(positions));
+                  this.editingClipping.clipping = new ClippingPolygon({
+                    positions,
+                  });
+                  this.applyClipping(this.editingClipping);
+                  this.activePolygon = undefined;
+                  this.draw.active = false;
+                  this.draw.clear();
+                  this.requestUpdate();
+                  this.saveToLocalStore();
+                }
+              }}"
+              @cancel="${() => this.cancel()}"
+            ></ngv-layer-details>`
+          : html`<wa-card with-header>
+              <div slot="header">
+                <wa-icon src="../../../icons/slice.svg"></wa-icon>${msg(
+                  'Clipping polygons',
+                )}
+                <wa-button
+                  size="small"
+                  appearance="filled"
+                  style="margin-left: auto;"
+                  @click=${() => this.addClippingPolygon()}
+                >
+                  <wa-icon name="plus"></wa-icon
+                ></wa-button>
+              </div>
+              <ngv-layers-list
+                .options="${{
+                  showDeleteBtns: true,
+                  showZoomBtns: true,
+                  showEditBtns: true,
+                }}"
+                .layers=${this.clippingPolygons.map((c) => {
+                  return {name: c.entity.name};
+                })}
+                @remove=${(evt: {detail: number}) => {
+                  const polygonToRemove = this.clippingPolygons[evt.detail];
+                  if (polygonToRemove) {
+                    this.slicingDataSource.entities.removeById(
+                      polygonToRemove.entity.id,
+                    );
+                    this.removeClipping(polygonToRemove.clipping);
+                    this.clippingPolygons.splice(evt.detail, 1);
+                    this.requestUpdate();
+                    this.saveToLocalStore();
+                  }
+                }}
+                @zoom=${(evt: {detail: number}) => {
+                  const entToZoom = this.clippingPolygons[evt.detail]?.entity;
+                  if (entToZoom) {
+                    entToZoom.show = true;
+                    this.viewer
+                      .flyTo(entToZoom, {
+                        duration: 0,
+                      })
+                      .then(() => (entToZoom.show = false))
+                      .catch((e: Error) => console.error(e));
+                  }
+                }}
+                @edit=${(evt: {detail: number}) => {
+                  const polToEdit = this.clippingPolygons[evt.detail];
+                  if (polToEdit) {
+                    this.editingClipping = polToEdit;
+                    this.removeClipping(polToEdit.clipping);
+                    this.draw.type = 'polygon';
+                    this.activePolygon = polToEdit.entity;
+                    this.draw.entityForEdit = this.drawDataSource.entities.add(
+                      new Entity({polygon: polToEdit.entity.polygon.clone()}),
+                    );
+                    this.draw.active = true;
+                    this.requestUpdate();
+                  }
+                }}
+                @zoomEnter=${(e: {detail: number}) => {
+                  const entToZoom = this.clippingPolygons[e.detail]?.entity;
+                  if (entToZoom) entToZoom.show = true;
+                }}
+                @zoomOut=${(e: {detail: number}) => {
+                  const entToZoom = this.clippingPolygons[e.detail]?.entity;
+                  if (entToZoom) entToZoom.show = false;
+                }}
+              ></ngv-layers-list>
+            </wa-card>`}
+      </div>`;
+  }
+
+  createRenderRoot(): this {
+    return this;
   }
 }

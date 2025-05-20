@@ -422,7 +422,7 @@ export const config: ISurveyConfig<ItemSummary, HESDefectItem> = {
           id: 'defectStatus',
           type: 'radio',
           label: 'Status',
-          defaultValue: 'open',
+          defaultValue: 'dsOpen',
           required: true,
           options: getHESFieldOptions.bind(undefined, 'DEFECT_STATUS'),
         },
@@ -528,8 +528,7 @@ export const config: ISurveyConfig<ItemSummary, HESDefectItem> = {
         },
         {
           id: 'identifiedRiskRatingColor',
-          type: 'input',
-          inputType: 'color',
+          type: 'color',
           disabled: true,
           valueCallback: (item: FieldValues): string => {
             return getRiskColor(<string>item.identifiedRiskRatingText);

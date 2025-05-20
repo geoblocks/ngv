@@ -35,6 +35,11 @@ export class NgvPluginCesiumWidget extends LitElement {
   static styles = [
     unsafeCSS(style),
     css`
+      :host {
+        position: fixed;
+        width: 100%;
+        height: 100%;
+      }
       #globe {
         width: 100%;
         height: 100%;
