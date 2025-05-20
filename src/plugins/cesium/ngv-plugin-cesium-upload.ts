@@ -164,6 +164,10 @@ export class NgvPluginCesiumUpload extends LitElement {
       }}"
     ></ngv-upload>`;
   }
+
+  createRenderRoot(): this {
+    return this;
+  }
 }
 
 declare global {
