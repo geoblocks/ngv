@@ -1,5 +1,5 @@
 import {customElement, property, state} from 'lit/decorators.js';
-import {css, html, LitElement} from 'lit';
+import {html, type HTMLTemplateResult, LitElement} from 'lit';
 import {msg} from '@lit/localize';
 import {
   getJson,
@@ -54,63 +54,6 @@ export class NgvPluginCesiumOffline extends LitElement {
   offline: boolean = false;
   @state()
   loading: boolean = false;
-
-  static styles = css`
-    div {
-      border-radius: 4px;
-      padding: 10px;
-      background-color: white;
-      border: 1px solid rgba(0, 0, 0, 0.16);
-      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05);
-      display: flex;
-      column-gap: 10px;
-    }
-
-    div span {
-      display: flex;
-      align-items: center;
-      user-select: none;
-    }
-
-    button {
-      border-radius: 4px;
-      padding: 10px;
-      cursor: pointer;
-      border: 1px solid rgba(0, 0, 0, 0.16);
-      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05);
-      transition: background-color 200ms;
-      align-items: center;
-      justify-content: center;
-      background-color: lightgreen;
-    }
-
-    button.offline {
-      background-color: lightcoral;
-    }
-
-    .loading {
-      margin-left: 10px;
-      -webkit-animation: spin 4s linear infinite;
-      -moz-animation: spin 4s linear infinite;
-      animation: spin 4s linear infinite;
-    }
-    @-moz-keyframes spin {
-      100% {
-        -moz-transform: rotate(360deg);
-      }
-    }
-    @-webkit-keyframes spin {
-      100% {
-        -webkit-transform: rotate(360deg);
-      }
-    }
-    @keyframes spin {
-      100% {
-        -webkit-transform: rotate(360deg);
-        transform: rotate(360deg);
-      }
-    }
-  `;
 
   // @ts-expect-error TS6133
   private _changeModeTask = new Task(this, {
@@ -266,8 +209,8 @@ export class NgvPluginCesiumOffline extends LitElement {
     }
   }
 
-  protected render(): unknown {
-    return html` <div>
+  protected render(): HTMLTemplateResult {
+    return html` <wa-card>
       ${this.loading
         ? html`<span>${msg('Loading')} <span class="loading">⌛</span></span>`
         : html`<span>
@@ -275,14 +218,19 @@ export class NgvPluginCesiumOffline extends LitElement {
             ${this.offline ? '🔴' : '🟢'}</span
           >`}
 
-      <button
+      <wa-button
+        appearance="filled"
         .disabled="${this.loading}"
         class="${classMap({offline: !this.offline})}"
         @click=${() => this.switchOffline()}
       >
         ${this.offline ? msg('Back online') : msg('Go offline')}
-      </button>
-    </div>`;
+      </wa-button>
+    </wa-card>`;
+  }
+
+  createRenderRoot(): this {
+    return this;
   }
 }
 

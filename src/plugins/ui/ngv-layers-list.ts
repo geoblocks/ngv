@@ -77,14 +77,16 @@ export class NgvLayersList extends LitElement {
   render(): HTMLTemplateResult | string {
     if (!this.layers?.length) return '';
     return html` <p .hidden="${!this.options?.title}">${this.options.title}</p>
-      <div class="list">
+      <div class="ngv-layers-list">
         ${this.layers.map(
           (l, i) =>
-            html`<div class="item">
-              <span>${l.name}</span>
-              <div class="actions">
+            html`<div class="ngv-layers-list-item">
+              <span class="ngv-layers-list-title">${l.name}</span>
+              <div class="ngv-layers-list-item-actions">
                 ${this.options?.showZoomBtns
-                  ? html`<button
+                  ? html`<wa-button
+                      appearance="filled"
+                      size="small"
                       @mouseenter=${() =>
                         this.dispatchEvent(
                           new CustomEvent('zoomEnter', {detail: i}),
@@ -100,19 +102,23 @@ export class NgvLayersList extends LitElement {
                       }}
                     >
                       &#x1F50D;
-                    </button>`
+                    </wa-button>`
                   : ''}
                 ${this.options?.showEditBtns
-                  ? html`<button
+                  ? html`<wa-button
+                    appearance="filled"
+                    size="small"
                     @click=${() => {
                       this.dispatchEvent(new CustomEvent('edit', {detail: i}));
                     }}
                   >
                     &#128393
-                  </button>`
+                  </wa-button>`
                   : ''}
                 ${this.options?.showDeleteBtns
-                  ? html`<button
+                  ? html`<wa-button
+                      appearance="filled"
+                      size="small"
                       @click=${() => {
                         this.dispatchEvent(
                           new CustomEvent('remove', {detail: i}),
@@ -120,12 +126,15 @@ export class NgvLayersList extends LitElement {
                       }}
                     >
                       &#x1F5D1;
-                    </button>`
+                    </wa-button>`
                   : ''}
               </div>
             </div>`,
         )}
       </div>`;
+  }
+  createRenderRoot(): this {
+    return this;
   }
 }
 
