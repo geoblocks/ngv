@@ -1,0 +1,118 @@
+@import url('https://early.webawesome.com/webawesome@3.0.0-alpha.10/dist/styles/themes/default.css');
+@import url('https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap');
+@import 'ngv-survey.css';
+@import 'ngv-structure-overlay.css';
+@import 'ngv-menu-illumination.css';
+@import 'ngv-upload.css';
+@import 'ngv-plugin-cesium-navigation.css';
+@import 'layers.css';
+@import 'ngv-plugin-cesium-measure.css';
+@import 'ngv-plugin-cesium-offline.css';
+
+.ngv-active::part(base) {
+  background-color: var(--background-color-active);
+  border-color: var(--border-color-active);
+}
+
+wa-icon[src] {
+  height: auto;
+}
+
+wa-card::part(header) {
+  padding: 12px 24px 0 24px;
+  font-weight: bold;
+  border-bottom: 0;
+}
+
+wa-card [slot='header'] {
+  display: flex;
+  align-items: center;
+  gap: var(--c2c-gap-s);
+}
+
+wa-card.ngv-toolbar {
+  background-color: var(--c2c-semi-transparent-bg-color);
+  backdrop-filter: blur(2px);
+}
+wa-card.ngv-toolbar::part(body) {
+  display: flex;
+  gap: 6px;
+  padding: 10px;
+}
+
+.ngv-toolbar > img {
+  max-width: initial;
+}
+
+wa-details.ngv-vertical-menu {
+  background-color: var(--c2c-background-color);
+  /* todo use var */
+  max-width: 350px;
+}
+
+wa-details.ngv-vertical-menu::part(base) {
+  padding: var(--c2c-half-gap-s);
+}
+
+wa-details.ngv-vertical-menu::part(header) {
+  padding: 12px;
+}
+
+wa-details.ngv-vertical-menu::part(content) {
+  padding: 0;
+}
+
+wa-details.ngv-vertical-menu wa-card {
+  border: 0;
+  box-shadow: none;
+  background-color: var(--wa-form-control-background-color);
+}
+
+wa-details.ngv-vertical-menu wa-card::part(body) {
+  padding: 12px 24px;
+}
+
+wa-details.ngv-vertical-menu::part(icon) {
+  padding: 8px;
+}
+
+wa-details[open].ngv-vertical-menu::part(icon) {
+  margin-left: auto;
+  transform: rotate(90deg);
+}
+
+wa-details.ngv-vertical-menu::part(icon):hover {
+  background-color: var(--wa-color-neutral-fill-quiet);
+  border-radius: var(--wa-border-radius-m);
+}
+
+.ngv-vertical-menu-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--c2c-gap-s);
+  overflow-y: auto;
+  /* todo use var */
+  max-height: 65vh;
+}
+
+.ngv-submenu-overlay {
+  position: absolute;
+  margin-top: 14px;
+}
+
+.ngv-submenu-overlay wa-card::part(body) {
+  /* todo use var */
+  width: 250px;
+  padding: 10px var(--c2c-gap-s);
+}
+
+.ngv-warning {
+  /* todo use var */
+  border: 1px solid orangered !important;
+  border-radius: var(--wa-border-radius-m);
+  padding: var(--c2c-gap-s);
+}
+
+.ngv-secondary-text {
+  color: var(--c2c-secondary-text);
+}

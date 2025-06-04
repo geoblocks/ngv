@@ -1,7 +1,8 @@
-import {css, html, LitElement} from 'lit';
+import {html, LitElement} from 'lit';
 import type {HTMLTemplateResult} from 'lit';
 import {customElement, property} from 'lit/decorators.js';
 import {msg} from '@lit/localize';
+import {classMap} from 'lit/directives/class-map.js';
 
 export type LayerDetails = {
   name: string;
@@ -13,8 +14,8 @@ export type LayerDetails = {
 };
 
 export type ClippingChangeDetail = {
-  terrainClipping: boolean;
-  tilesClipping: boolean;
+  terrainClipping?: boolean;
+  tilesClipping?: boolean;
 };
 
 @customElement('ngv-layer-details')
@@ -26,105 +27,78 @@ export class NgvLayerDetails extends LitElement {
   @property({type: Boolean})
   private showCancel: boolean;
 
-  static styles = css`
-    .info {
-      background-color: white;
-      display: flex;
-      flex-direction: column;
-      z-index: 1;
-      margin-left: auto;
-      margin-right: auto;
-      padding: 10px;
-      gap: 10px;
-      border-radius: 4px;
-      border: 1px solid rgba(0, 0, 0, 0.16);
-      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05);
-    }
-
-    button,
-    input[type='text'] {
-      border-radius: 4px;
-      padding: 0 16px;
-      height: 40px;
-      cursor: pointer;
-      background-color: white;
-      border: 1px solid rgba(0, 0, 0, 0.16);
-      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05);
-      transition: background-color 200ms;
-    }
-
-    input[type='text'] {
-      cursor: text;
-    }
-  `;
-
-  onClippingChange(): void {
-    const tilesClipping =
-      this.renderRoot.querySelector<HTMLInputElement>(
-        '#clipping-tiles',
-      ).checked;
-    const terrainClipping =
-      this.renderRoot.querySelector<HTMLInputElement>(
-        '#clipping-terrain',
-      ).checked;
-    this.dispatchEvent(
-      new CustomEvent<ClippingChangeDetail>('clippingChange', {
-        detail: {
-          tilesClipping,
-          terrainClipping,
-        },
-      }),
-    );
-  }
-
   render(): HTMLTemplateResult | string {
     if (!this.layer) return '';
-    return html` <div class="info">
-      ${this.layer.name}
-      ${this.layer.clippingOptions
-        ? html` <fieldset>
-            <legend>${msg('Clipping:')}</legend>
+    return html` <wa-card with-header>
+      <div slot="header">
+        <wa-icon src="../../../icons/slice.svg"></wa-icon>${msg(
+          'Clipping polygons',
+        )}
+      </div>
+      <div class="ngv-layer-details">
+        <span class="ngv-layer-details-title">${this.layer.name}</span>
+        ${this.layer.clippingOptions
+          ? html` <div class="ngv-layer-details-options">
+              <wa-checkbox
+                ?checked=${!!this.layer.clippingOptions.tilesClipping}
+                @change=${(e: InputEvent) =>
+                  this.dispatchEvent(
+                    new CustomEvent<ClippingChangeDetail>('clippingChange', {
+                      detail: {
+                        tilesClipping: (<HTMLInputElement>e.target).checked,
+                      },
+                    }),
+                  )}
+              >
+                ${msg('Clipping 3D tiles')}
+              </wa-checkbox>
+              <wa-checkbox
+                ?checked=${!!this.layer.clippingOptions.terrainClipping}
+                @change=${(e: InputEvent) =>
+                  this.dispatchEvent(
+                    new CustomEvent<ClippingChangeDetail>('clippingChange', {
+                      detail: {
+                        terrainClipping: (<HTMLInputElement>e.target).checked,
+                      },
+                    }),
+                  )}
+              >
+                ${msg('Clipping terrain')}
+              </wa-checkbox>
+            </div>`
+          : ''}
+        <div class="ngv-layer-details-actions">
+          <wa-button
+            appearance="filled"
+            size="small"
+            class="${classMap({
+              'wa-visually-hidden': !this.showDone,
+            })}"
+            @click="${() => {
+              this.dispatchEvent(new CustomEvent('done'));
+            }}"
+          >
+            <wa-icon name="check"></wa-icon>
+          </wa-button>
+          <wa-button
+            size="small"
+            appearance="filled"
+            class="${classMap({
+              'wa-visually-hidden': !this.showCancel,
+            })}"
+            @click="${() => {
+              this.dispatchEvent(new CustomEvent('cancel'));
+            }}"
+          >
+            <wa-icon name="times"></wa-icon>
+          </wa-button>
+        </div>
+      </div>
+    </wa-card>`;
+  }
 
-            <div>
-              <input
-                type="checkbox"
-                id="clipping-tiles"
-                name="tiles"
-                .checked=${this.layer.clippingOptions.tilesClipping}
-                @change=${() => this.onClippingChange()}
-              />
-              <label for="clipping-tiles">${msg('Clipping 3D tiles')}</label>
-            </div>
-
-            <div>
-              <input
-                type="checkbox"
-                id="clipping-terrain"
-                name="terrain"
-                .checked=${this.layer.clippingOptions.terrainClipping}
-                @change=${() => this.onClippingChange()}
-              />
-              <label for="clipping-terrain">${msg('Clipping terrain')}</label>
-            </div>
-          </fieldset>`
-        : ''}
-      <button
-        .hidden=${!this.showDone}
-        @click="${() => {
-          this.dispatchEvent(new CustomEvent('done'));
-        }}"
-      >
-        ${msg('Done')}
-      </button>
-      <button
-        .hidden=${!this.showCancel}
-        @click="${() => {
-          this.dispatchEvent(new CustomEvent('cancel'));
-        }}"
-      >
-        ${msg('Cancel')}
-      </button>
-    </div>`;
+  createRenderRoot(): this {
+    return this;
   }
 }
 

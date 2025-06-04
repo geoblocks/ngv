@@ -1,0 +1,10 @@
+ngv-upload > wa-card::part(body) {
+  display: flex;
+  flex-direction: column;
+  gap: var(--c2c-gap-s);
+}
+
+ngv-upload wa-input::part(base) {
+  padding: 3.5%;
+  cursor: pointer;
+}

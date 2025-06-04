@@ -20,7 +20,13 @@ export type SurveyInput = SurveyFieldBase & {
   placeholder?: string;
   min?: number | string;
   max?: number | string;
-  inputType?: 'text' | 'number' | 'date' | 'datetime-local' | 'color';
+  inputType?: 'text' | 'number' | 'date' | 'datetime-local';
+  valueCallback?: (value: FieldValues) => string;
+  disabled?: boolean;
+};
+
+export type SurveyColorpicker = SurveyFieldBase & {
+  type: 'color';
   valueCallback?: (value: FieldValues) => string;
   disabled?: boolean;
 };
@@ -94,4 +100,5 @@ export type SurveyField =
   | SurveyCoords
   | SurveyFile
   | SurveyId
-  | SurveyReadonly;
+  | SurveyReadonly
+  | SurveyColorpicker;

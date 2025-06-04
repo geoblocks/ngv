@@ -1,6 +1,6 @@
 import {customElement, property, query, state} from 'lit/decorators.js';
 import type {HTMLTemplateResult} from 'lit';
-import {css, html, LitElement} from 'lit';
+import {html, LitElement} from 'lit';
 import {msg} from '@lit/localize';
 
 export type NgvUploadOptions = {
@@ -25,48 +25,6 @@ export class NgvUpload extends LitElement {
   @state() fileDetails: FileUploadDetails | undefined;
   @query('input[type="file"]') fileInput: HTMLInputElement;
 
-  static styles = css`
-    .upload-popup {
-      background-color: white;
-      display: flex;
-      flex-direction: column;
-      margin-left: auto;
-      margin-right: auto;
-      padding: 10px;
-      gap: 10px;
-      border-radius: 4px;
-      border: 1px solid rgba(0, 0, 0, 0.16);
-      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05);
-    }
-
-    button,
-    input[type='text'],
-    input[type='file']::file-selector-button {
-      border-radius: 4px;
-      padding: 0 16px;
-      height: 40px;
-      cursor: pointer;
-      background-color: white;
-      border: 1px solid rgba(0, 0, 0, 0.16);
-      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05);
-      margin-right: 16px;
-      transition: background-color 200ms;
-    }
-
-    input[type='text'] {
-      cursor: text;
-    }
-
-    input[type='file'] {
-      background-color: #f3f4f6;
-      cursor: pointer;
-    }
-
-    input[type='file']::file-selector-button:active {
-      background-color: #e5e7eb;
-    }
-  `;
-
   onFileUpload(file: File): void {
     this.fileDetails = {
       file: file,
@@ -80,6 +38,7 @@ export class NgvUpload extends LitElement {
         detail: this.fileDetails,
       }),
     );
+    this.fileDetails = undefined;
     this.fileInput.value = '';
     this.showPopup = false;
   }
@@ -100,20 +59,32 @@ export class NgvUpload extends LitElement {
   }
 
   render(): HTMLTemplateResult {
-    return html` <div class="upload-popup">
+    return html` <wa-card>
       ${this.options.fileInput
-        ? html`<input
-            type="file"
-            accept="${this.options.accept}"
-            @change=${(e: Event) => {
-              const target = <HTMLInputElement>e.target;
-              if (!target || !target.files?.length) return;
-              this.onFileUpload(target.files[0]);
-            }}
-          />`
+        ? html`<wa-button
+              appearance="filled"
+              @click=${() => {
+                this.fileInput.click();
+              }}
+              >${msg('Choose local file')}</wa-button
+            >${this.fileDetails?.name
+              ? html`<span class="ngv-secondary-text"
+                  >${this.fileDetails.name}</span
+                >`
+              : ''}
+            <input
+              hidden
+              type="file"
+              accept="${this.options.accept}"
+              @change=${(e: Event) => {
+                const target = <HTMLInputElement>e.target;
+                if (!target || !target.files?.length) return;
+                this.onFileUpload(target.files[0]);
+              }}
+            />`
         : ''}
       ${this.options.urlInput
-        ? html`<input
+        ? html`<wa-input
             type="text"
             placeholder="${this.options.urlPlaceholderText}"
             .value="${this.fileDetails?.url || ''}"
@@ -124,12 +95,16 @@ export class NgvUpload extends LitElement {
                 name: value,
               };
             }}"
-          />`
+          ></wa-input>`
         : ''}
-      <button @click="${() => this.upload()}">
+      <wa-button appearance="filled" @click="${() => this.upload()}">
         ${this.options.uploadBtnText}
-      </button>
-    </div>`;
+      </wa-button>
+    </wa-card>`;
+  }
+
+  createRenderRoot(): this {
+    return this;
   }
 }
 
