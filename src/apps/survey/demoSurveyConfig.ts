@@ -336,7 +336,7 @@ function getRiskColor(identifiedRiskRating: string) {
   }
 }
 
-export const config: ISurveyConfig<ItemSummary, HESDefectItem> = {
+export const config: ISurveyConfig<HESDefectItemSummary, HESDefectItem> = {
   languages: ['en'],
   header: {
     title: {

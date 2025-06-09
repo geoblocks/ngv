@@ -1,6 +1,6 @@
 import type {HTMLTemplateResult} from 'lit';
 import {html} from 'lit';
-import {customElement, state} from 'lit/decorators.js';
+import {customElement, query, state} from 'lit/decorators.js';
 
 import '../../structure/ngv-structure-app.js';
 
@@ -22,12 +22,15 @@ import type {CesiumWidget, DataSourceCollection} from '@cesium/engine';
 
 import {PrimitiveCollection} from '@cesium/engine';
 import type {ViewerInitializedDetails} from '../../plugins/cesium/ngv-plugin-cesium-widget.js';
+import type {INGVCesiumModel} from '../../interfaces/cesium/ingv-layers.js';
 
 @customElement('ngv-app-permits')
 @localized()
 export class NgvAppPermits extends ABaseApp<IPermitsConfig> {
   @state()
   private viewer: CesiumWidget;
+  @query('.ngv-vertical-menu')
+  private verticalMenu: {show: () => void};
   private uploadedModelsCollection: PrimitiveCollection =
     new PrimitiveCollection();
   private dataSourceCollection: DataSourceCollection;
@@ -70,6 +73,11 @@ export class NgvAppPermits extends ABaseApp<IPermitsConfig> {
             .primitiveCollection="${this.collections.models}"
             .tiles3dCollection="${this.collections.tiles3d}"
             .options="${{listTitle: 'Catalog'}}"
+            @chosenModelChanged=${(evt: {detail: INGVCesiumModel}) => {
+              if (evt.detail) {
+                this.verticalMenu.show();
+              }
+            }}
           ></ngv-plugin-cesium-model-interact>
           <ngv-plugin-cesium-upload
             .viewer="${this.viewer}"
@@ -83,6 +91,11 @@ export class NgvAppPermits extends ABaseApp<IPermitsConfig> {
             .tiles3dCollection="${this.collections.tiles3d}"
             .storeOptions="${this.storeOptions}"
             .options="${{listTitle: 'Uploaded models'}}"
+            @chosenModelChanged=${(evt: {detail: INGVCesiumModel}) => {
+              if (evt.detail) {
+                this.verticalMenu.show();
+              }
+            }}
           ></ngv-plugin-cesium-model-interact>
 
           <ngv-plugin-cesium-navigation

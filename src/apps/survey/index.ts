@@ -72,6 +72,8 @@ export class NgvAppSurvey extends ABaseApp<typeof config> {
   private initialized = false;
   @query('ngv-plugin-cesium-navigation')
   private navElement: NgvPluginCesiumNavigation;
+  @query('.ngv-vertical-menu')
+  private verticalMenu: {show: () => void};
   private dataSourceCollection: DataSourceCollection;
   private dataSource: CustomDataSource = new CustomDataSource();
   private lastPoint: Entity | undefined;
@@ -129,6 +131,16 @@ export class NgvAppSurvey extends ABaseApp<typeof config> {
     });
     await Promise.all(promises);
   }
+
+  // @ts-expect-error TS6133
+  private _showSurveyChange = new Task(this, {
+    args: (): [boolean] => [this.showSurvey],
+    task: ([showSurvey]) => {
+      if (showSurvey) {
+        this.verticalMenu.show();
+      }
+    },
+  });
 
   // @ts-expect-error TS6133
   private _configChange = new Task(this, {
@@ -308,20 +320,30 @@ export class NgvAppSurvey extends ABaseApp<typeof config> {
       this.surveyFieldValues[coordinatesField?.id]
     );
     if (!id) return;
-    if (!this.surveys.find((s) => s.id === id)) {
+    const survey = <Item>{
+      ...evt.detail,
+      id,
+      coordinates: [
+        coordinates.longitude,
+        coordinates.latitude,
+        coordinates.height,
+      ],
+      lastModifiedMs: Date.now(), // FIXME timezone?
+    };
+    const surveyIndex = this.surveys.findIndex((s) => s.id === id);
+    if (surveyIndex < 0) {
       this.surveys.push({
-        ...evt.detail,
-        id,
-        coordinates: [
-          coordinates.longitude,
-          coordinates.latitude,
-          coordinates.height,
-        ],
-        lastModifiedMs: Date.now(), // FIXME timezone?
+        ...survey,
+        identifiedRiskRating: survey.identifiedRiskRatingText,
       });
-      await persistJson(this.persistentDir, STORAGE_LIST_NAME, this.surveys);
+    } else {
+      this.surveys[surveyIndex] = {
+        ...survey,
+        identifiedRiskRating: survey.identifiedRiskRatingText,
+      };
     }
-    await persistJson(this.persistentDir, `${id}.json`, evt.detail);
+    await persistJson(this.persistentDir, STORAGE_LIST_NAME, this.surveys);
+    await persistJson(this.persistentDir, `${id}.json`, survey);
     this.hideSurvey();
   }
 
@@ -349,7 +371,6 @@ export class NgvAppSurvey extends ABaseApp<typeof config> {
 
   async onViewChanged(view: IngvCesiumContext['views'][number]): Promise<void> {
     if (!view) return;
-    console.log('here');
     this.currentView = view;
     await this.loadSurveys(this.offline);
   }
@@ -486,77 +507,79 @@ export class NgvAppSurvey extends ABaseApp<typeof config> {
                 }}"
               ></ngv-plugin-cesium-offline>`
             : ''}
-          ${this.showSurvey
-            ? html` <ngv-survey
-                .surveyFields="${this.config.app.survey.fields}"
-                .fieldValues="${this.surveyFieldValues}"
-                .projection=${this.config.app.cesiumContext.clickInfoOptions
-                  ?.projection}
-                @confirm=${(evt: CustomEvent<FieldValues>) => {
-                  this.confirm(evt).catch((e) => console.error(e));
+          <ngv-survey
+            .hidden=${!this.showSurvey}
+            .surveyFields="${this.config.app.survey.fields}"
+            .fieldValues="${this.surveyFieldValues}"
+            .projection=${this.config.app.cesiumContext.clickInfoOptions
+              ?.projection}
+            @confirm=${(evt: CustomEvent<FieldValues>) => {
+              this.confirm(evt).catch((e) => console.error(e));
+            }}
+            @cancel=${() => {
+              this.cancel();
+            }}
+          ></ngv-survey>
+          <ngv-plugin-cesium-navigation
+            .hidden=${this.showSurvey}
+            .viewer="${this.viewer}"
+            .config="${this.config.app.cesiumContext}"
+            .dataSourceCollection="${this.dataSourceCollection}"
+            .tiles3dCollection="${this.collections.tiles3d}"
+            .offline="${this.offline}"
+            @viewChanged=${(evt: {
+              detail: IngvCesiumContext['views'][number];
+            }) => this.onViewChanged(evt.detail)}
+          ></ngv-plugin-cesium-navigation>
+          <div .hidden=${!this.surveys?.length || this.showSurvey}>
+            <wa-card
+              with-header
+              class="${classMap({
+                'wa-visually-hidden': !this.surveys?.length || this.showSurvey,
+              })}"
+            >
+              <div slot="header">${msg('Surveys')}</div>
+              <ngv-layers-list
+                .layers="${this.surveys.map((s) => {
+                  return {
+                    name: s.id,
+                  };
+                })}"
+                .options="${{
+                  showDeleteBtns: true,
+                  showZoomBtns: true,
+                  showEditBtns: true,
+                }}"
+                @remove=${async (evt: {detail: number}) =>
+                  this.onRemove(evt.detail)}
+                @zoom=${(evt: {detail: number}) => {
+                  const id = this.surveys[evt.detail]?.id;
+                  if (id) {
+                    const ent = this.dataSource.entities.getById(id);
+                    // todo decide how and improve
+                    const sphere = new BoundingSphere(
+                      ent.position.getValue(JulianDate.now()),
+                      2,
+                    );
+                    this.viewer.camera.flyToBoundingSphere(sphere);
+                  }
                 }}
-                @cancel=${() => {
-                  this.cancel();
+                @edit="${(evt: {detail: number}) => this.onEdit(evt.detail)}"
+                @zoomEnter=${(e: {detail: number}) => {
+                  const id = this.surveys[e.detail]?.id;
+                  if (id) {
+                    this.highlightEntity(id);
+                  }
                 }}
-              ></ngv-survey>`
-            : html` <ngv-plugin-cesium-navigation
-                  .viewer="${this.viewer}"
-                  .config="${this.config.app.cesiumContext}"
-                  .dataSourceCollection="${this.dataSourceCollection}"
-                  .tiles3dCollection="${this.collections.tiles3d}"
-                  .offline="${this.offline}"
-                  @viewChanged=${(evt: {
-                    detail: IngvCesiumContext['views'][number];
-                  }) => this.onViewChanged(evt.detail)}
-                ></ngv-plugin-cesium-navigation
-                ><wa-card
-                  with-header
-                  class="${classMap({
-                    'wa-visually-hidden': !this.surveys?.length,
-                  })}"
-                >
-                  <div slot="header">${msg('Surveys')}</div>
-                  <ngv-layers-list
-                    .layers="${this.surveys.map((s) => {
-                      return {
-                        name: s.id,
-                      };
-                    })}"
-                    .options="${{
-                      showDeleteBtns: true,
-                      showZoomBtns: true,
-                      showEditBtns: true,
-                    }}"
-                    @remove=${async (evt: {detail: number}) =>
-                      this.onRemove(evt.detail)}
-                    @zoom=${(evt: {detail: number}) => {
-                      const id = this.surveys[evt.detail]?.id;
-                      if (id) {
-                        const ent = this.dataSource.entities.getById(id);
-                        // todo decide how and improve
-                        const sphere = new BoundingSphere(
-                          ent.position.getValue(JulianDate.now()),
-                          2,
-                        );
-                        this.viewer.camera.flyToBoundingSphere(sphere);
-                      }
-                    }}
-                    @edit="${(evt: {detail: number}) =>
-                      this.onEdit(evt.detail)}"
-                    @zoomEnter=${(e: {detail: number}) => {
-                      const id = this.surveys[e.detail]?.id;
-                      if (id) {
-                        this.highlightEntity(id);
-                      }
-                    }}
-                    @zoomOut=${(e: {detail: number}) => {
-                      const id = this.surveys[e.detail]?.id;
-                      if (id) {
-                        this.removeEntityHighlight(id);
-                      }
-                    }}
-                  ></ngv-layers-list>
-                </wa-card>`}
+                @zoomOut=${(e: {detail: number}) => {
+                  const id = this.surveys[e.detail]?.id;
+                  if (id) {
+                    this.removeEntityHighlight(id);
+                  }
+                }}
+              ></ngv-layers-list>
+            </wa-card>
+          </div>
         </div>
       </wa-details>
     </div>`;

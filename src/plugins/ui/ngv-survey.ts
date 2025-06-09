@@ -142,6 +142,7 @@ export class NgvSurvey extends LitElement {
         .minlength="${options.min}"
         .maxlength="${options.max}"
         .required="${options.required}"
+        .value=${this.fieldValues[options.id] || ''}
         @input=${(evt: Event) => {
           this.fieldValues[options.id] = (<HTMLInputElement>evt.target).value;
           if (this.notValid[options.id]) {
@@ -149,8 +150,7 @@ export class NgvSurvey extends LitElement {
           }
         }}
       >
-        ${this.fieldValues[options.id] || ''}</wa-textarea
-      >
+      </wa-textarea>
     </div>`;
   }
 
@@ -199,6 +199,8 @@ export class NgvSurvey extends LitElement {
         size="small"
         class="${classMap({'ngv-warning': this.notValid[config.id]})}"
         .required="${config.required}"
+        value=${this.fieldValues[config.id]}
+        .placeholder=${msg('Select an option')}
         @change=${(evt: Event) => {
           this.fieldValues[config.id] = (<HTMLSelectElement>evt.target).value;
           if (this.notValid[config.id]) {
@@ -207,19 +209,9 @@ export class NgvSurvey extends LitElement {
           this.requestUpdate();
         }}
       >
-        ${
-          config.defaultValue
-            ? ''
-            : html`<wa-option value="" disabled selected>
-                ${msg('Select an option')}
-              </wa-option>`
-        }
         ${options.map(
           (option) =>
-            html`<wa-option
-              .value="${option.value}"
-              .selected="${option.value === this.fieldValues[config.id]}"
-            >
+            html`<wa-option value=${option.value}>
               ${option.label}
             </wa-option>`,
         )}
@@ -337,6 +329,7 @@ export class NgvSurvey extends LitElement {
       maximumFractionDigits: 3,
     });
     const coordinate = <Coordinate>this.fieldValues[options.id];
+    if (!coordinate) return '';
     return html`
       <div>
         <span class="ngv-survey-label">${msg('Coordinates')}:</span>
@@ -439,6 +432,10 @@ export class NgvSurvey extends LitElement {
     });
     this.requestUpdate();
     return !Object.values(this.notValid).find((v) => v);
+  }
+
+  protected shouldUpdate(): boolean {
+    return !!this.fieldValues;
   }
 
   render(): HTMLTemplateResult | string {

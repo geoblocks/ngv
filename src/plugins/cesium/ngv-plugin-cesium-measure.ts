@@ -206,6 +206,12 @@ export class NgvPluginCesiumMeasure extends LitElement {
           </div>
           ${this.measurements
             ? html`<div class="ngv-measure-info-container">
+                <span
+                  class="ngv-secondary-text"
+                  .hidden=${this.measurements?.segments?.length}
+                >
+                  ${msg('Use the left-click in the viewer to start drawing')}
+                </span>
                 <div
                   class="ngv-measure-info ${classMap({
                     'wa-visually-hidden': !this.measurements?.segments?.length,
