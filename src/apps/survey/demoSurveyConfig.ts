@@ -193,7 +193,7 @@ async function getHESSurveys(siteId: string): Promise<HESDefectItemSummary[]> {
   }>('/picams-external/list_lkup?code_type=DEFECT_IDENTIFIED_RISK_RATING');
   return result['items']
     .filter(
-      (s) => s.lat_degrees && s.long_degrees && s.elevation && s.updated_dt,
+      (s) => s.lat_degrees && s.long_degrees && s.elevation,
     )
     .map((s) => {
       const rating = String(s.fall_consequence * s.fall_probability);
@@ -269,7 +269,7 @@ async function getHESSurvey(defectId: string): Promise<HESDefectItem> {
     identifiedRiskRatingText: rating.code_text,
     // FIXME: flatten and convert to radians?
     coordinates: [s.long_degrees, s.lat_degrees, s.elevation],
-    lastModifiedMs: new Date(s.updated_dt).getTime(),
+    lastModifiedMs: new Date(s.updated_dt || 0).getTime(),
   };
 }
 
