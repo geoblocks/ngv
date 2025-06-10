@@ -23,7 +23,7 @@ export interface ISurveyConfig<ItemSummaryType = ItemSummary, ItemType = Item>
       listItems: (context: Context) => Promise<ItemSummaryType[]>;
       getItem: (context: Context) => Promise<ItemType>;
       itemToFields: (item: ItemType) => FieldValues;
-      fieldsToItem: (values: FieldValues) => Item;
+      fieldsToItem: (values: FieldValues) => ItemType;
       fields: SurveyField[];
     };
   };
