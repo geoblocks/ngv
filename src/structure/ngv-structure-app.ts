@@ -1,4 +1,5 @@
 import type {HTMLTemplateResult} from 'lit';
+import {css} from 'lit';
 import {LitElement, html} from 'lit';
 import {customElement, property} from 'lit/decorators.js';
 import type {Locale} from './helpers/localeHelper.js';
@@ -38,23 +39,26 @@ export class NgvStructureApp extends LitElement {
   @property({type: Object})
   config: INgvStructureApp;
 
-  constructor() {
-    super();
-    // this.shadowRoot.adoptedStyleSheets.push(styles);
-  }
+  static styles = [
+    css`
+      :host {
+        width: 100%;
+        height: 100%;
+      }
+    `,
+  ];
 
   shouldUpdate(): boolean {
     return !!this.config;
   }
 
   render(): HTMLTemplateResult {
+    // <div slot="header">
+    //           <ngv-structure-header .config=${this.config}></ngv-structure-header>
+    //         </div>
     return html`
       <ngv-page>
-        <div slot="header">
-          <ngv-structure-header .config=${this.config}></ngv-structure-header>
-        </div>
         <div slot="menu"><slot name="menu"></slot></div>
-        <!-- <div slot="main-header">main-header</div> -->
         <div slot="main-content" style="height: 100%"><slot></slot></div>
         <div slot="main-footer">
           <footer>
@@ -65,8 +69,6 @@ export class NgvStructureApp extends LitElement {
               : ''}
           </footer>
         </div>
-        <!-- <div slot="aside">aside</div> -->
-        <!-- <div slot="footer">footer</div> -->
       </ngv-page>
     `;
   }

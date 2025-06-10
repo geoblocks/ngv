@@ -1,11 +1,12 @@
 import {customElement, property, state} from 'lit/decorators.js';
-import {css, html, type HTMLTemplateResult, LitElement} from 'lit';
+import {html, type HTMLTemplateResult, LitElement} from 'lit';
 import {msg} from '@lit/localize';
 import type {CesiumWidget, DataSourceCollection, Entity} from '@cesium/engine';
 import {Color, CustomDataSource, HeightReference} from '@cesium/engine';
 import type {DrawInfo} from './draw.js';
 import {CesiumDraw, type DrawEndDetails, getDimensionLabel} from './draw.js';
 import type {IngvCesiumContext} from '../../interfaces/cesium/ingv-cesium-context.js';
+import {classMap} from 'lit/directives/class-map.js';
 
 const DefaultConfig: IngvCesiumContext['measureOptions'] = {
   areaFill: 'rgba(0, 153, 255, 0.3)',
@@ -31,41 +32,6 @@ export class NgvPluginCesiumMeasure extends LitElement {
   private draw: CesiumDraw;
   private measureDataSource: CustomDataSource = new CustomDataSource();
   private drawDataSource: CustomDataSource = new CustomDataSource();
-
-  static styles = css`
-    button {
-      border-radius: 4px;
-      padding: 0 16px;
-      height: 40px;
-      cursor: pointer;
-      background-color: white;
-      border: 1px solid rgba(0, 0, 0, 0.16);
-      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05);
-      transition: background-color 200ms;
-      width: 100%;
-    }
-
-    .measure-container {
-      display: flex;
-      flex-direction: column;
-      margin-left: auto;
-      margin-right: auto;
-      padding: 10px;
-      gap: 10px;
-      border-radius: 4px;
-      border: 1px solid rgba(0, 0, 0, 0.16);
-      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05);
-    }
-
-    .measure-container p {
-      margin: 0;
-    }
-
-    .divider {
-      width: 100%;
-      border: 1px solid #e0e3e6;
-    }
-  `;
 
   firstUpdated(): void {
     this.dataSourceCollection
@@ -184,87 +150,159 @@ export class NgvPluginCesiumMeasure extends LitElement {
     this.requestUpdate();
   }
 
+  toggleMeasure(type: 'line' | 'polygon'): void {
+    if ((!this.draw?.active && !this.measurements) || this.draw.type !== type) {
+      this.startMeasure(type);
+    } else {
+      this.draw.active = false;
+      this.draw.clear();
+      if (this.measureDataSource) {
+        this.measureDataSource.entities.removeAll();
+      }
+      this.measurements = undefined;
+    }
+  }
+
   render(): HTMLTemplateResult | string {
-    return html`<div class="measure-container">
-      ${this.draw?.active
-        ? html` <button
-            @click=${() => {
-              this.draw.active = false;
-              this.draw.clear();
-              this.measurements = undefined;
-            }}
-          >
-            ${msg('Cancel')}
-          </button>`
-        : html`<button @click=${() => this.startMeasure('line')}>
-              ${msg('Measure distance')}
-            </button>
-            <button @click=${() => this.startMeasure('polygon')}>
-              ${msg('Measure area')}
-            </button>`}
-      ${!this.draw?.active && this.measureDataSource.entities.values.length > 0
-        ? html`<button
-            @click=${() => {
-              this.measureDataSource.entities.removeAll();
-              this.measurements = undefined;
-            }}
-          >
-            ${msg('Clear')}
-          </button>`
-        : ''}
-      ${this.measurements
-        ? html`<div class="measure-container">
-            ${this.measurements?.area
-              ? html`<p>
-                  ${msg('Area')}: ${this.measurements.area.toFixed(1)} m²
-                </p>`
-              : ''}
-            ${this.measurements?.length
-              ? html`<p>
-                  ${this.measurements.type === 'polygon'
-                    ? msg('Perimeter')
-                    : msg('Total length')}:
-                  ${this.measurements.length.toFixed(1)} m
-                </p>`
-              : ''}
-            ${this.measurements?.numberOfSegments
-              ? html`<p>
-                  ${msg('Number of segments')}:
-                  ${this.measurements.numberOfSegments}
-                </p>`
-              : ''}
-            ${this.measurements?.segments && this.options.showSegmentsInfo
-              ? this.measurements.segments.map(
-                  (s, k) => html`
-                    <div class="divider"></div>
-                    <p>${msg('Segment')} ${k + 1}</p>
-                    <p>${msg('Length')}: ${s.length.toFixed(1)} m</p>
-                    ${this.options.showNEDifference
-                      ? html`${!isNaN(s.eastingDiff)
-                          ? html`<p>
-                              ${msg('Easting difference')}:
-                              ${s.eastingDiff.toFixed(1)} m
-                            </p>`
-                          : ''}
-                        ${!isNaN(s.northingDiff)
-                          ? html`<p>
-                              ${msg('Northing difference')}:
-                              ${s.northingDiff.toFixed(1)} m
-                            </p>`
-                          : ''}`
+    return html`<div class="ngv-measure-btns-container">
+        <wa-button
+          class="${classMap({
+            'ngv-active':
+              (this.draw?.active || this.measurements) &&
+              this.draw?.type === 'line',
+          })}"
+          appearance="filled"
+          @click=${() => this.toggleMeasure('line')}
+        >
+          <wa-icon src="../../../icons/ruler.svg"></wa-icon>
+        </wa-button>
+        <wa-button
+          class="${classMap({
+            'ngv-active':
+              (this.draw?.active || this.measurements) &&
+              this.draw?.type === 'polygon',
+          })}"
+          appearance="filled"
+          @click=${() => this.toggleMeasure('polygon')}
+        >
+          <wa-icon src="../../../icons/polygon.svg"></wa-icon>
+        </wa-button>
+      </div>
+      <div class="ngv-submenu-overlay">
+        <wa-card
+          with-header
+          class="${classMap({
+            'wa-visually-hidden': !this.draw?.active && !this.measurements,
+          })}"
+        >
+          <div slot="header">
+            ${this.draw?.type === 'line'
+              ? html`<wa-icon src="../../../icons/ruler.svg"></wa-icon> ${msg(
+                    'Measure distance',
+                  )}`
+              : html`<wa-icon src="../../../icons/polygon.svg"></wa-icon> ${msg(
+                    'Measure area',
+                  )}`}
+          </div>
+          ${this.measurements
+            ? html`<div class="ngv-measure-info-container">
+                <span
+                  class="ngv-secondary-text"
+                  .hidden=${this.measurements?.segments?.length}
+                >
+                  ${msg('Use the left-click in the viewer to start drawing')}
+                </span>
+                <div
+                  class="ngv-measure-info ${classMap({
+                    'wa-visually-hidden': !this.measurements?.segments?.length,
+                  })}"
+                >
+                  ${this.measurements?.area
+                    ? html`<div>
+                        <span> ${msg('Area')} </span>
+                        <span> ${this.measurements.area.toFixed(1)} m² </span>
+                      </div>`
+                    : ''}
+                  ${this.measurements?.length
+                    ? html`<div>
+                        <span
+                          >${this.measurements.type === 'polygon'
+                            ? msg('Perimeter')
+                            : msg('Total length')}</span
+                        >
+                        <span> ${this.measurements.length.toFixed(1)} m</span>
+                      </div>`
+                    : ''}
+                  ${this.measurements?.numberOfSegments
+                    ? html`<div>
+                        <span> ${msg('Number of segments')} </span>
+                        <span> ${this.measurements.numberOfSegments} </span>
+                      </div>`
+                    : ''}
+                </div>
+                <wa-details
+                  .summary=${msg('Details per segment')}
+                  class="custom-icons ${classMap({
+                    'wa-visually-hidden': !this.measurements?.segments?.length,
+                  })}"
+                >
+                  <wa-icon
+                    name="square-plus"
+                    slot="expand-icon"
+                    variant="regular"
+                  ></wa-icon>
+                  <wa-icon
+                    name="square-minus"
+                    slot="collapse-icon"
+                    variant="regular"
+                  ></wa-icon>
+                  <div class="ngv-measure-segments-info">
+                    ${this.measurements?.segments &&
+                    this.options.showSegmentsInfo
+                      ? this.measurements.segments.map(
+                          (s, k) => html`
+                            <div class="ngv-measure-segments-info-item">
+                              <span>${msg('Segment')} ${k + 1}</span>
+                              <span
+                                ><span>${msg('Length')}</span>:
+                                ${s.length.toFixed(1)} m</span
+                              >
+                              ${this.options.showNEDifference
+                                ? html`${!isNaN(s.eastingDiff)
+                                    ? html`<span>
+                                        <span>${msg('Easting difference')}</span
+                                        >: ${s.eastingDiff.toFixed(1)} m
+                                      </span>`
+                                    : ''}
+                                  ${!isNaN(s.northingDiff)
+                                    ? html`<span>
+                                        <span
+                                          >${msg('Northing difference')}</span
+                                        >: ${s.northingDiff.toFixed(1)} m
+                                      </span>`
+                                    : ''}`
+                                : ''}
+                              ${!isNaN(s.heightDiff) &&
+                              this.options.showHeightDifferance
+                                ? html`<span>
+                                    <span>${msg('Height difference')}</span>:
+                                    ${s.heightDiff.toFixed(1)} m
+                                  </span>`
+                                : ''}
+                            </div>
+                          `,
+                        )
                       : ''}
-                    ${!isNaN(s.heightDiff) && this.options.showHeightDifferance
-                      ? html`<p>
-                          ${msg('Height difference')}:
-                          ${s.heightDiff.toFixed(1)} m
-                        </p>`
-                      : ''}
-                  `,
-                )
-              : ''}
-          </div>`
-        : ''}
-    </div>`;
+                  </div></wa-details
+                >
+              </div>`
+            : ''}
+        </wa-card>
+      </div>`;
+  }
+
+  createRenderRoot(): this {
+    return this;
   }
 }
 

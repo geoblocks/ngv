@@ -2,32 +2,57 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <link rel="stylesheet" href="styles/index.css" />
     <link rel="icon" type="image/svg+xml" href="/logo.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Turn-key apps</title>
-    <!-- <link rel="stylesheet" href="./src/index.css" /> -->
   </head>
+  <style>
+    div {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      column-gap: 7px;
+    }
+    a {
+      border: 1px solid rgba(172, 172, 172, 1);
+      border-radius: 10px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      row-gap: 20px;
+      color: black;
+      text-decoration: none;
+      text-transform: uppercase;
+    }
+    span {
+      border-bottom: 1px solid rgba(226, 240, 254, 1);
+      padding-bottom: 10px;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+    }
+  </style>
   <body>
-    <h1>List of turn-key apps:</h1>
-    <ul>
-      <li>
-        <a href="./src/apps/permits/index.html"
-          >Digital twins: building permits</a
-        >
-      </li>
-      <li>
-        <a href="./src/apps/illumination/index.html"
-          >Digital twins: illumination / solar</a
-        >
-      </li>
-      <li>
-        <a href="./src/apps/survey/index.html">Survey</a>
-      </li>
-      <li>
-        <a href="./src/apps/custom/index.html">Your app: custom</a>
-      </li>
-      <li>...</li>
-    </ul>
+    <div>
+      <a href="./src/apps/permits/index.html">
+        <span>Digital twins: building permits</span>
+        <img src="icons/c2c_logo.svg" alt="Digital twins: building permits" />
+      </a>
+      <a href="./src/apps/illumination/index.html">
+        <span>Digital twins: illumination / solar</span>
+        <img
+          src="icons/c2c_logo.svg"
+          alt="Digital twins: illumination / solar"
+        />
+      </a>
+      <a href="./src/apps/survey/index.html">
+        <span>Survey</span>
+        <img src="icons/hes_logo.svg" alt="Survey" />
+      </a>
+    </div>
     <!-- link to documentation -->
     <!-- link to customization -->
     <script>
