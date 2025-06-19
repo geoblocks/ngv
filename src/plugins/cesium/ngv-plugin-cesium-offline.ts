@@ -104,11 +104,17 @@ export class NgvPluginCesiumOffline extends LitElement {
     }
     this.loading = true;
     const offline = !this.offline;
-    const dir = await getOrCreateDirectoryChain([this.info.appName]);
 
     if (this.beforeSwitchDispatch) {
-      await this.beforeSwitchDispatch(offline);
+      try {
+        await this.beforeSwitchDispatch(offline);
+      } catch (error) {
+        console.error(error);
+        this.loading = false;
+        return;
+      }
     }
+    const dir = await getOrCreateDirectoryChain([this.info.appName]);
 
     if (offline) {
       if (this.info.view?.offline?.rectangle?.length) {

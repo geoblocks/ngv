@@ -41,7 +41,7 @@ wa-card.ngv-toolbar::part(body) {
 }
 
 .ngv-toolbar > img {
-  max-width: initial;
+  max-width: fit-content;
 }
 
 wa-details.ngv-vertical-menu {

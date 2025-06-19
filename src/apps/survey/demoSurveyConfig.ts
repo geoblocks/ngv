@@ -1,4 +1,4 @@
-import type {FieldValues} from '../../utils/generalTypes.js';
+import type {Coordinates, FieldValues} from '../../utils/generalTypes.js';
 import type {
   Context,
   ISurveyConfig,
@@ -57,6 +57,39 @@ type HESDefectResponse = {
   lat_degrees: number;
   ll_geojson: string;
   defect_tags?: string; // todo should be replaced with string[]
+  easting: number;
+  northing: number;
+};
+
+type HESDefectPostBody = {
+  defect_id?: number;
+  hlf_defect_id: string; // 'PIC155-23-01-20250603' - PICAMS site PIC155, PICAMS site HLF zone 23, Cesium defect number  01, Cesium defect and Inspection date 20250603 which is 03/06/2025
+  event_type_code?: string; // todo ?
+  site_code: string;
+  title: string;
+  notes: string;
+  defect_type_code?: string; // todo ?
+  defect_status_code: string;
+  defect_priority_code?: string; // todo ?
+  residual_risk_rating: number;
+  fall_probability: number;
+  fall_consequence: number;
+  material_code: string;
+  inspection_action_code: string;
+  defect_tag_1: string; // why not array?
+  defect_tag_2?: string;
+  defect_tag_3?: string;
+  reporter_user_id?: string;
+  assignment_user_id?: string;
+  elevation: number;
+  easting: number;
+  northing: number;
+};
+
+type HESPostResponse = {
+  message: string;
+  picams_defect_id?: string;
+  picams_inspection_id?: string;
 };
 
 type HESDefectItemSummary = ItemSummary & {
@@ -76,7 +109,7 @@ type HESDefectItem = ItemSummary & {
   fallProbability: string;
   fallConsequence: string;
   identifiedRiskRatingDescription: string;
-  identifiedRiskRatingText: string;
+  identifiedRiskRating: string;
   inspectionAction: string;
 };
 
@@ -200,8 +233,10 @@ async function getHESSurveys(siteId: string): Promise<HESDefectItemSummary[]> {
         id: s.defect_id.toString(),
         // FIXME: flatten and convert to radians?
         coordinates: [s.long_degrees, s.lat_degrees, s.elevation],
+        projectedCoordinates: [s.easting, s.northing, s.elevation],
         lastModifiedMs: new Date(s.updated_dt).getTime(),
         identifiedRiskRating: riskInfo.code_text,
+        title: s.title || s.hlf_defect_id,
       };
     });
 }
@@ -252,6 +287,7 @@ async function getHESSurvey(defectId: string): Promise<HESDefectItem> {
   return {
     id: s.defect_id.toString(),
     hlfDefectId: s.hlf_defect_id,
+    title: s.title || s.hlf_defect_id,
     siteName: s.site_name,
     siteCode: s.site_code,
     reporter: s.reporter,
@@ -264,9 +300,10 @@ async function getHESSurvey(defectId: string): Promise<HESDefectItem> {
     fallConsequence: String(s.fall_consequence),
     inspectionAction: s.inspection_action_code,
     identifiedRiskRatingDescription: `${rating.code_text}, ${rating.description}`,
-    identifiedRiskRatingText: rating.code_text,
+    identifiedRiskRating: rating.code_text,
     // FIXME: flatten and convert to radians?
     coordinates: [s.long_degrees, s.lat_degrees, s.elevation],
+    projectedCoordinates: [s.easting, s.northing, s.elevation],
     lastModifiedMs: new Date(s.updated_dt || 0).getTime(),
   };
 }
@@ -334,6 +371,22 @@ function getRiskColor(identifiedRiskRating: string) {
   }
 }
 
+async function saveDefectToHES(
+  body: HESDefectPostBody,
+): Promise<HESPostResponse> {
+  const token = await getHESBearerToken();
+  const myHeaders = new Headers({
+    'Content-Type': 'application/json',
+  });
+  myHeaders.append('Authorization', `Bearer ${token}`);
+  const response = await fetch(`${prefix}/picams-external/defect`, {
+    method: body.defect_id ? 'PUT' : 'POST',
+    headers: myHeaders,
+    body: JSON.stringify(body),
+  });
+  return <HESPostResponse>await response.json();
+}
+
 export const config: ISurveyConfig<HESDefectItemSummary, HESDefectItem> = {
   languages: ['en'],
   header: {
@@ -355,14 +408,41 @@ export const config: ISurveyConfig<HESDefectItemSummary, HESDefectItem> = {
         // move function in this file
         return getHESSurvey(context?.id);
       },
-      fieldsToItem(_: FieldValues) {
-        throw new Error('not implemented');
+      async saveItem(item: HESDefectItem) {
+        const body = {
+          // fixme Currently, HES ID is number and cesium ID is string so when we convert string to number got NaN. In this way we can identify if defect created or not.
+          //  We need to think for a better way.
+          defect_id: Number(item.id),
+          hlf_defect_id: item.hlfDefectId,
+          // event_type_code: 'evHLFInsp', // todo ?
+          site_code: item.siteCode,
+          title: item.hlfDefectId,
+          notes: item.defectNotes,
+          // defect_type_code: 'dtMasonBrick', // todo ?
+          defect_status_code: item.defectStatus,
+          // defect_priority_code: 'dpLow', // todo ?
+          residual_risk_rating:
+            Number(item.fallConsequence) * Number(item.fallProbability),
+          fall_probability: Number(item.fallProbability),
+          fall_consequence: Number(item.fallConsequence),
+          material_code: item.defectMaterial,
+          inspection_action_code: item.inspectionAction,
+          defect_tag_1: item.defectTag,
+          elevation: item.projectedCoordinates[2],
+          easting: item.projectedCoordinates[0],
+          northing: item.projectedCoordinates[1],
+        };
+        const res = await saveDefectToHES(body);
+        return {
+          id: res.picams_defect_id,
+          message: res.message,
+        };
       },
       itemToFields(item: HESDefectItem) {
-        const c = item.coordinates;
         const values: FieldValues = {
           id: item.id,
           hlfDefectId: item.hlfDefectId,
+          title: item.hlfDefectId,
           siteCode: item.siteCode,
           siteName: item.siteName,
           reporter: item.reporter,
@@ -376,12 +456,39 @@ export const config: ISurveyConfig<HESDefectItemSummary, HESDefectItem> = {
           identifiedRiskRatingDescription: item.identifiedRiskRatingDescription,
           inspectionAction: item.inspectionAction,
           coordinates: {
-            longitude: c[0],
-            latitude: c[1],
-            height: c[2],
+            projected: item.projectedCoordinates,
+            wgs84: item.coordinates,
           },
         };
         return values;
+      },
+      fieldsToItem(
+        fields: FieldValues,
+        viewId?: string,
+        itemNumber?: number,
+      ): HESDefectItem {
+        const id = <string>fields.id;
+        const coords = <Coordinates>fields.coordinates;
+        const survey = <HESDefectItem>{
+          ...fields,
+          id,
+          lastModifiedMs: Date.now(), // FIXME timezone?
+          coordinates: coords.wgs84,
+          projectedCoordinates: coords.projected,
+        };
+        if (viewId && !survey.siteCode) {
+          survey.siteCode = viewId;
+        }
+        if (!survey.hlfDefectId && survey.siteCode && itemNumber) {
+          const date = new Date();
+          const formattedDate =
+            date.getFullYear().toString() +
+            String(date.getMonth() + 1).padStart(2, '0') +
+            String(date.getDate()).padStart(2, '0');
+          survey.hlfDefectId = `${survey.siteCode}-23-${itemNumber}-${formattedDate}`;
+          survey.title = survey.hlfDefectId;
+        }
+        return survey;
       },
       fields: [
         {
@@ -514,7 +621,7 @@ export const config: ISurveyConfig<HESDefectItemSummary, HESDefectItem> = {
           },
         },
         {
-          id: 'identifiedRiskRatingText',
+          id: 'identifiedRiskRating',
           type: 'readonly',
           hidden: true,
           options: getIdentifiedRiskRatingTexts.bind(undefined),
@@ -529,7 +636,7 @@ export const config: ISurveyConfig<HESDefectItemSummary, HESDefectItem> = {
           type: 'color',
           disabled: true,
           valueCallback: (item: FieldValues): string => {
-            return getRiskColor(<string>item.identifiedRiskRatingText);
+            return getRiskColor(<string>item.identifiedRiskRating);
           },
         },
         {
@@ -663,8 +770,11 @@ export const config: ISurveyConfig<HESDefectItemSummary, HESDefectItem> = {
       },
       surveyOptions: {
         pointOptions: {
-          colorCallback: (values: HESDefectItemSummary) =>
-            Color.fromCssColorString(getRiskColor(values.identifiedRiskRating)),
+          colorCallback: (values: HESDefectItemSummary) => {
+            return Color.fromCssColorString(
+              getRiskColor(values.identifiedRiskRating),
+            );
+          },
         },
       },
     },

@@ -22,67 +22,60 @@ import {classMap} from 'lit/directives/class-map.js';
 import './ngv-upload';
 import type {FileUploadDetails} from './ngv-upload.js';
 import {fileToBase64} from '../../utils/file-utils.js';
-import type {Coordinate, FieldValues} from '../../utils/generalTypes.js';
+import type {Coordinates, FieldValues} from '../../utils/generalTypes.js';
 import {until} from 'lit/directives/until.js';
-import proj4 from 'proj4';
 
 @customElement('ngv-survey')
 export class NgvSurvey extends LitElement {
   @property({type: Array})
   public surveyFields: SurveyField[];
   @property({type: Object})
-  public fieldValues: FieldValues | undefined;
+  public fetchFieldValues: Promise<FieldValues> | undefined;
   @property({type: String})
   public projection: string;
   @state()
   notValid: Record<string, boolean> = {};
+  @state()
+  public fieldValues: FieldValues | undefined;
 
-  // @ts-expect-error TS6133
-  private _surveyConfigChange = new Task(this, {
-    args: (): [SurveyField[]] => [this.surveyFields],
-    task: ([surveyConfig]) => {
-      const fields: Record<string, any> = {...this.fieldValues};
-      surveyConfig.forEach((item) => {
-        if (!fields[item.id]) {
-          if (item.type === 'checkbox') {
-            if (typeof item.options === 'function') {
-              throw new Error(
-                `The option field ${item.id} should have been resolved`,
-              );
+  private surveyConfigChange = new Task(this, {
+    args: (): [SurveyField[], Promise<FieldValues>] => [
+      this.surveyFields,
+      this.fetchFieldValues,
+    ],
+    task: async ([surveyConfig, fieldValues]) => {
+      const fields: Record<string, any> = await fieldValues;
+      if (fields) {
+        surveyConfig.forEach((item) => {
+          if (!fields[item.id]) {
+            if (item.type === 'checkbox') {
+              if (typeof item.options === 'function') {
+                throw new Error(
+                  `The option field ${item.id} should have been resolved`,
+                );
+              }
+              if (Array.isArray(item.options)) {
+                item.options.forEach((opt) => {
+                  if (!fields[item.id]) {
+                    fields[item.id] = {};
+                  }
+                  (<Record<string, boolean>>fields[item.id])[opt.value] =
+                    opt.checked;
+                });
+              }
+            } else if (item.type === 'input' && item.inputType === 'date') {
+              const date = new Date().toISOString();
+              fields[item.id] = date.substring(0, date.indexOf('T'));
+            } else {
+              fields[item.id] =
+                item.type !== 'file' && item.type !== 'id'
+                  ? item.defaultValue
+                  : '';
             }
-            if (Array.isArray(item.options)) {
-              item.options.forEach((opt) => {
-                if (!fields[item.id]) {
-                  fields[item.id] = {};
-                }
-                (<Record<string, boolean>>fields[item.id])[opt.value] =
-                  opt.checked;
-              });
-            }
-          } else if (item.type === 'input' && item.inputType === 'date') {
-            const date = new Date().toISOString();
-            fields[item.id] = date.substring(0, date.indexOf('T'));
-          } else {
-            fields[item.id] =
-              item.type !== 'file' && item.type !== 'id'
-                ? item.defaultValue
-                : '';
           }
-        }
-        if (item.type === 'coordinates' && this.projection?.length) {
-          const coords = <Coordinate>fields[item.id];
-          const projected = proj4('EPSG:4326', this.projection, [
-            coords.longitude,
-            coords.latitude,
-          ]);
-          fields[item.id] = <Coordinate>{
-            ...fields[item.id],
-            longitude: projected[0],
-            latitude: projected[1],
-          };
-        }
-      });
-      this.fieldValues = {...fields};
+        });
+      }
+      this.fieldValues = fields;
     },
   });
 
@@ -328,20 +321,23 @@ export class NgvSurvey extends LitElement {
     const integerFormat = new Intl.NumberFormat('de-CH', {
       maximumFractionDigits: 3,
     });
-    const coordinate = <Coordinate>this.fieldValues[options.id];
+    const coordinates = <Coordinates>this.fieldValues[options.id];
+    const coordinate = coordinates?.projected
+      ? coordinates.projected
+      : coordinates?.wgs84;
     if (!coordinate) return '';
     return html`
       <div>
         <span class="ngv-survey-label">${msg('Coordinates')}:</span>
         <span class="ngv-secondary-text">
-          ${integerFormat.format(coordinate.longitude)},
-          ${integerFormat.format(coordinate.latitude)}</span
+          ${integerFormat.format(coordinate[0])},
+          ${integerFormat.format(coordinate[1])}</span
         >
       </div>
       <div>
         <span class="ngv-survey-label">${msg('Height:')}</span>
         <span class="ngv-secondary-text">
-          ${integerFormat.format(coordinate.height)}m</span
+          ${integerFormat.format(coordinate[2])}m</span
         >
       </div>
     `;
@@ -434,44 +430,65 @@ export class NgvSurvey extends LitElement {
     return !Object.values(this.notValid).find((v) => v);
   }
 
-  protected shouldUpdate(): boolean {
-    return !!this.fieldValues;
-  }
-
   render(): HTMLTemplateResult | string {
-    if (!this.surveyFields || !this.fieldValues) return '';
-    return html` <wa-card>
-      ${this.surveyFields.map((field) => this.renderField(field))}
-      <div class="ngv-survey-btns">
-        <wa-button
-          appearance="filled"
-          size="small"
-          .hidden=${false}
-          @click="${() => {
-            this.dispatchEvent(new CustomEvent('cancel'));
-          }}"
-        >
-          <wa-icon name="times"></wa-icon>
-        </wa-button>
-        <wa-button
-          appearance="filled"
-          size="small"
-          .hidden=${false}
-          @click="${() => {
-            const valid = this.validate();
-            if (valid) {
-              this.dispatchEvent(
-                new CustomEvent<FieldValues>('confirm', {
-                  detail: this.fieldValues,
-                }),
-              );
-            }
-          }}"
-        >
-          <wa-icon name="check"></wa-icon>
-        </wa-button>
-      </div>
-    </wa-card>`;
+    return this.surveyConfigChange.render({
+      pending: () => html`<wa-card><progress></progress></wa-card>`,
+      error: (error) => {
+        console.error(error);
+        return html`<wa-card>
+          <span class="ngv-secondary-text"
+            >${msg('An error occurred when parsing survey')}</span
+          >
+          <div class="ngv-survey-btns">
+            <wa-button
+              appearance="filled"
+              size="small"
+              .hidden=${false}
+              @click="${() => {
+                this.dispatchEvent(new CustomEvent('cancel'));
+              }}"
+            >
+              <wa-icon name="times"></wa-icon>
+            </wa-button>
+          </div>
+        </wa-card>`;
+      },
+      complete: () => {
+        if (!this.surveyFields || !this.fieldValues) return '';
+        return html` <wa-card>
+          ${this.surveyFields.map((field) => this.renderField(field))}
+          <div class="ngv-survey-btns">
+            <wa-button
+              appearance="filled"
+              size="small"
+              .hidden=${false}
+              @click="${() => {
+                this.dispatchEvent(new CustomEvent('cancel'));
+              }}"
+            >
+              <wa-icon name="times"></wa-icon>
+            </wa-button>
+            <wa-button
+              appearance="filled"
+              size="small"
+              .hidden=${false}
+              @click="${() => {
+                const valid = this.validate();
+                if (valid) {
+                  this.dispatchEvent(
+                    new CustomEvent<FieldValues>('confirm', {
+                      detail: this.fieldValues,
+                    }),
+                  );
+                }
+              }}"
+            >
+              <wa-icon name="check"></wa-icon>
+            </wa-button>
+          </div>
+        </wa-card>`;
+      },
+    });
   }
 
   createRenderRoot(): this {

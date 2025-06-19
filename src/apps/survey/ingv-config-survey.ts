@@ -7,6 +7,9 @@ export interface ItemSummary {
   id: string;
   lastModifiedMs: number;
   coordinates: number[];
+  projectedCoordinates: number[];
+  modifiedOffline?: boolean;
+  title?: string;
 }
 
 export type Context = {
@@ -15,15 +18,28 @@ export type Context = {
 
 export type Item = ItemSummary;
 
-export interface ISurveyConfig<ItemSummaryType = ItemSummary, ItemType = Item>
-  extends INgvStructureApp {
+export type ItemSaveResponse = {
+  id?: string;
+  message?: string;
+};
+
+export interface ISurveyConfig<
+  ItemSummaryType = ItemSummary,
+  ItemType = Item,
+  ItemSaveResponseType = ItemSaveResponse,
+> extends INgvStructureApp {
   app: {
     cesiumContext: IngvCesiumContext;
     survey: {
       listItems: (context: Context) => Promise<ItemSummaryType[]>;
       getItem: (context: Context) => Promise<ItemType>;
+      saveItem: (context: ItemType) => Promise<ItemSaveResponseType>;
       itemToFields: (item: ItemType) => FieldValues;
-      fieldsToItem: (values: FieldValues) => ItemType;
+      fieldsToItem: (
+        fields: FieldValues,
+        viewId?: string,
+        itemNumber?: number,
+      ) => ItemType;
       fields: SurveyField[];
     };
   };
