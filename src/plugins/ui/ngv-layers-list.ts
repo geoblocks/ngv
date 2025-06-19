@@ -9,6 +9,7 @@ export type LayerListItem = {
 export type LayerListOptions = {
   title?: string;
   showDeleteBtns?: boolean;
+  showDeleteBtnCallback?: (index: number) => boolean;
   showZoomBtns?: boolean;
   showEditBtns?: boolean;
 };
@@ -58,7 +59,11 @@ export class NgvLayersList extends LitElement {
                     &#128393
                   </wa-icon-button>`
                   : ''}
-                ${this.options?.showDeleteBtns
+                ${(
+                  this.options?.showDeleteBtnCallback
+                    ? this.options.showDeleteBtnCallback(i)
+                    : this.options?.showDeleteBtns
+                )
                   ? html`<wa-icon-button
                       src="../../../icons/trash.svg"
                       size="small"

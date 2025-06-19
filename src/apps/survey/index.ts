@@ -40,7 +40,7 @@ import {
   persistJson,
   removeFile,
 } from '../../utils/storage-utils.js';
-import type {Coordinate, FieldValues} from '../../utils/generalTypes.js';
+import type {FieldValues} from '../../utils/generalTypes.js';
 import {Task} from '@lit/task';
 import type {OfflineInfo} from '../../plugins/cesium/ngv-plugin-cesium-offline.js';
 import type {NgvPluginCesiumNavigation} from '../../plugins/cesium/ngv-plugin-cesium-navigation.js';
@@ -67,9 +67,13 @@ export class NgvAppSurvey extends ABaseApp<typeof config> {
   @state()
   private surveys: ItemSummary[] = [];
   @state()
+  private failedSurveys: ItemSummary[] = [];
+  @state()
   private offline: boolean = false;
   @state()
   private initialized = false;
+  @state()
+  private surveyFieldValuesPromise: Promise<FieldValues> | undefined;
   @query('ngv-plugin-cesium-navigation')
   private navElement: NgvPluginCesiumNavigation;
   @query('.ngv-vertical-menu')
@@ -84,7 +88,6 @@ export class NgvAppSurvey extends ABaseApp<typeof config> {
   private currentView: IngvCesiumContext['views'][number] | null = null;
 
   private collections: ViewerInitializedDetails['primitiveCollections'];
-  private surveyFieldValues: FieldValues = {};
 
   static styles = css`
     details {
@@ -254,7 +257,7 @@ export class NgvAppSurvey extends ABaseApp<typeof config> {
         ) {
           return undefined;
         }
-        this.editSurvey(pickedObject?.id?.id).catch((e) => console.error(e));
+        this.editSurvey(pickedObject?.id?.id);
       },
       ScreenSpaceEventType.LEFT_CLICK,
     );
@@ -281,16 +284,25 @@ export class NgvAppSurvey extends ABaseApp<typeof config> {
     this.lastPoint = this.addPoint(detail.cartesian3);
     this.showSurvey = true;
     const idField = this.config.app.survey.fields.find((f) => f.type === 'id');
+    const fields: FieldValues = {};
     if (idField) {
-      this.surveyFieldValues[idField.id] = this.lastPoint.id;
+      fields[idField.id] = this.lastPoint.id;
     }
     const coordsField = this.config.app.survey.fields.find(
       (f) => f.type === 'coordinates',
     );
     if (coordsField) {
-      this.surveyFieldValues[coordsField.id] = {
-        ...detail.wgs84,
-        height: Number(detail.elevation.toFixed(2)),
+      fields[coordsField.id] = {
+        wgs84: [
+          detail.wgs84.longitude,
+          detail.wgs84.latitude,
+          detail.elevation,
+        ],
+        projected: detail.projected && [
+          detail.projected.longitude,
+          detail.projected.latitude,
+          detail.elevation,
+        ],
       };
     }
     const requiredDateField = this.config.app.survey.fields.find(
@@ -298,52 +310,65 @@ export class NgvAppSurvey extends ABaseApp<typeof config> {
         f.type === 'input' && f.inputType === 'datetime-local' && f.required,
     );
     if (requiredDateField) {
-      this.surveyFieldValues[requiredDateField.id] = new Date()
-        .toISOString()
-        .split('.')[0];
+      fields[requiredDateField.id] = new Date().toISOString().split('.')[0];
     }
+    // converting to get missing properties
+    const item = this.config.app.survey.fieldsToItem(
+      fields,
+      this.currentView.id,
+      this.surveys.length + 1,
+    );
+    this.surveyFieldValuesPromise = Promise.resolve(
+      this.config.app.survey.itemToFields(item),
+    );
   }
 
   hideSurvey(): void {
     this.showSurvey = false;
     this.lastPoint = undefined;
-    this.surveyFieldValues = {};
+    this.surveyFieldValuesPromise = undefined;
   }
 
   async confirm(evt: CustomEvent<FieldValues>): Promise<void> {
+    if (!evt.detail) throw new Error('No survey data');
     const idField = this.config.app.survey.fields.find((f) => f.type === 'id');
-    const id = <string>this.surveyFieldValues[idField?.id];
-    const coordinatesField = this.config.app.survey.fields.find(
-      (f) => f.type === 'coordinates',
-    );
-    const coordinates = <Coordinate>(
-      this.surveyFieldValues[coordinatesField?.id]
-    );
+    let id = <string>evt.detail[idField?.id];
     if (!id) return;
-    const survey = <Item>{
-      ...evt.detail,
-      id,
-      coordinates: [
-        coordinates.longitude,
-        coordinates.latitude,
-        coordinates.height,
-      ],
-      lastModifiedMs: Date.now(), // FIXME timezone?
-    };
     const surveyIndex = this.surveys.findIndex((s) => s.id === id);
+    const itemNumber =
+      surveyIndex < 0 ? this.surveys.length + 1 : surveyIndex + 1;
+    const item = this.config.app.survey.fieldsToItem(
+      evt.detail,
+      this.currentView.id,
+      itemNumber,
+    );
+    item.modifiedOffline = this.offline;
     if (surveyIndex < 0) {
-      this.surveys.push({
-        ...survey,
-        identifiedRiskRating: survey.identifiedRiskRatingText,
-      });
+      this.surveys.push(item);
     } else {
-      this.surveys[surveyIndex] = {
-        ...survey,
-        identifiedRiskRating: survey.identifiedRiskRatingText,
-      };
+      this.surveys[surveyIndex] = item;
     }
-    await persistJson(this.persistentDir, STORAGE_LIST_NAME, this.surveys);
-    await persistJson(this.persistentDir, `${id}.json`, survey);
+    if (this.offline) {
+      await persistJson(this.persistentDir, STORAGE_LIST_NAME, this.surveys);
+      await persistJson(this.persistentDir, `${id}.json`, item);
+    } else {
+      const res = await this.config.app.survey.saveItem(item);
+      id = res.id;
+    }
+    if (this.lastPoint) {
+      const position = this.lastPoint.position.getValue();
+      this.dataSource.entities.remove(this.lastPoint);
+      this.addPoint(position, id, item);
+    } else {
+      const colorCallback =
+        this.config.app.cesiumContext.surveyOptions?.pointOptions.colorCallback;
+      if (item && colorCallback) {
+        const entity = this.dataSource.entities.getById(item.id);
+        if (entity) {
+          entity.point.color = new ConstantProperty(colorCallback(item));
+        }
+      }
+    }
     this.hideSurvey();
   }
 
@@ -361,12 +386,16 @@ export class NgvAppSurvey extends ABaseApp<typeof config> {
       this.surveys.splice(index, 1);
       await persistJson(this.persistentDir, STORAGE_LIST_NAME, this.surveys);
       this.surveys = [...this.surveys];
+      const entity = this.dataSource.entities.getById(id);
+      if (entity) {
+        this.dataSource.entities.remove(entity);
+      }
     }
   }
 
-  async onEdit(index: number): Promise<void> {
+  onEdit(index: number): void {
     const id = this.surveys[index]?.id;
-    await this.editSurvey(id);
+    this.editSurvey(id);
   }
 
   async onViewChanged(view: IngvCesiumContext['views'][number]): Promise<void> {
@@ -375,15 +404,12 @@ export class NgvAppSurvey extends ABaseApp<typeof config> {
     await this.loadSurveys(this.offline);
   }
 
-  async editSurvey(id: string): Promise<void> {
+  editSurvey(id: string): void {
     if (!id) {
       return;
     }
-    const survey = await this.getOrReadSurvey(id);
-    if (survey) {
-      this.surveyFieldValues = survey;
-      this.showSurvey = true;
-    }
+    this.showSurvey = true;
+    this.surveyFieldValuesPromise = this.getOrReadSurvey(id);
   }
   async getOrReadSurvey(id: string): Promise<FieldValues> {
     let item: Item;
@@ -413,10 +439,14 @@ export class NgvAppSurvey extends ABaseApp<typeof config> {
     );
   }
 
-  removeEntityHighlight(id: string): void {
+  removeEntityHighlight(id: string, item: ItemSummary): void {
     const ent = this.dataSource.entities.getById(id);
     if (!ent) return;
-    ent.point.color = new ConstantProperty(this.pointConfig.color);
+    const colorCallback =
+      this.config.app.cesiumContext.surveyOptions?.pointOptions.colorCallback;
+    ent.point.color = new ConstantProperty(
+      item && colorCallback ? colorCallback(item) : this.pointConfig.color,
+    );
     ent.point.outlineColor = new ConstantProperty(
       this.pointConfig.outlineColor,
     );
@@ -447,10 +477,31 @@ export class NgvAppSurvey extends ABaseApp<typeof config> {
       });
     } else {
       // going online
-      console.log('FIXME: implement sync back to servers');
-      // FIXME: throw if something went wrong to prevent actual switch
-      // Here we should do fieldsToItem and merge the result with the original item (to not lose existing / unsupported values)
-      // If the id is temporary UUID we should POST to create a proper id and replace it (for photos, then for defects)
+      const modifiedSurveys = this.surveys.filter((s) => s.modifiedOffline);
+      this.failedSurveys = [];
+      await Promise.all(
+        modifiedSurveys.map(async (s) => {
+          try {
+            console.log(`Sync survey ${s.id}`, s);
+            const survey = await readJsonFile<Item>(
+              this.persistentDir,
+              `${s.id}.json`,
+            );
+            // Should item be created or updated handles in saveItem function
+            // For now, all items modified in offline mode will be updated in DB. Latter modified_at check can be added.
+            await this.config.app.survey.saveItem(survey);
+          } catch (error) {
+            console.error(`Survey ${s.id} sync failed with error:`, error);
+            this.failedSurveys.push(s);
+          }
+        }),
+      ).finally(() => {
+        this.requestUpdate();
+        if (this.failedSurveys.length > 0) {
+          console.log(this.failedSurveys);
+          throw new Error(`Surveys sync failed.`);
+        }
+      });
     }
   }
 
@@ -477,6 +528,57 @@ export class NgvAppSurvey extends ABaseApp<typeof config> {
     </wa-card>`;
   }
 
+  renderSurveysList(surveys: ItemSummary[], title: string): HTMLTemplateResult {
+    return html` <div .hidden=${!surveys?.length || this.showSurvey}>
+      <wa-card
+        with-header
+        class="${classMap({
+          'wa-visually-hidden': !surveys?.length || this.showSurvey,
+        })}"
+      >
+        <div slot="header">${title}</div>
+        <ngv-layers-list
+          .layers="${surveys.map((s) => {
+            return {
+              name: s.title ? `${s.id}:${s.title}` : s.id,
+            };
+          })}"
+          .options="${{
+            showDeleteBtnCallback: (i: number) => !Number(surveys[i]?.id),
+            showZoomBtns: true,
+            showEditBtns: true,
+          }}"
+          @remove=${async (evt: {detail: number}) => this.onRemove(evt.detail)}
+          @zoom=${(evt: {detail: number}) => {
+            const id = surveys[evt.detail]?.id;
+            if (id) {
+              const ent = this.dataSource.entities.getById(id);
+              // todo decide how and improve
+              const sphere = new BoundingSphere(
+                ent.position.getValue(JulianDate.now()),
+                2,
+              );
+              this.viewer.camera.flyToBoundingSphere(sphere);
+            }
+          }}
+          @edit="${(evt: {detail: number}) => this.onEdit(evt.detail)}"
+          @zoomEnter=${(e: {detail: number}) => {
+            const id = surveys[e.detail]?.id;
+            if (id) {
+              this.highlightEntity(id);
+            }
+          }}
+          @zoomOut=${(e: {detail: number}) => {
+            const id = surveys[e.detail]?.id;
+            if (id) {
+              this.removeEntityHighlight(id, surveys[e.detail]);
+            }
+          }}
+        ></ngv-layers-list>
+      </wa-card>
+    </div>`;
+  }
+
   leftMenuContentRender(): HTMLTemplateResult {
     const offlineInfo: OfflineInfo = this.config.app.cesiumContext.offline
       ? {
@@ -499,6 +601,11 @@ export class NgvAppSurvey extends ABaseApp<typeof config> {
                 .beforeSwitchDispatch=${this.beforeSwitchDispatch.bind(this)}
                 @switch="${(evt: {detail: {offline: boolean}}) => {
                   this.offline = evt.detail.offline;
+                  if (!this.offline) {
+                    this.loadSurveys(this.offline).catch((e) =>
+                      console.error(e),
+                    );
+                  }
                 }}"
                 @offlineInfo="${(evt: {detail: OfflineInfo}) => {
                   if (!evt.detail?.view?.id) return;
@@ -510,7 +617,7 @@ export class NgvAppSurvey extends ABaseApp<typeof config> {
           <ngv-survey
             .hidden=${!this.showSurvey}
             .surveyFields="${this.config.app.survey.fields}"
-            .fieldValues="${this.surveyFieldValues}"
+            .fetchFieldValues="${this.surveyFieldValuesPromise}"
             .projection=${this.config.app.cesiumContext.clickInfoOptions
               ?.projection}
             @confirm=${(evt: CustomEvent<FieldValues>) => {
@@ -531,55 +638,11 @@ export class NgvAppSurvey extends ABaseApp<typeof config> {
               detail: IngvCesiumContext['views'][number];
             }) => this.onViewChanged(evt.detail)}
           ></ngv-plugin-cesium-navigation>
-          <div .hidden=${!this.surveys?.length || this.showSurvey}>
-            <wa-card
-              with-header
-              class="${classMap({
-                'wa-visually-hidden': !this.surveys?.length || this.showSurvey,
-              })}"
-            >
-              <div slot="header">${msg('Surveys')}</div>
-              <ngv-layers-list
-                .layers="${this.surveys.map((s) => {
-                  return {
-                    name: s.id,
-                  };
-                })}"
-                .options="${{
-                  showDeleteBtns: true,
-                  showZoomBtns: true,
-                  showEditBtns: true,
-                }}"
-                @remove=${async (evt: {detail: number}) =>
-                  this.onRemove(evt.detail)}
-                @zoom=${(evt: {detail: number}) => {
-                  const id = this.surveys[evt.detail]?.id;
-                  if (id) {
-                    const ent = this.dataSource.entities.getById(id);
-                    // todo decide how and improve
-                    const sphere = new BoundingSphere(
-                      ent.position.getValue(JulianDate.now()),
-                      2,
-                    );
-                    this.viewer.camera.flyToBoundingSphere(sphere);
-                  }
-                }}
-                @edit="${(evt: {detail: number}) => this.onEdit(evt.detail)}"
-                @zoomEnter=${(e: {detail: number}) => {
-                  const id = this.surveys[e.detail]?.id;
-                  if (id) {
-                    this.highlightEntity(id);
-                  }
-                }}
-                @zoomOut=${(e: {detail: number}) => {
-                  const id = this.surveys[e.detail]?.id;
-                  if (id) {
-                    this.removeEntityHighlight(id);
-                  }
-                }}
-              ></ngv-layers-list>
-            </wa-card>
-          </div>
+          ${this.renderSurveysList(
+            this.failedSurveys,
+            msg('Failed sync surveys'),
+          )}
+          ${this.renderSurveysList(this.surveys, msg('Surveys'))}
         </div>
       </wa-details>
     </div>`;
