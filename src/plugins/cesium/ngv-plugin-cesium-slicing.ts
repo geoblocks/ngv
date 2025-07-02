@@ -326,7 +326,7 @@ export class NgvPluginCesiumSlicing extends LitElement {
                       }
                     : undefined,
               }}"
-              .showDone=${this.draw?.entityForEdit}
+              .showDone=${true}
               .showCancel=${true}
               @clippingChange=${(evt: {detail: ClippingChangeDetail}) => {
                 if (typeof evt.detail.terrainClipping === 'boolean') {
@@ -357,6 +357,8 @@ export class NgvPluginCesiumSlicing extends LitElement {
                   this.draw.clear();
                   this.requestUpdate();
                   this.saveToLocalStore();
+                } else {
+                  this.draw.finishDrawing();
                 }
               }}"
               @cancel="${() => this.cancel()}"

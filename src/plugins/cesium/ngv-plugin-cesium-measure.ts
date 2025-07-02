@@ -204,6 +204,21 @@ export class NgvPluginCesiumMeasure extends LitElement {
                     'Measure area',
                   )}`}
           </div>
+          ${this.draw?.active &&
+          ((this.draw.type === 'line' && this.measurements?.segments?.length) ||
+            (this.draw.type === 'polygon' &&
+              this.measurements?.segments?.length > 2))
+            ? html`
+                <wa-button
+                  class="ngv-finish-measure-btn"
+                  size="small"
+                  appearance="filled"
+                  @click="${() => this.draw.finishDrawing()}"
+                >
+                  ${msg('Finish measure')}
+                </wa-button>
+              `
+            : ''}
           ${this.measurements
             ? html`<div class="ngv-measure-info-container">
                 <span
