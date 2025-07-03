@@ -39,6 +39,7 @@ wa-card.ngv-toolbar::part(body) {
   justify-content: space-between;
   gap: 6px;
   padding: 10px;
+  min-width: max-content;
 }
 
 wa-card.ngv-toolbar .ngv-tools-icon-container {
@@ -149,6 +150,11 @@ wa-details.ngv-vertical-menu::part(icon):hover {
 
   .ngv-submenu-overlay wa-card::part(body) {
     width: 50vw;
+  }
+
+  .ngv-toolbar .ngv-tools-icon-container img {
+    max-width: 150px;
+    min-width: auto;
   }
 }
 
