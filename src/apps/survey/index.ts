@@ -593,7 +593,14 @@ export class NgvAppSurvey extends ABaseApp<typeof config> {
       : undefined;
 
     return html`<div>
-      <wa-details class="ngv-vertical-menu">
+      <wa-details
+        class="ngv-vertical-menu"
+        @wa-hide=${() => {
+          if (this.showSurvey) {
+            this.cancel();
+          }
+        }}
+      >
         <div class="ngv-vertical-menu-content">
           ${offlineInfo
             ? html`<ngv-plugin-cesium-offline
