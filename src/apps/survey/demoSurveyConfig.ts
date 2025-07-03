@@ -1,362 +1,10 @@
-import type {Coordinates, FieldValues} from '../../utils/generalTypes.js';
+import type {FieldValues} from '../../utils/generalTypes.js';
 import type {
   Context,
   ISurveyConfig,
+  Item,
   ItemSummary,
 } from './ingv-config-survey.js';
-import {Color} from '@cesium/engine';
-
-// todo cors issue
-// const prefix = 'https://testext-oracle.hes.scot/apex/hes';
-const prefix = '/hes_api';
-
-type HESTokenResponse = {
-  access_token: string;
-  token_type: string;
-  expires_in: number;
-};
-
-type HESDefectResponse = {
-  defect_id: number;
-  event_id: number;
-  event_type_code: string;
-  event_type: string;
-  hlf_defect_id: string;
-  site_id: number;
-  site_code: string;
-  site_name: string;
-  title: string;
-  notes: string;
-  defect_type_code: string;
-  defect_type: string;
-  section?: null;
-  defect_status_code: string;
-  defect_status: string;
-  defect_priority_code: string;
-  defect_priority: string;
-  inspection_action_code: string;
-  inspection_action: string;
-  residual_risk_rating: number;
-  fall_probability: 1 | 2 | 3 | 4 | 5;
-  fall_consequence: 1 | 2 | 3 | 4 | 5;
-  material_code: string;
-  defect_material: string;
-  reporter?: string;
-  date_recorded: string;
-  entered_dt: string;
-  entered_by: string;
-  updated_dt: string;
-  updated_by: string;
-  ref_no?: string;
-  entered_by_name?: string;
-  entered_by_email?: string;
-  updated_by_name?: string;
-  updated_by_email?: string;
-  elevation: number;
-  long_degrees: number;
-  lat_degrees: number;
-  ll_geojson: string;
-  defect_tags?: string; // todo should be replaced with string[]
-  easting: number;
-  northing: number;
-};
-
-type HESDefectPostBody = {
-  defect_id?: number;
-  hlf_defect_id: string; // 'PIC155-23-01-20250603' - PICAMS site PIC155, PICAMS site HLF zone 23, Cesium defect number  01, Cesium defect and Inspection date 20250603 which is 03/06/2025
-  event_type_code?: string; // todo ?
-  site_code: string;
-  title: string;
-  notes: string;
-  defect_type_code?: string; // todo ?
-  defect_status_code: string;
-  defect_priority_code?: string; // todo ?
-  residual_risk_rating: number;
-  fall_probability: number;
-  fall_consequence: number;
-  material_code: string;
-  inspection_action_code: string;
-  defect_tag_1: string; // why not array?
-  defect_tag_2?: string;
-  defect_tag_3?: string;
-  reporter_user_id?: string;
-  assignment_user_id?: string;
-  elevation: number;
-  easting: number;
-  northing: number;
-};
-
-type HESPostResponse = {
-  message: string;
-  picams_defect_id?: string;
-  picams_inspection_id?: string;
-};
-
-type HESDefectItemSummary = ItemSummary & {
-  identifiedRiskRating: string;
-};
-
-type HESDefectItem = ItemSummary & {
-  hlfDefectId?: string;
-  siteName: string;
-  siteCode: string;
-  reporter: string;
-  dateRecorded: string;
-  defectStatus: string;
-  defectMaterial: string;
-  defectTag: string;
-  defectNotes?: string;
-  fallProbability: string;
-  fallConsequence: string;
-  identifiedRiskRatingDescription: string;
-  identifiedRiskRating: string;
-  inspectionAction: string;
-};
-
-type HESDefectsResponse = {
-  items: HESDefectResponse[];
-  hasMore: boolean;
-  limit: number;
-  offset: number;
-  count: number;
-  links: [
-    {
-      rel: 'self';
-      href: string;
-    },
-    {
-      rel: 'describedby';
-      href: string;
-    },
-    {
-      rel: 'first';
-      href: string;
-    },
-    {
-      rel: 'next';
-      href: string;
-    },
-  ];
-};
-
-type HESDefectTagResponse = {
-  items: {
-    material: string;
-    material_code: string;
-    defect_tags: {
-      code: string;
-      code_text: string;
-    }[];
-  }[];
-};
-
-function getHESSecretKey() {
-  const urlSP = new URLSearchParams(document.location.search);
-  let sk = urlSP.get('hes_secret');
-  if (!sk) {
-    console.log('No hes_secret param, trying to use localstorage');
-    sk = localStorage.getItem('hes_secret');
-  }
-  if (!sk) {
-    console.error('No hes_secret in localstorage');
-  }
-  localStorage.setItem('hes_secret', sk);
-  if (urlSP.has('hes_secret')) {
-    urlSP.delete('hes_secret');
-    document.location.search = urlSP.toString();
-  }
-  return sk;
-}
-
-const hesSecretKey = getHESSecretKey();
-let bearerCache = {
-  expire_ms: 0,
-  token: '',
-};
-
-async function getHESBearerToken(): Promise<string> {
-  const now = Date.now();
-  if (now - 60_000 < bearerCache.expire_ms) {
-    return Promise.resolve(bearerCache.token);
-  }
-  const headers = new Headers();
-  headers.append('Content-Type', 'application/x-www-form-urlencoded');
-  console.log('Getting bearer token using', hesSecretKey);
-  headers.append('Authorization', `Basic ${btoa(hesSecretKey)}`);
-
-  const urlencoded = new URLSearchParams();
-  urlencoded.append('grant_type', 'client_credentials');
-  const response = await fetch(`${prefix}/oauth/token`, {
-    method: 'POST',
-    headers: headers,
-    body: urlencoded,
-  });
-  const res: HESTokenResponse = <HESTokenResponse>await response.json();
-  const {access_token, expires_in} = res;
-  bearerCache = {
-    expire_ms: Date.now() + expires_in * 1000,
-    token: access_token,
-  };
-  return access_token;
-}
-
-async function getFromHES<T>(path: string): Promise<T> {
-  const token = await getHESBearerToken();
-  const myHeaders = new Headers();
-  myHeaders.append('Authorization', `Bearer ${token}`);
-  const response = await fetch(`${prefix}${path}`, {
-    method: 'GET',
-    headers: myHeaders,
-  });
-  return <T>await response.json();
-}
-
-async function getHESSurveys(siteId: string): Promise<HESDefectItemSummary[]> {
-  // FIXME: why do we limit the inspection type?
-  // &inspection_type=evHLFInsp
-  const result = await getFromHES<HESDefectsResponse>(
-    `/picams-external/list_defects?site_code=${siteId}&limit=100000`,
-  );
-  const risks = await getFromHES<{
-    items: {
-      code: string;
-      code_text: string;
-      description: string;
-    }[];
-  }>('/picams-external/list_lkup?code_type=DEFECT_IDENTIFIED_RISK_RATING');
-  return result['items']
-    .filter((s) => s.lat_degrees && s.long_degrees && s.elevation)
-    .map((s) => {
-      const rating = String(s.fall_consequence * s.fall_probability);
-      const riskInfo = risks.items.find((i) => i.code === rating);
-      return {
-        id: s.defect_id.toString(),
-        // FIXME: flatten and convert to radians?
-        coordinates: [s.long_degrees, s.lat_degrees, s.elevation],
-        projectedCoordinates: [s.easting, s.northing, s.elevation],
-        lastModifiedMs: new Date(s.updated_dt).getTime(),
-        identifiedRiskRating: riskInfo.code_text,
-        title: s.title || s.hlf_defect_id,
-      };
-    });
-}
-
-async function getInspectionActions() {
-  const result = await getFromHES<{
-    items: {
-      identified_risk_rating: string;
-      identified_risk_rating_code: string;
-      inspection_action: {
-        code: string;
-        code_text: string;
-      }[];
-    }[];
-  }>(`/picams-external/inspection_action`);
-  return Object.fromEntries(
-    result.items.map((i) => [
-      i.identified_risk_rating_code,
-      i.inspection_action.map((a) => ({
-        label: a.code_text,
-        value: a.code,
-      })),
-    ]),
-  );
-}
-
-async function getHESSurvey(defectId: string): Promise<HESDefectItem> {
-  const result = await getFromHES<HESDefectsResponse>(
-    `/picams-external/defect?defect_id=${defectId}`,
-  );
-  const s = result['items'][0];
-  const identifiedRiskRating = String(s.fall_consequence * s.fall_probability);
-  let defectTag = '';
-  if (s.defect_tags?.length) {
-    if (typeof s.defect_tags === 'string') {
-      try {
-        const defectTags: string[] = <string[]>JSON.parse(s.defect_tags);
-        defectTag = defectTags[0];
-      } catch (e) {
-        console.error('Error during defect tags parse:', e);
-      }
-    } else if (Array.isArray(s.defect_tags)) {
-      defectTag = s.defect_tags[0];
-    }
-  }
-  const ratings = await getIdentifiedRiskRating();
-  const rating = ratings.items.find((r) => r.code === identifiedRiskRating);
-  return {
-    id: s.defect_id.toString(),
-    hlfDefectId: s.hlf_defect_id,
-    title: s.title || s.hlf_defect_id,
-    siteName: s.site_name,
-    siteCode: s.site_code,
-    reporter: s.reporter,
-    dateRecorded: s.date_recorded.replace('Z', ''),
-    defectStatus: s.defect_status_code,
-    defectMaterial: s.material_code,
-    defectTag,
-    defectNotes: s.notes,
-    fallProbability: String(s.fall_probability),
-    fallConsequence: String(s.fall_consequence),
-    inspectionAction: s.inspection_action_code,
-    identifiedRiskRatingDescription: `${rating.code_text}, ${rating.description}`,
-    identifiedRiskRating: rating.code_text,
-    // FIXME: flatten and convert to radians?
-    coordinates: [s.long_degrees, s.lat_degrees, s.elevation],
-    projectedCoordinates: [s.easting, s.northing, s.elevation],
-    lastModifiedMs: new Date(s.updated_dt || 0).getTime(),
-  };
-}
-
-async function getHESFieldOptions(type: string) {
-  const result = await getFromHES<{
-    items: {
-      code: string;
-      code_text: string;
-    }[];
-  }>(`/picams-external/list_lkup?code_type=${type}`);
-  return result.items.map((item) => ({
-    label: item.code_text,
-    value: item.code,
-  }));
-}
-
-async function getIdentifiedRiskRating() {
-  return await getFromHES<{
-    items: {
-      code: string;
-      code_text: string;
-      description?: string;
-    }[];
-  }>('/picams-external/list_lkup?code_type=DEFECT_IDENTIFIED_RISK_RATING');
-}
-
-async function getIdentifiedRiskRatingsDescription() {
-  const result = await getIdentifiedRiskRating();
-  return Object.fromEntries(
-    result.items.map((i) => [i.code, `${i.code_text}, ${i.description}`]),
-  );
-}
-
-async function getIdentifiedRiskRatingTexts() {
-  const result = await getIdentifiedRiskRating();
-  return Object.fromEntries(result.items.map((i) => [i.code, i.code_text]));
-}
-
-async function getHESDefectTags() {
-  const res = await getFromHES<HESDefectTagResponse>(
-    `/picams-external/defect_tag`,
-  );
-  return Object.fromEntries(
-    res.items.map((i) => [
-      i.material_code,
-      i.defect_tags.map((item) => ({
-        label: item.code_text,
-        value: item.code,
-      })),
-    ]),
-  );
-}
 
 function getRiskColor(identifiedRiskRating: string) {
   switch (identifiedRiskRating) {
@@ -371,23 +19,7 @@ function getRiskColor(identifiedRiskRating: string) {
   }
 }
 
-async function saveDefectToHES(
-  body: HESDefectPostBody,
-): Promise<HESPostResponse> {
-  const token = await getHESBearerToken();
-  const myHeaders = new Headers({
-    'Content-Type': 'application/json',
-  });
-  myHeaders.append('Authorization', `Bearer ${token}`);
-  const response = await fetch(`${prefix}/picams-external/defect`, {
-    method: body.defect_id ? 'PUT' : 'POST',
-    headers: myHeaders,
-    body: JSON.stringify(body),
-  });
-  return <HESPostResponse>await response.json();
-}
-
-export const config: ISurveyConfig<HESDefectItemSummary, HESDefectItem> = {
+export const config: ISurveyConfig<ItemSummary, Item> = {
   languages: ['en'],
   header: {
     title: {
@@ -401,94 +33,37 @@ export const config: ISurveyConfig<HESDefectItemSummary, HESDefectItem> = {
         if (!id) {
           throw new Error('Missing id in context');
         }
-        // move function in this file
-        return getHESSurveys(id);
+        return Promise.resolve([]);
       },
       async getItem(context: Context) {
-        // move function in this file
-        return getHESSurvey(context?.id);
+        console.log(context);
+        return Promise.resolve({
+          id: context.id,
+          coordinates: [],
+          lastModifiedMs: Date.now(),
+          projectedCoordinates: [],
+        });
       },
-      async saveItem(item: HESDefectItem) {
-        const body = {
-          // fixme Currently, HES ID is number and cesium ID is string so when we convert string to number got NaN. In this way we can identify if defect created or not.
-          //  We need to think for a better way.
-          defect_id: Number(item.id),
-          hlf_defect_id: item.hlfDefectId,
-          // event_type_code: 'evHLFInsp', // todo ?
-          site_code: item.siteCode,
-          title: item.hlfDefectId,
-          notes: item.defectNotes,
-          // defect_type_code: 'dtMasonBrick', // todo ?
-          defect_status_code: item.defectStatus,
-          // defect_priority_code: 'dpLow', // todo ?
-          residual_risk_rating:
-            Number(item.fallConsequence) * Number(item.fallProbability),
-          fall_probability: Number(item.fallProbability),
-          fall_consequence: Number(item.fallConsequence),
-          material_code: item.defectMaterial,
-          inspection_action_code: item.inspectionAction,
-          defect_tag_1: item.defectTag,
-          elevation: item.projectedCoordinates[2],
-          easting: item.projectedCoordinates[0],
-          northing: item.projectedCoordinates[1],
-        };
-        const res = await saveDefectToHES(body);
-        return {
-          id: res.picams_defect_id,
-          message: res.message,
-        };
+      async saveItem(item: Item) {
+        // todo
+        console.log('not implemented', item);
+        return Promise.resolve({});
       },
-      itemToFields(item: HESDefectItem) {
-        const values: FieldValues = {
-          id: item.id,
-          hlfDefectId: item.hlfDefectId,
-          title: item.hlfDefectId,
-          siteCode: item.siteCode,
-          siteName: item.siteName,
-          reporter: item.reporter,
-          dateRecorded: item.dateRecorded,
-          defectStatus: item.defectStatus,
-          defectMaterial: item.defectMaterial,
-          defectTag: item.defectTag,
-          defectNotes: item.defectNotes,
-          fallProbability: item.fallProbability,
-          fallConsequence: item.fallConsequence,
-          identifiedRiskRatingDescription: item.identifiedRiskRatingDescription,
-          inspectionAction: item.inspectionAction,
-          coordinates: {
-            projected: item.projectedCoordinates,
-            wgs84: item.coordinates,
-          },
-        };
-        return values;
+      itemToFields(item: Item) {
+        // todo
+        console.log('not implemented', item);
+        return {};
       },
       fieldsToItem(
         fields: FieldValues,
         viewId?: string,
         itemNumber?: number,
-      ): HESDefectItem {
-        const id = <string>fields.id;
-        const coords = <Coordinates>fields.coordinates;
-        const survey = <HESDefectItem>{
-          ...fields,
-          id,
-          lastModifiedMs: Date.now(), // FIXME timezone?
-          coordinates: coords.wgs84,
-          projectedCoordinates: coords.projected,
-        };
-        if (viewId && !survey.siteCode) {
-          survey.siteCode = viewId;
-        }
-        if (!survey.hlfDefectId && survey.siteCode && itemNumber) {
-          const date = new Date();
-          const formattedDate =
-            date.getFullYear().toString() +
-            String(date.getMonth() + 1).padStart(2, '0') +
-            String(date.getDate()).padStart(2, '0');
-          survey.hlfDefectId = `${survey.siteCode}-23-${itemNumber}-${formattedDate}`;
-          survey.title = survey.hlfDefectId;
-        }
-        return survey;
+      ): Item {
+        // todo
+        console.log('not implemented', fields, viewId, itemNumber);
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-expect-error
+        return {};
       },
       fields: [
         {
@@ -521,30 +96,6 @@ export const config: ISurveyConfig<HESDefectItemSummary, HESDefectItem> = {
           type: 'input',
           label: 'Date',
           inputType: 'datetime-local',
-          required: true,
-        },
-        {
-          id: 'defectStatus',
-          type: 'radio',
-          label: 'Status',
-          defaultValue: 'dsOpen',
-          required: true,
-          options: getHESFieldOptions.bind(undefined, 'DEFECT_STATUS'),
-        },
-        {
-          id: 'defectMaterial',
-          type: 'select',
-          label: 'Defect material',
-          required: true,
-          options: getHESFieldOptions.bind(undefined, 'DEFECT_MATERIAL'),
-        },
-        {
-          id: 'defectTag',
-          type: 'select',
-          label: 'Defect tag',
-          required: true,
-          options: getHESDefectTags.bind(undefined),
-          keyPropId: 'defectMaterial',
         },
         {
           id: 'defectNotes',
@@ -610,45 +161,11 @@ export const config: ISurveyConfig<HESDefectItemSummary, HESDefectItem> = {
           ],
         },
         {
-          id: 'identifiedRiskRatingDescription',
-          type: 'readonly',
-          label: 'Identified risk rating',
-          options: getIdentifiedRiskRatingsDescription.bind(undefined),
-          keyCallback: (item: HESDefectItem): string => {
-            const rating =
-              Number(item.fallConsequence) * Number(item.fallProbability);
-            return rating ? String(rating) : '';
-          },
-        },
-        {
-          id: 'identifiedRiskRating',
-          type: 'readonly',
-          hidden: true,
-          options: getIdentifiedRiskRatingTexts.bind(undefined),
-          keyCallback: (item: HESDefectItem): string => {
-            const rating =
-              Number(item.fallConsequence) * Number(item.fallProbability);
-            return rating ? String(rating) : '';
-          },
-        },
-        {
           id: 'identifiedRiskRatingColor',
           type: 'color',
           disabled: true,
           valueCallback: (item: FieldValues): string => {
             return getRiskColor(<string>item.identifiedRiskRating);
-          },
-        },
-        {
-          id: 'inspectionAction',
-          type: 'select',
-          label: 'Inspection action',
-          required: true,
-          options: getInspectionActions.bind(undefined),
-          keyCallback: (item: FieldValues): string => {
-            const rating =
-              Number(item.fallConsequence) * Number(item.fallProbability);
-            return rating ? String(rating) : '';
           },
         },
         {
@@ -680,25 +197,6 @@ export const config: ISurveyConfig<HESDefectItemSummary, HESDefectItem> = {
         },
       },
       views: [
-        {
-          id: 'PIC142',
-          positions: [
-            [-2.3755, 55.93941],
-            [-2.37556, 55.93963],
-            [-2.37498, 55.93968],
-            [-2.37493, 55.93945],
-          ],
-          height: 17,
-          elevation: 65,
-          flyDuration: 2,
-          title: 'Dunglass Collegiate Church',
-          fovAngle: 45,
-          tiles3d: ['@cesium/dunglass'],
-          offline: {
-            rectangle: [-5.51792, 57.273, -5.51372, 57.27516],
-            imageryMaxLevel: 16,
-          },
-        },
         {
           id: 'eilean-donan-castle',
           positions: [
@@ -768,15 +266,7 @@ export const config: ISurveyConfig<HESDefectItemSummary, HESDefectItem> = {
         tiles3dSubdir: 'tiles3d',
         imagerySubdir: 'imageries',
       },
-      surveyOptions: {
-        pointOptions: {
-          colorCallback: (values: HESDefectItemSummary) => {
-            return Color.fromCssColorString(
-              getRiskColor(values.identifiedRiskRating),
-            );
-          },
-        },
-      },
+      surveyOptions: {},
     },
   },
   projections: [

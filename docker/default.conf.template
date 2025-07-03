@@ -15,12 +15,6 @@ server {
 
   gzip_types application/javascript text/css application/json;
 
-  location /hes_api/ {
-      # avoid CORS issues
-      expires -1;
-      proxy_pass https://testext-oracle.hes.scot/apex/hes/;
-  }
-
 
   # Everything containing index.html should be no-cache so that they are immediately updated
   location ~* index\.html {

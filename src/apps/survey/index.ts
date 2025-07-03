@@ -77,7 +77,7 @@ export class NgvAppSurvey extends ABaseApp<typeof config> {
   @query('ngv-plugin-cesium-navigation')
   private navElement: NgvPluginCesiumNavigation;
   @query('.ngv-vertical-menu')
-  private verticalMenu: {show: () => void};
+  private verticalMenu: HTMLElement & {show: () => void};
   private dataSourceCollection: DataSourceCollection;
   private dataSource: CustomDataSource = new CustomDataSource();
   private lastPoint: Entity | undefined;
@@ -268,7 +268,7 @@ export class NgvAppSurvey extends ABaseApp<typeof config> {
     if (entExists) return entExists;
     let color = this.pointConfig.color;
     const colorCallback =
-      this.config.app.cesiumContext.surveyOptions?.pointOptions.colorCallback;
+      this.config.app.cesiumContext.surveyOptions?.pointOptions?.colorCallback;
     if (item && colorCallback) {
       color = colorCallback(item);
     }
@@ -361,7 +361,8 @@ export class NgvAppSurvey extends ABaseApp<typeof config> {
       this.addPoint(position, id, item);
     } else {
       const colorCallback =
-        this.config.app.cesiumContext.surveyOptions?.pointOptions.colorCallback;
+        this.config.app.cesiumContext.surveyOptions?.pointOptions
+          ?.colorCallback;
       if (item && colorCallback) {
         const entity = this.dataSource.entities.getById(item.id);
         if (entity) {
@@ -443,7 +444,7 @@ export class NgvAppSurvey extends ABaseApp<typeof config> {
     const ent = this.dataSource.entities.getById(id);
     if (!ent) return;
     const colorCallback =
-      this.config.app.cesiumContext.surveyOptions?.pointOptions.colorCallback;
+      this.config.app.cesiumContext.surveyOptions?.pointOptions?.colorCallback;
     ent.point.color = new ConstantProperty(
       item && colorCallback ? colorCallback(item) : this.pointConfig.color,
     );
@@ -514,7 +515,7 @@ export class NgvAppSurvey extends ABaseApp<typeof config> {
   topLeftRender(): HTMLTemplateResult {
     return html`<wa-card class="ngv-toolbar">
       <div class="ngv-tools-icon-container">
-        <img src="../../../icons/hes_logo.svg" alt="logo" />
+        <img src="../../../icons/c2c_logo.svg" alt="logo" />
       </div>
       <div class="ngv-tools-btns">
         <ngv-plugin-cesium-slicing
@@ -595,8 +596,8 @@ export class NgvAppSurvey extends ABaseApp<typeof config> {
     return html`<div>
       <wa-details
         class="ngv-vertical-menu"
-        @wa-hide=${() => {
-          if (this.showSurvey) {
+        @wa-hide=${(e: Event) => {
+          if (this.showSurvey && e.target === this.verticalMenu) {
             this.cancel();
           }
         }}
