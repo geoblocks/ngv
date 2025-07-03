@@ -36,12 +36,25 @@ wa-card.ngv-toolbar {
 }
 wa-card.ngv-toolbar::part(body) {
   display: flex;
+  justify-content: space-between;
   gap: 6px;
   padding: 10px;
 }
 
-.ngv-toolbar > img {
-  max-width: fit-content;
+wa-card.ngv-toolbar .ngv-tools-icon-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+wa-card.ngv-toolbar .ngv-tools-btns {
+  display: flex;
+  flex-direction: row;
+  gap: 6px;
+}
+
+.ngv-toolbar .ngv-tools-icon-container img {
+  min-width: fit-content;
 }
 
 wa-details.ngv-vertical-menu {
@@ -115,4 +128,32 @@ wa-details.ngv-vertical-menu::part(icon):hover {
 
 .ngv-secondary-text {
   color: var(--c2c-secondary-text);
+}
+
+@media (max-width: 550px) {
+  wa-details.ngv-vertical-menu {
+    max-width: calc(100vw - 28px);
+  }
+
+  wa-details.ngv-vertical-menu::part(header) {
+    padding: 6px;
+  }
+
+  wa-card.ngv-toolbar {
+    width: calc(100vw - 28px);
+  }
+
+  .ngv-submenu-overlay {
+    right: 0;
+  }
+
+  .ngv-submenu-overlay wa-card::part(body) {
+    width: 50vw;
+  }
+}
+
+@media (max-height: 600px) {
+  wa-details.ngv-vertical-menu::part(header) {
+    padding: 6px;
+  }
 }

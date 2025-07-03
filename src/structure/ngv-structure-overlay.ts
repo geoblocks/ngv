@@ -36,6 +36,12 @@ export class NgvStructureOverlay extends LitElement {
       top: 150px;
       left: 14px;
     }
+
+    @media (max-width: 550px) or (max-height: 600px) {
+      .menu-left {
+        top: 84px;
+      }
+    }
   `;
   render(): HTMLTemplateResult {
     return html`

@@ -34,6 +34,7 @@
 .ngv-layer-details-actions,
 .ngv-layers-list-item-actions {
   display: flex;
+  column-gap: var(--c2c-gap-s);
 }
 
 .ngv-layer-details-actions {

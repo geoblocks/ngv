@@ -71,3 +71,8 @@
   cursor: pointer;
   border-radius: var(--wa-border-radius-m);
 }
+
+.ngv-finish-measure-btn::part(base) {
+  margin-bottom: var(--c2c-gap-s);
+  width: 100%;
+}

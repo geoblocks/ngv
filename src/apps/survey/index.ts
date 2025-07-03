@@ -513,18 +513,22 @@ export class NgvAppSurvey extends ABaseApp<typeof config> {
 
   topLeftRender(): HTMLTemplateResult {
     return html`<wa-card class="ngv-toolbar">
-      <img src="../../../icons/hes_logo.svg" alt="logo" />
-      <ngv-plugin-cesium-slicing
-        .viewer="${this.viewer}"
-        .tiles3dCollection="${this.collections.tiles3d}"
-        .dataSourceCollection="${this.dataSourceCollection}"
-        .options="${this.config.app.cesiumContext.clippingOptions}"
-      ></ngv-plugin-cesium-slicing>
-      <ngv-plugin-cesium-measure
-        .viewer="${this.viewer}"
-        .dataSourceCollection="${this.dataSourceCollection}"
-        .options=${this.config.app.cesiumContext.measureOptions}
-      ></ngv-plugin-cesium-measure>
+      <div class="ngv-tools-icon-container">
+        <img src="../../../icons/hes_logo.svg" alt="logo" />
+      </div>
+      <div class="ngv-tools-btns">
+        <ngv-plugin-cesium-slicing
+          .viewer="${this.viewer}"
+          .tiles3dCollection="${this.collections.tiles3d}"
+          .dataSourceCollection="${this.dataSourceCollection}"
+          .options="${this.config.app.cesiumContext.clippingOptions}"
+        ></ngv-plugin-cesium-slicing>
+        <ngv-plugin-cesium-measure
+          .viewer="${this.viewer}"
+          .dataSourceCollection="${this.dataSourceCollection}"
+          .options=${this.config.app.cesiumContext.measureOptions}
+        ></ngv-plugin-cesium-measure>
+      </div>
     </wa-card>`;
   }
 

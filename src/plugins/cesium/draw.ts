@@ -86,15 +86,22 @@ export class CesiumDraw extends EventTarget {
   private activePoints_: Cartesian3[] = [];
   private activePoint_: Cartesian3 | undefined;
   private sketchPoint_: Entity | undefined;
+  private sketchLine_: Entity | undefined;
+  private tempShape_: Entity | undefined;
   private activeDistance_ = 0;
   private activeDistancePoly_ = 0;
   private activeDistances_: number[] = [];
   private leftPressedPixel_: Cartesian2 | undefined;
   private sketchPoints_: Entity[] = [];
   private isDoubleClick = false;
+  private isTouch = false;
   private singleClickTimer: ReturnType<typeof setTimeout> | null = null;
   private segmentsInfo: SegmentInfo[] = [];
   private julianDate = new JulianDate();
+  private canvasEvents: {
+    key: string;
+    callback: EventListenerOrEventListenerObject;
+  }[] = [];
   type: GeometryTypes | undefined;
   drawingDataSource: CustomDataSource;
   minPointsStop: boolean;
@@ -183,6 +190,86 @@ export class CesiumDraw extends EventTarget {
   }
 
   set active(value: boolean) {
+    if (value) {
+      this.canvasEvents = [
+        {
+          key: 'pointerdown',
+          callback: (evt) =>
+            (this.isTouch = (<PointerEvent>evt).pointerType === 'touch'),
+        },
+      ];
+      if (!this.entityForEdit) {
+        this.canvasEvents.push(
+          {
+            key: 'mouseenter',
+            callback: () => {
+              if (this.isTouch) return;
+              if (this.sketchPoint_) this.sketchPoint_.show = true;
+              if (this.sketchLine_) this.sketchLine_.show = true;
+              if (this.tempShape_) {
+                this.drawingDataSource.entities.remove(this.tempShape_);
+                this.tempShape_ = undefined;
+              }
+            },
+          },
+          {
+            key: 'mouseleave',
+            callback: () => {
+              if (this.isTouch) return;
+              if (this.sketchLine_) {
+                this.sketchPoint_.show = false;
+                this.sketchLine_.show = false;
+                const distances = [...this.activeDistances_];
+                let points = [...this.activePoints_];
+                if (this.type === 'rectangle') {
+                  points = rectanglify(points);
+                } else if (this.type === 'polygon') {
+                  const distance = Cartesian3.distance(
+                    points[points.length - 1],
+                    points[0],
+                  );
+                  points.push(points[0]);
+                  distances.push(distance);
+                }
+                this.tempShape_ = this.drawShape_(
+                  points,
+                  distances,
+                  this.activePoint_,
+                );
+
+                const segments = this.getSegmentsInfo(distances);
+                const numberOfSegments = segments.length;
+                this.dispatchEvent(
+                  new CustomEvent<DrawInfo>('drawinfo', {
+                    detail: {
+                      length: this.activeDistance_,
+                      numberOfSegments:
+                        points.length === 0 ? 0 : numberOfSegments,
+                      segments,
+                      type: this.type,
+                      drawInProgress: true,
+                      area:
+                        this.type === 'polygon' || this.type === 'rectangle'
+                          ? getPolygonArea(points)
+                          : undefined,
+                    },
+                  }),
+                );
+              }
+            },
+          },
+        );
+      }
+      this.canvasEvents.forEach((evt) => {
+        this.viewer_.canvas.addEventListener(evt.key, evt.callback);
+      });
+    } else {
+      this.canvasEvents.forEach((evt) => {
+        this.viewer_.canvas.removeEventListener(evt.key, evt.callback);
+      });
+      this.canvasEvents = [];
+    }
+
     // todo check for type
     if (value && this.type) {
       if (!this.eventHandler_) {
@@ -191,7 +278,8 @@ export class CesiumDraw extends EventTarget {
           this.activateEditing();
         } else {
           this.eventHandler_.setInputAction(
-            this.onLeftClick.bind(this),
+            (event: ScreenSpaceEventHandler.PositionedEvent) =>
+              this.onLeftClick(event),
             ScreenSpaceEventType.LEFT_CLICK,
           );
           this.eventHandler_.setInputAction(
@@ -202,6 +290,16 @@ export class CesiumDraw extends EventTarget {
         this.eventHandler_.setInputAction(
           this.onMouseMove_.bind(this),
           ScreenSpaceEventType.MOUSE_MOVE,
+        );
+        this.eventHandler_.setInputAction(
+          (event: ScreenSpaceEventHandler.PositionedEvent) =>
+            this.onLeftDown_(event),
+          ScreenSpaceEventType.LEFT_DOWN,
+        );
+        this.eventHandler_.setInputAction(
+          (event: ScreenSpaceEventHandler.PositionedEvent) =>
+            this.onLeftUp_(event),
+          ScreenSpaceEventType.LEFT_UP,
         );
       }
       this.dispatchEvent(
@@ -228,15 +326,6 @@ export class CesiumDraw extends EventTarget {
 
   activateEditing(): void {
     if (!this.eventHandler_ || !this.entityForEdit) return;
-    this.eventHandler_.setInputAction(
-      (event: ScreenSpaceEventHandler.PositionedEvent) =>
-        this.onLeftDown_(event),
-      ScreenSpaceEventType.LEFT_DOWN,
-    );
-    this.eventHandler_.setInputAction(
-      (event: ScreenSpaceEventHandler.PositionedEvent) => this.onLeftUp_(event),
-      ScreenSpaceEventType.LEFT_UP,
-    );
     const position = this.entityForEdit.position?.getValue(this.julianDate);
     let positions: Cartesian3[] = [];
     let createVirtualSPs = false;
@@ -358,10 +447,14 @@ export class CesiumDraw extends EventTarget {
     }
     if (this.type === 'point') {
       positions.push(this.activePoint_);
-      this.drawShape_(this.activePoint_);
+      this.drawShape_(
+        this.activePoint_,
+        this.activeDistances_,
+        this.activePoint_,
+      );
     } else if (this.type === 'rectangle') {
       positions = rectanglify(this.activePoints_);
-      this.drawShape_(positions);
+      this.drawShape_(positions, this.activeDistances_, this.activePoint_);
     } else {
       if (this.type === 'polygon') {
         const distance = Cartesian3.distance(
@@ -370,7 +463,11 @@ export class CesiumDraw extends EventTarget {
         );
         this.activeDistances_.push(distance);
       }
-      this.drawShape_(this.activePoints_);
+      this.drawShape_(
+        this.activePoints_,
+        this.activeDistances_,
+        this.activePoint_,
+      );
     }
     this.viewer_.scene.requestRender();
 
@@ -475,10 +572,14 @@ export class CesiumDraw extends EventTarget {
     });
   }
 
-  drawShape_(positions: Cartesian3 | Cartesian3[] | undefined): void {
-    if (!positions) return;
+  drawShape_(
+    positions: Cartesian3 | Cartesian3[] | undefined,
+    distances: number[],
+    activePoint: Cartesian3,
+  ): Entity {
+    if (!positions) return undefined;
     if (this.type === 'point' && !Array.isArray(positions)) {
-      this.drawingDataSource.entities.add({
+      return this.drawingDataSource.entities.add({
         position: positions,
         point: {
           color: this.fillColor_,
@@ -491,7 +592,7 @@ export class CesiumDraw extends EventTarget {
         },
       });
     } else if (this.type === 'line' && Array.isArray(positions)) {
-      this.drawingDataSource.entities.add({
+      return this.drawingDataSource.entities.add({
         position: positions[positions.length - 1],
         polyline: {
           positions: positions,
@@ -504,27 +605,30 @@ export class CesiumDraw extends EventTarget {
         },
         label: getDimensionLabel({
           type: this.type,
-          distances: this.activeDistances_,
+          distances,
         }),
       });
     } else if (
       (this.type === 'polygon' || this.type === 'rectangle') &&
       Array.isArray(positions)
     ) {
-      this.drawingDataSource.entities.add({
+      return this.drawingDataSource.entities.add({
         position: positions[positions.length - 1],
         polygon: {
           hierarchy: positions,
           material: this.fillColor_,
-          classificationType: ClassificationType.TERRAIN,
+          classificationType: this.lineClampToGround
+            ? ClassificationType.TERRAIN
+            : ClassificationType.BOTH,
         },
         label: getDimensionLabel({
           type: this.type,
-          distances: this.activeDistances_,
-          positions: [...this.activePoints_, this.activePoint_],
+          distances,
+          positions: [...positions, activePoint],
         }),
       });
     }
+    return undefined;
   }
 
   dynamicSketLinePositions(): CallbackProperty {
@@ -551,10 +655,10 @@ export class CesiumDraw extends EventTarget {
 
   updateSketchPoint(): void {
     if (!this.sketchPoint_) return;
-    const activePoints: Cartesian3[] = [
-      ...this.activePoints_,
-      this.activePoint_,
-    ];
+    const activePoints: Cartesian3[] = [...this.activePoints_];
+    if (this.activePoint_) {
+      activePoints.push(this.activePoint_);
+    }
     const positions =
       this.type === 'rectangle' ? rectanglify(activePoints) : activePoints;
     const pointsLength = positions.length;
@@ -590,14 +694,14 @@ export class CesiumDraw extends EventTarget {
           `${area.toFixed(1)}m²`,
         );
       } else {
+        if (this.type === 'line') {
+          distances.push(this.activeDistance_);
+        }
         const value = `${this.activeDistance_.toFixed(1)}m`;
         (<ConstantProperty>this.sketchPoint_.label.text).setValue(value);
       }
       this.segmentsInfo = this.getSegmentsInfo(distances);
-      const numberOfSegments =
-        this.type === 'polygon'
-          ? this.segmentsInfo.length
-          : this.segmentsInfo.length + 1;
+      const numberOfSegments = this.segmentsInfo.length;
       this.dispatchEvent(
         new CustomEvent<DrawInfo>('drawinfo', {
           detail: {
@@ -641,15 +745,23 @@ export class CesiumDraw extends EventTarget {
         this.sketchPoint_ = this.createSketchPoint_(position, {label: true});
         this.activePoint_ = position;
 
-        this.createSketchLine_(this.dynamicSketLinePositions());
+        this.sketchLine_ = this.createSketchLine_(
+          this.dynamicSketLinePositions(),
+        );
         this.viewer_.scene.requestRender();
         if (this.type === 'point') {
           this.activePoints_.push(position);
           this.finishDrawing();
           return;
         }
-      } else if (!this.activeDistances_.includes(this.activeDistance_)) {
-        this.activeDistances_.push(this.activeDistance_);
+      } else {
+        if (!this.activeDistances_.includes(this.activeDistance_)) {
+          this.activeDistances_.push(this.activeDistance_);
+        }
+        if (this.isTouch) {
+          this.activePoint_ = position;
+          this.updateSketchPoint();
+        }
       }
       this.activePoints_.push(Cartesian3.clone(this.activePoint_));
       this.segmentsInfo = this.getSegmentsInfo(this.activeDistances_);
@@ -929,11 +1041,12 @@ export class CesiumDraw extends EventTarget {
           }
         }
       }
-    } else if (this.sketchPoint_) {
+      this.viewer_.scene.requestRender();
+    } else if (this.sketchPoint_ && !this.leftPressedPixel_) {
       this.activePoint_ = position;
       this.updateSketchPoint();
+      this.viewer_.scene.requestRender();
     }
-    this.viewer_.scene.requestRender();
   }
 
   onDoubleClick_(): void {
@@ -1049,19 +1162,21 @@ export class CesiumDraw extends EventTarget {
 
   onLeftUp_(event: ScreenSpaceEventHandler.PositionedEvent): void {
     this.viewer_.scene.screenSpaceCameraController.enableInputs = true;
-    const wasAClick = Cartesian2.equalsEpsilon(
-      event.position,
-      this.leftPressedPixel_,
-      0,
-      2,
-    );
-    if (wasAClick) {
-      this.onLeftDownThenUp_(event);
+    if (this.entityForEdit) {
+      const wasAClick = Cartesian2.equalsEpsilon(
+        event.position,
+        this.leftPressedPixel_,
+        0,
+        2,
+      );
+      if (wasAClick) {
+        this.onLeftDownThenUp_(event);
+      }
+      if (this.moveEntity) this.dispatchEvent(new CustomEvent('leftup'));
+      this.moveEntity = false;
+      this.sketchPoint_ = undefined;
     }
-    if (this.moveEntity) this.dispatchEvent(new CustomEvent('leftup'));
-    this.moveEntity = false;
     this.leftPressedPixel_ = undefined;
-    this.sketchPoint_ = undefined;
   }
 
   onLeftDownThenUp_(_event: ScreenSpaceEventHandler.PositionedEvent): void {
