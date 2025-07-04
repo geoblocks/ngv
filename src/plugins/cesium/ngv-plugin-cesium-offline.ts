@@ -1,5 +1,5 @@
 import {customElement, property, state} from 'lit/decorators.js';
-import {css, html, LitElement} from 'lit';
+import {html, type HTMLTemplateResult, LitElement} from 'lit';
 import {msg} from '@lit/localize';
 import {
   getJson,
@@ -47,67 +47,13 @@ export class NgvPluginCesiumOffline extends LitElement {
   public cesiumApiUrl: string;
   @property({type: Object})
   info: OfflineInfo;
+  @property({type: Object})
+  beforeSwitchDispatch: (goOffline: boolean) => Promise<void>;
+
   @state()
   offline: boolean = false;
   @state()
   loading: boolean = false;
-
-  static styles = css`
-    div {
-      border-radius: 4px;
-      padding: 10px;
-      background-color: white;
-      border: 1px solid rgba(0, 0, 0, 0.16);
-      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05);
-      display: flex;
-      column-gap: 10px;
-    }
-
-    div span {
-      display: flex;
-      align-items: center;
-      user-select: none;
-    }
-
-    button {
-      border-radius: 4px;
-      padding: 10px;
-      cursor: pointer;
-      border: 1px solid rgba(0, 0, 0, 0.16);
-      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05);
-      transition: background-color 200ms;
-      align-items: center;
-      justify-content: center;
-      background-color: lightgreen;
-    }
-
-    button.offline {
-      background-color: lightcoral;
-    }
-
-    .loading {
-      margin-left: 10px;
-      -webkit-animation: spin 4s linear infinite;
-      -moz-animation: spin 4s linear infinite;
-      animation: spin 4s linear infinite;
-    }
-    @-moz-keyframes spin {
-      100% {
-        -moz-transform: rotate(360deg);
-      }
-    }
-    @-webkit-keyframes spin {
-      100% {
-        -webkit-transform: rotate(360deg);
-      }
-    }
-    @keyframes spin {
-      100% {
-        -webkit-transform: rotate(360deg);
-        transform: rotate(360deg);
-      }
-    }
-  `;
 
   // @ts-expect-error TS6133
   private _changeModeTask = new Task(this, {
@@ -158,7 +104,18 @@ export class NgvPluginCesiumOffline extends LitElement {
     }
     this.loading = true;
     const offline = !this.offline;
+
+    if (this.beforeSwitchDispatch) {
+      try {
+        await this.beforeSwitchDispatch(offline);
+      } catch (error) {
+        console.error(error);
+        this.loading = false;
+        return;
+      }
+    }
     const dir = await getOrCreateDirectoryChain([this.info.appName]);
+
     if (offline) {
       if (this.info.view?.offline?.rectangle?.length) {
         await this.downloadImageries();
@@ -168,17 +125,20 @@ export class NgvPluginCesiumOffline extends LitElement {
         await this.downloadTiles();
       }
       await persistJson(dir, `${this.info.infoFilename}.json`, this.info);
-      this.offline = offline;
+      this.offline = true;
     } else {
-      await this.removeLayers();
+      await this.removePersistedLayers();
 
       // todo remove dir when synced with API
       await removeFile(dir, `${this.info.infoFilename}.json`);
     }
     this.offline = offline;
+    localStorage.setItem(`${this.info.appName}_offline`, offline.toString());
+
     this.dispatchEvent(
       new CustomEvent('switch', {detail: {offline: this.offline}}),
     );
+
     this.loading = false;
   }
 
@@ -241,14 +201,22 @@ export class NgvPluginCesiumOffline extends LitElement {
     );
   }
 
-  async removeLayers(): Promise<void> {
+  private async removePersistedLayers(): Promise<void> {
     const dir = await getOrCreateDirectoryChain([this.info.appName]);
-    await removeDirectory(dir, this.info.tiles3dSubdir);
-    await removeDirectory(dir, this.info.imagerySubdir);
+    try {
+      await removeDirectory(dir, this.info.tiles3dSubdir);
+    } catch (error) {
+      console.error(error);
+    }
+    try {
+      await removeDirectory(dir, this.info.imagerySubdir);
+    } catch (error) {
+      console.error(error);
+    }
   }
 
-  protected render(): unknown {
-    return html` <div>
+  protected render(): HTMLTemplateResult {
+    return html` <wa-card>
       ${this.loading
         ? html`<span>${msg('Loading')} <span class="loading">⌛</span></span>`
         : html`<span>
@@ -256,14 +224,19 @@ export class NgvPluginCesiumOffline extends LitElement {
             ${this.offline ? '🔴' : '🟢'}</span
           >`}
 
-      <button
+      <wa-button
+        appearance="filled"
         .disabled="${this.loading}"
         class="${classMap({offline: !this.offline})}"
         @click=${() => this.switchOffline()}
       >
         ${this.offline ? msg('Back online') : msg('Go offline')}
-      </button>
-    </div>`;
+      </wa-button>
+    </wa-card>`;
+  }
+
+  createRenderRoot(): this {
+    return this;
   }
 }
 

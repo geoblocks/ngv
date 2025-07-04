@@ -53,6 +53,7 @@ import {
 } from './interactionHelpers.js';
 import type {INGVCesiumModel} from '../../interfaces/cesium/ingv-layers.js';
 import type {ClippingChangeDetail} from '../ui/ngv-layer-details.js';
+import {Task} from '@lit/task';
 
 type GrabType = 'side' | 'top' | 'edge' | 'corner' | undefined;
 
@@ -106,6 +107,16 @@ export class NgvPluginCesiumModelInteract extends LitElement {
   private cameraMoving = false;
   private unlistenMoveStart: Event.RemoveCallback;
   private unlistenMoveEnd: Event.RemoveCallback;
+
+  // @ts-expect-error TS6133
+  private _chosenModelChange = new Task(this, {
+    args: (): [INGVCesiumModel] => [this.chosenModel],
+    task: ([chosenModel]) => {
+      this.dispatchEvent(
+        new CustomEvent('chosenModelChanged', {detail: chosenModel}),
+      );
+    },
+  });
 
   initEvents(): void {
     this.eventHandler = new ScreenSpaceEventHandler(this.viewer.canvas);
@@ -504,8 +515,13 @@ export class NgvPluginCesiumModelInteract extends LitElement {
           }}"
           .showDone=${true}
           @clippingChange=${(evt: {detail: ClippingChangeDetail}) => {
-            this.chosenModel.id.terrainClipping = evt.detail.terrainClipping;
-            this.chosenModel.id.tilesClipping = evt.detail.tilesClipping;
+            console.log(evt);
+            if (typeof evt.detail.terrainClipping === 'boolean') {
+              this.chosenModel.id.terrainClipping = evt.detail.terrainClipping;
+            }
+            if (typeof evt.detail.tilesClipping === 'boolean') {
+              this.chosenModel.id.tilesClipping = evt.detail.tilesClipping;
+            }
             updateModelClipping(
               this.chosenModel,
               this.tiles3dCollection,
@@ -543,30 +559,39 @@ export class NgvPluginCesiumModelInteract extends LitElement {
             this.onPrimitivesChanged();
           }}"
         ></ngv-layer-details>`
-      : html` <ngv-layers-list
-          .options="${{
-            title: this.options?.listTitle,
-            showDeleteBtns: true,
-            showZoomBtns: true,
-          }}"
-          .layers=${this.models.map((m) => {
-            return {name: m.id.name};
-          })}
-          @remove="${(evt: {detail: number}) => {
-            const model = this.primitiveCollection.get(
-              evt.detail,
-            ) as INGVCesiumModel;
-            if (model) this.primitiveCollection.remove(model);
-          }}"
-          @zoom="${(evt: {detail: number}) => {
-            const model = this.primitiveCollection.get(
-              evt.detail,
-            ) as INGVCesiumModel;
-            this.viewer.camera.flyToBoundingSphere(model.boundingSphere, {
-              duration: 2,
-            });
-          }}"
-        ></ngv-layers-list>`;
+      : html`<wa-card with-header>
+          <div slot="header">
+            <wa-icon src="../../../icons/cube.svg"></wa-icon>
+            ${this.options?.listTitle}
+          </div>
+          <ngv-layers-list
+            .options="${{
+              showDeleteBtns: true,
+              showZoomBtns: true,
+            }}"
+            .layers=${this.models.map((m) => {
+              return {name: m.id.name};
+            })}
+            @remove="${(evt: {detail: number}) => {
+              const model = this.primitiveCollection.get(
+                evt.detail,
+              ) as INGVCesiumModel;
+              if (model) this.primitiveCollection.remove(model);
+            }}"
+            @zoom="${(evt: {detail: number}) => {
+              const model = this.primitiveCollection.get(
+                evt.detail,
+              ) as INGVCesiumModel;
+              this.viewer.camera.flyToBoundingSphere(model.boundingSphere, {
+                duration: 2,
+              });
+            }}"
+          ></ngv-layers-list>
+        </wa-card>`;
+  }
+
+  createRenderRoot(): this {
+    return this;
   }
 
   disconnectedCallback(): void {

@@ -1,6 +1,12 @@
-import type {ISurveyConfig} from './ingv-config-survey.js';
+import type {FieldValues} from '../../utils/generalTypes.js';
+import type {
+  Context,
+  ISurveyConfig,
+  Item,
+  ItemSummary,
+} from './ingv-config-survey.js';
 
-export const config: ISurveyConfig = {
+export const config: ISurveyConfig<ItemSummary, Item> = {
   languages: ['en'],
   header: {
     title: {
@@ -8,114 +14,87 @@ export const config: ISurveyConfig = {
     },
   },
   app: {
-    survey: [
-      {
-        id: 'survey-id',
-        type: 'id',
+    survey: {
+      async listItems(context) {
+        const {id} = context;
+        if (!id) {
+          throw new Error('Missing id in context');
+        }
+        return Promise.resolve([]);
       },
-      {
-        id: 'coords-field',
-        type: 'coordinates',
+      async getItem(context: Context) {
+        console.log(context);
+        return Promise.resolve({
+          id: context.id,
+          coordinates: [],
+          lastModifiedMs: Date.now(),
+          projectedCoordinates: [],
+        });
       },
-      {
-        id: 'survey-summary',
-        type: 'input',
-        inputType: 'text',
-        required: true,
-        label: 'Summary',
-        placeholder: 'Summary',
-        min: 1,
-        max: 50,
+      async saveItem(item: Item) {
+        // todo
+        console.log('not implemented', item);
+        return Promise.resolve({});
       },
-      {
-        id: 'survey-date',
-        type: 'input',
-        label: 'Date',
-        inputType: 'date',
-        required: true,
-        min: '2025-01-01',
+      itemToFields(item: Item) {
+        // todo
+        console.log('not implemented', item);
+        return {};
       },
-      {
-        id: 'survey-description',
-        type: 'textarea',
-        required: false,
-        label: 'Description',
-        placeholder: 'Describe a problem',
-        min: 1,
-        max: 200,
+      fieldsToItem(
+        fields: FieldValues,
+        viewId?: string,
+        itemNumber?: number,
+      ): Item {
+        // todo
+        console.log('not implemented', fields, viewId, itemNumber);
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-expect-error
+        return {};
       },
-      {
-        id: 'survey-select',
-        type: 'select',
-        label: 'Defect type',
-        required: true,
-        options: [
-          {
-            label: 'Type 1',
-            value: 's1',
-          },
-          {
-            label: 'Type 2',
-            value: 's2',
-          },
-        ],
-      },
-      {
-        id: 'survey-radio',
-        type: 'radio',
-        label: 'Priority',
-        defaultValue: 'r1',
-        options: [
-          {
-            label: 'Low',
-            value: 'r1',
-          },
-          {
-            label: 'Medium',
-            value: 'r2',
-          },
-          {
-            label: 'High',
-            value: 'r3',
-          },
-        ],
-      },
-      {
-        id: 'survey-checkbox',
-        type: 'checkbox',
-        label: 'Choose options (at least one)',
-        required: true,
-        options: [
-          {
-            label: 'Option 1',
-            value: 'c1',
-            checked: false,
-          },
-          {
-            label: 'Option 2',
-            value: 'c2',
-            checked: false,
-          },
-          {
-            label: 'Option 3',
-            value: 'c3',
-            checked: false,
-          },
-        ],
-      },
-      {
-        id: 'survey-file',
-        type: 'file',
-        mainBtnText: 'Attach photo',
-        urlInput: false,
-        fileInput: true,
-        uploadBtnText: 'Upload',
-        accept: 'image/*',
-      },
-    ],
+      fields: [
+        {
+          id: 'siteCode',
+          label: 'Site code',
+          type: 'readonly',
+        },
+        {
+          id: 'siteName',
+          label: 'Site name',
+          type: 'readonly',
+        },
+        {
+          id: 'id',
+          label: 'POI ID',
+          type: 'id',
+        },
+        {
+          id: 'reporter',
+          label: 'Reporter',
+          type: 'readonly',
+        },
+        {
+          id: 'dateRecorded',
+          type: 'input',
+          label: 'Date',
+          inputType: 'datetime-local',
+        },
+        {
+          id: 'defectNotes',
+          type: 'textarea',
+          required: false,
+          label: 'Description of defect',
+          placeholder: 'Optional free text',
+        },
+        {
+          id: 'coordinates',
+          type: 'coordinates',
+        },
+      ],
+    },
     cesiumContext: {
       ionDefaultAccessToken:
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIxMWU4YzQzNC00NzMxLTQ0NzktYTFlYi01NjMyMDgwMTMyY2EiLCJpZCI6MjI2NjUyLCJpYXQiOjE3MzkxODcxNTZ9.OJJ_pdI3WDMLO3W4vYWA1aW20DilQ2nyocgItAWPs-g',
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJhYWI5OThhNS04YmFhLTQxNmQtOGZjMC1iNDNmMTNlMmYwYzkiLCJpZCI6MjY5NDg1LCJpYXQiOjE3MzcwMzgyNzl9.ruI2nAUv00XwzUSNqf7pX5yip6l89eAyF0FmZbmlrpY',
       name: 'survey',
       catalogs: {
         '@cesium': () => import('../../catalogs/cesiumCatalog.js'),
@@ -205,6 +184,7 @@ export const config: ISurveyConfig = {
         tiles3dSubdir: 'tiles3d',
         imagerySubdir: 'imageries',
       },
+      surveyOptions: {},
     },
   },
   projections: [

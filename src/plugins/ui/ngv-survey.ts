@@ -1,145 +1,104 @@
-import {css, html, LitElement} from 'lit';
+import {html, LitElement} from 'lit';
 import type {HTMLTemplateResult, TemplateResult} from 'lit';
 import {customElement, property, state} from 'lit/decorators.js';
 import {msg} from '@lit/localize';
 import type {
+  LabelValue,
   SurveyCheckbox,
   SurveyCoords,
   SurveyField,
   SurveyFile,
-  SurveyId,
+  SurveyReadonly,
   SurveyInput,
   SurveyRadio,
   SurveySelect,
   SurveyTextarea,
+  SurveyId,
+  FieldOptions,
+  SurveyColorpicker,
 } from '../../interfaces/ui/ingv-survey.js';
 import {Task} from '@lit/task';
 import {classMap} from 'lit/directives/class-map.js';
 import './ngv-upload';
 import type {FileUploadDetails} from './ngv-upload.js';
 import {fileToBase64} from '../../utils/file-utils.js';
-import type {Coordinate} from '../../utils/generalTypes.js';
-
-export type FieldValues = Record<
-  string,
-  string | number | Record<string, boolean> | Coordinate
->;
+import type {Coordinates, FieldValues} from '../../utils/generalTypes.js';
+import {until} from 'lit/directives/until.js';
 
 @customElement('ngv-survey')
 export class NgvSurvey extends LitElement {
+  @property({type: Array})
+  public surveyFields: SurveyField[];
   @property({type: Object})
-  public surveyConfig: SurveyField[];
-  @property({type: Object})
-  public fieldValues: FieldValues | undefined;
+  public fetchFieldValues: Promise<FieldValues> | undefined;
+  @property({type: String})
+  public projection: string;
   @state()
   notValid: Record<string, boolean> = {};
+  @state()
+  public fieldValues: FieldValues | undefined;
 
-  static styles = css`
-    .survey {
-      background-color: white;
-      display: flex;
-      flex-direction: column;
-      z-index: 1;
-      margin-left: auto;
-      margin-right: auto;
-      padding: 10px;
-      gap: 10px;
-      border-radius: 4px;
-      border: 1px solid rgba(0, 0, 0, 0.16);
-      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05);
-    }
-
-    .field {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .btns-container {
-      display: flex;
-      justify-content: end;
-      column-gap: 16px;
-    }
-
-    .line-field {
-      display: flex;
-      column-gap: 12px;
-      align-content: center;
-    }
-
-    button,
-    textarea,
-    select,
-    input[type='number'],
-    input[type='date'],
-    input[type='text'] {
-      border-radius: 4px;
-      padding: 0 12px;
-      height: 40px;
-      cursor: pointer;
-      background-color: white;
-      border: 1px solid rgba(0, 0, 0, 0.16);
-      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05);
-      transition: background-color 200ms;
-    }
-
-    textarea {
-      padding: 12px;
-    }
-
-    input[type='text'] {
-      cursor: text;
-    }
-
-    .warning {
-      border: 1px solid orangered !important;
-    }
-  `;
-
-  // @ts-expect-error TS6133
-  private _surveyConfigChange = new Task(this, {
-    args: (): [SurveyField[]] => [this.surveyConfig],
-    task: ([surveyConfig]) => {
-      const fields: Record<string, any> = {...this.fieldValues};
-      surveyConfig.forEach((item) => {
-        if (!fields[item.id]) {
-          if (item.type === 'checkbox') {
-            item.options.forEach((opt) => {
-              if (!fields[item.id]) {
-                fields[item.id] = {};
+  private surveyConfigChange = new Task(this, {
+    args: (): [SurveyField[], Promise<FieldValues>] => [
+      this.surveyFields,
+      this.fetchFieldValues,
+    ],
+    task: async ([surveyConfig, fieldValues]) => {
+      const fields: Record<string, any> = await fieldValues;
+      if (fields) {
+        surveyConfig.forEach((item) => {
+          if (!fields[item.id]) {
+            if (item.type === 'checkbox') {
+              if (typeof item.options === 'function') {
+                throw new Error(
+                  `The option field ${item.id} should have been resolved`,
+                );
               }
-              (<Record<string, boolean>>fields[item.id])[opt.value] =
-                opt.checked;
-            });
-          } else if (item.type === 'input' && item.inputType === 'date') {
-            const date = new Date().toISOString();
-            fields[item.id] = date.substring(0, date.indexOf('T'));
-          } else {
-            fields[item.id] =
-              item.type !== 'file' && item.type !== 'id'
-                ? item.defaultValue
-                : '';
+              if (Array.isArray(item.options)) {
+                item.options.forEach((opt) => {
+                  if (!fields[item.id]) {
+                    fields[item.id] = {};
+                  }
+                  (<Record<string, boolean>>fields[item.id])[opt.value] =
+                    opt.checked;
+                });
+              }
+            } else if (item.type === 'input' && item.inputType === 'date') {
+              const date = new Date().toISOString();
+              fields[item.id] = date.substring(0, date.indexOf('T'));
+            } else {
+              fields[item.id] =
+                item.type !== 'file' && item.type !== 'id'
+                  ? item.defaultValue
+                  : '';
+            }
           }
-        }
-      });
-      this.fieldValues = {...fields};
+        });
+      }
+      this.fieldValues = fields;
     },
   });
 
   renderInput(options: SurveyInput): TemplateResult<1> | '' {
     const isText = options.inputType === 'text';
+    const value = options.valueCallback
+      ? options.valueCallback(this.fieldValues)
+      : this.fieldValues[options.id] || '';
     return html`
       <div class="field">
-        <label .hidden="${!options.label?.length}"
+        <span class="ngv-survey-label" .hidden="${!options.label?.length}"
           >${options.label}
-          ${options.required
-            ? html`<span style="color: red">*</span>`
-            : ''}</label
+          ${
+            options.required ? html`<span style="color: red">*</span>` : ''
+          }</label
         >
-        <input
-          class="${classMap({warning: this.notValid[options.id]})}"
+        <wa-input
+          size="small"
+          class="${classMap({'ngv-warning': this.notValid[options.id]})}"
           .type="${options.inputType}"
           .placeholder="${options.placeholder || ''}"
-          .value="${this.fieldValues[options.id] || ''}"
+          .value="${value}"
+          disabled="${options.disabled}"
           .minlength="${isText && options.min ? options.min : null}"
           .maxlength="${isText && options.max ? options.max : null}"
           .min="${!isText && options.min ? options.min : null}"
@@ -164,19 +123,19 @@ export class NgvSurvey extends LitElement {
   }
 
   renderTextarea(options: SurveyTextarea): TemplateResult<1> | '' {
-    return html` <div class="field">
-      <label .hidden="${!options.label?.length}"
+    return html` <div>
+      <span class="ngv-survey-label" .hidden="${!options.label?.length}"
         >${options.label}
-        ${options.required
-          ? html`<span style="color: red">*</span>`
-          : ''}</label
+        ${options.required ? html`<span style="color: red">*</span>` : ''}</span
       >
-      <textarea
-        class="${classMap({warning: this.notValid[options.id]})}"
+      <wa-textarea
+        size="small"
+        class="${classMap({'ngv-warning': this.notValid[options.id]})}"
         .placeholder="${options.placeholder || ''}"
         .minlength="${options.min}"
         .maxlength="${options.max}"
         .required="${options.required}"
+        .value=${this.fieldValues[options.id] || ''}
         @input=${(evt: Event) => {
           this.fieldValues[options.id] = (<HTMLInputElement>evt.target).value;
           if (this.notValid[options.id]) {
@@ -184,133 +143,201 @@ export class NgvSurvey extends LitElement {
           }
         }}
       >
-${this.fieldValues[options.id] || ''}</textarea
-      >
+      </wa-textarea>
     </div>`;
   }
 
-  renderSelect(options: SurveySelect): TemplateResult<1> | '' {
-    return html`<div class="field">
-      <label .hidden="${!options.label}"
-        >${options.label}
-        ${options.required
-          ? html`<span style="color: red">*</span>`
-          : ''}</label
+  renderColorpicker(options: SurveyColorpicker): TemplateResult<1> | '' {
+    const value = options.valueCallback
+      ? options.valueCallback(this.fieldValues)
+      : this.fieldValues[options.id] || '';
+    return html`<div>
+      ${options.label?.length
+        ? html`<span class="ngv-survey-label">
+            ${options.label}
+            ${options.required ? html`<span style="color: red">*</span>` : ''}
+          </label>`
+        : ''}<wa-color-picker
+        size="small"
+        .value=${value}
+        .disabled=${options.disabled}
+      ></wa-color-picker>
+    </div>`;
+  }
+
+  resolveOptions(
+    config: SurveyRadio | SurveyCheckbox | SurveySelect,
+  ): LabelValue[] | undefined {
+    // options resolved in index.ts, resolveFieldsConfig
+    let options = <FieldOptions>config.options;
+    if (!Array.isArray(options) && (config.keyPropId || config.keyCallback)) {
+      const key = config.keyCallback
+        ? config.keyCallback(this.fieldValues)
+        : <string>this.fieldValues[config.keyPropId];
+      options = options[key];
+    }
+    if (Array.isArray(options) && options?.length) return options;
+    else return undefined;
+  }
+
+  renderSelect(config: SurveySelect): TemplateResult<1> | '' {
+    const options = this.resolveOptions(config);
+    if (!options) return '';
+    return html`<div>
+      <span class="ngv-survey-label" .hidden="${!config.label}"
+        >${config.label}
+        ${config.required ? html`<span style="color: red">*</span>` : ''}</label
       >
-      <select
-        class="${classMap({warning: this.notValid[options.id]})}"
-        .required="${options.required}"
+      <wa-select
+        size="small"
+        class="${classMap({'ngv-warning': this.notValid[config.id]})}"
+        .required="${config.required}"
+        value=${this.fieldValues[config.id]}
+        .placeholder=${msg('Select an option')}
         @change=${(evt: Event) => {
-          this.fieldValues[options.id] = (<HTMLSelectElement>evt.target).value;
-          if (this.notValid[options.id]) {
-            this.notValid = {...this.notValid, [options.id]: false};
+          this.fieldValues[config.id] = (<HTMLSelectElement>evt.target).value;
+          if (this.notValid[config.id]) {
+            this.notValid = {...this.notValid, [config.id]: false};
           }
+          this.requestUpdate();
         }}
       >
-        ${options.defaultValue
-          ? ''
-          : html`<option value="" disabled selected>
-              ${msg('Select an option')}
-            </option>`}
-        ${options.options.map(
+        ${options.map(
           (option) =>
-            html`<option
-              .value="${option.value}"
-              .selected="${option.value === this.fieldValues[options.id]}"
-            >
+            html`<wa-option value=${option.value}>
               ${option.label}
-            </option>`,
+            </wa-option>`,
         )}
-      </select>
+      </wa-select>
     </div>`;
   }
 
-  renderCheckbox(options: SurveyCheckbox): TemplateResult<1> | '' {
-    const checkbox = (option: SurveyCheckbox['options'][number]) =>
+  renderCheckbox(config: SurveyCheckbox): TemplateResult<1> | '' {
+    const options = this.resolveOptions(config);
+    if (!options) return '';
+    const checkbox = (option: LabelValue) =>
       html`<div
-        class="line-field ${classMap({
-          warning: this.notValid[options.id] && options.options?.length === 1,
+        class="${classMap({
+          'ngv-warning':
+            this.notValid[config.id] && config.options?.length === 1,
         })}"
       >
-        <label>${option.label}</label>
-        <input
-          type="checkbox"
-          .checked=${(<Record<string, boolean>>this.fieldValues[options.id])[
+        <wa-checkbox
+          size="small"
+          .checked=${(<Record<string, boolean>>this.fieldValues[config.id])[
             option.value
           ]}
           @click=${(evt: Event) => {
-            if (!this.fieldValues[options.id]) {
-              this.fieldValues[options.id] = {};
+            if (!this.fieldValues[config.id]) {
+              this.fieldValues[config.id] = {};
             }
-            (<Record<string, boolean>>this.fieldValues[options.id])[
+            (<Record<string, boolean>>this.fieldValues[config.id])[
               option.value
             ] = (<HTMLInputElement>evt.target).checked;
-            if (this.notValid[options.id]) {
-              this.notValid = {...this.notValid, [options.id]: false};
+            if (this.notValid[config.id]) {
+              this.notValid = {...this.notValid, [config.id]: false};
             }
+            this.requestUpdate();
           }}
-        />
-      </div>`;
-    return options.options?.length > 1
-      ? html` <fieldset
-          class="${classMap({warning: this.notValid[options.id]})}"
         >
-          <legend .hidden="${!options.label}">
-            ${options.label}
-            ${options.required ? html`<span style="color: red">*</span>` : ''}
-          </legend>
-          ${options.options.map(checkbox)}
-        </fieldset>`
-      : checkbox(options.options[0]);
+          ${option.label}
+        </wa-checkbox>
+      </div>`;
+    return html`${options?.length > 1
+      ? html` <div
+          class="${classMap({'ngv-warning': this.notValid[config.id]})}"
+        >
+          <span class="ngv-survey-label" .hidden="${!config.label}">
+            ${config.label}
+            ${config.required ? html`<span style="color: red">*</span>` : ''}
+          </span>
+          ${options.map(checkbox)}
+        </div>`
+      : checkbox(options[0])}`;
   }
 
-  renderRadio(options: SurveyRadio): TemplateResult<1> | '' {
-    return html` <fieldset
-      class="${classMap({warning: this.notValid[options.id]})}"
-    >
-      <legend .hidden="${!options.label}">
-        ${options.label}
-        ${options.required ? html`<span style="color: red">*</span>` : ''}
-      </legend>
-      ${options.options.map(
-        (option) =>
-          html`<div class="line-field">
-            <label>${option.label}</label>
-            <input
-              type="radio"
-              .name="${options.id}"
-              .checked="${option.value === this.fieldValues[options.id]}"
+  renderRadio(config: SurveyRadio): TemplateResult<1> | '' {
+    const options = this.resolveOptions(config);
+    if (!options) return '';
+    return html`<span class="ngv-survey-label" .hidden="${!config.label}">
+        ${config.label}
+        ${config.required ? html`<span style="color: red">*</span>` : ''}
+      </span>
+      <wa-radio-group
+        size="small"
+        class="${classMap({'ngv-warning': this.notValid[config.id]})}"
+        .value=${this.fieldValues[config.id]}
+      >
+        ${options.map(
+          (option) =>
+            html`<wa-radio
+              .name="${config.id}"
               .value=${option.value}
               @click=${(evt: Event) => {
-                this.fieldValues[options.id] = (<HTMLInputElement>(
+                this.fieldValues[config.id] = (<HTMLInputElement>(
                   evt.target
                 )).value;
-                if (this.notValid[options.id]) {
-                  this.notValid = {...this.notValid, [options.id]: false};
+                if (this.notValid[config.id]) {
+                  this.notValid = {...this.notValid, [config.id]: false};
                 }
+                this.requestUpdate();
               }}
-            />
-          </div>`,
-      )}
-    </fieldset>`;
+              >${option.label}</wa-radio
+            >`,
+        )}
+      </wa-radio-group>`;
   }
 
-  renderId(options: SurveyId): TemplateResult<1> | '' {
-    return html`
-      <div class="field" style="font-size: small">
-        <span><b>${msg('ID')}: </b>${this.fieldValues[options.id]}</span>
-      </div>
-    `;
+  renderReadonly(config: SurveyReadonly | SurveyId): TemplateResult<1> | '' {
+    let value: TemplateResult<1> | string = '';
+    if (
+      config.type === 'readonly' &&
+      typeof config.options === 'object' &&
+      (config.keyPropId || config.keyCallback)
+    ) {
+      const options = config.options;
+      const key = config.keyPropId || config.keyCallback(this.fieldValues);
+      value = options[key];
+      this.fieldValues[config.id] = value;
+    } else {
+      value = <TemplateResult<1> | ''>this.fieldValues[config.id];
+    }
+    return !this.fieldValues[config.id] || config.hidden
+      ? ''
+      : html`
+          <div>
+            <span class="ngv-survey-label"
+              >${config.label ? html`${config.label}:` : ''}
+            </span>
+            <span class="ngv-secondary-text"
+              >${until(value, msg('Loading...'))}</span
+            >
+          </div>
+        `;
   }
 
   renderCoordinates(options: SurveyCoords): TemplateResult<1> | '' {
-    const coordinate = <Coordinate>this.fieldValues[options.id];
+    // todo make it configurable
+    const integerFormat = new Intl.NumberFormat('de-CH', {
+      maximumFractionDigits: 3,
+    });
+    const coordinates = <Coordinates>this.fieldValues[options.id];
+    const coordinate = coordinates?.projected
+      ? coordinates.projected
+      : coordinates?.wgs84;
+    if (!coordinate) return '';
     return html`
-      <div class="field" style="font-size: smaller">
-        <span
-          ><b>${msg('Coordinates')}: </b><br />${coordinate.longitude},
-          ${coordinate.latitude}<br /><b>${msg('Height:')}</b>
-          ${coordinate.height}m</span
+      <div>
+        <span class="ngv-survey-label">${msg('Coordinates')}:</span>
+        <span class="ngv-secondary-text">
+          ${integerFormat.format(coordinate[0])},
+          ${integerFormat.format(coordinate[1])}</span
+        >
+      </div>
+      <div>
+        <span class="ngv-survey-label">${msg('Height:')}</span>
+        <span class="ngv-secondary-text">
+          ${integerFormat.format(coordinate[2])}m</span
         >
       </div>
     `;
@@ -318,14 +345,15 @@ ${this.fieldValues[options.id] || ''}</textarea
 
   renderFile(options: SurveyFile): TemplateResult<1> | '' {
     return html`${this.fieldValues[options.id]
-      ? html`<button
+      ? html`<wa-button
+          size="small"
           @click=${() => {
             this.fieldValues[options.id] = '';
             this.requestUpdate();
           }}
         >
           ${msg('Remove attached file')} 🗑
-        </button>`
+        </wa-button>`
       : html`<ngv-upload
           .options="${{
             accept: options.accept,
@@ -361,6 +389,8 @@ ${this.fieldValues[options.id] || ''}</textarea
         return this.renderCheckbox(field);
       case 'input':
         return this.renderInput(field);
+      case 'color':
+        return this.renderColorpicker(field);
       case 'select':
         return this.renderSelect(field);
       case 'textarea':
@@ -370,16 +400,18 @@ ${this.fieldValues[options.id] || ''}</textarea
       case 'file':
         return this.renderFile(field);
       case 'id':
-        return this.renderId(field);
+      case 'readonly':
+        return this.renderReadonly(field);
       default:
         return '';
     }
   }
 
   validate(): boolean {
-    this.surveyConfig.forEach((field) => {
+    this.surveyFields.forEach((field) => {
       if (
         field.type !== 'coordinates' &&
+        field.type !== 'readonly' &&
         field.type !== 'id' &&
         field.required
       ) {
@@ -399,35 +431,68 @@ ${this.fieldValues[options.id] || ''}</textarea
   }
 
   render(): HTMLTemplateResult | string {
-    if (!this.surveyConfig || !this.fieldValues) return '';
-    return html` <div class="survey">
-      ${this.surveyConfig.map((field) => this.renderField(field))}
-      <div class="btns-container">
-        <button
-          .hidden=${false}
-          @click="${() => {
-            this.dispatchEvent(new CustomEvent('cancel'));
-          }}"
-        >
-          ${msg('Cancel')}
-        </button>
-        <button
-          .hidden=${false}
-          @click="${() => {
-            const valid = this.validate();
-            if (valid) {
-              this.dispatchEvent(
-                new CustomEvent<FieldValues>('confirm', {
-                  detail: this.fieldValues,
-                }),
-              );
-            }
-          }}"
-        >
-          ${msg('Confirm')}
-        </button>
-      </div>
-    </div>`;
+    return this.surveyConfigChange.render({
+      pending: () => html`<wa-card><progress></progress></wa-card>`,
+      error: (error) => {
+        console.error(error);
+        return html`<wa-card>
+          <span class="ngv-secondary-text"
+            >${msg('An error occurred when parsing survey')}</span
+          >
+          <div class="ngv-survey-btns">
+            <wa-button
+              appearance="filled"
+              size="small"
+              .hidden=${false}
+              @click="${() => {
+                this.dispatchEvent(new CustomEvent('cancel'));
+              }}"
+            >
+              <wa-icon name="times"></wa-icon>
+            </wa-button>
+          </div>
+        </wa-card>`;
+      },
+      complete: () => {
+        if (!this.surveyFields || !this.fieldValues) return '';
+        return html` <wa-card>
+          ${this.surveyFields.map((field) => this.renderField(field))}
+          <div class="ngv-survey-btns">
+            <wa-button
+              appearance="filled"
+              size="small"
+              .hidden=${false}
+              @click="${() => {
+                this.dispatchEvent(new CustomEvent('cancel'));
+              }}"
+            >
+              <wa-icon name="times"></wa-icon>
+            </wa-button>
+            <wa-button
+              appearance="filled"
+              size="small"
+              .hidden=${false}
+              @click="${() => {
+                const valid = this.validate();
+                if (valid) {
+                  this.dispatchEvent(
+                    new CustomEvent<FieldValues>('confirm', {
+                      detail: this.fieldValues,
+                    }),
+                  );
+                }
+              }}"
+            >
+              <wa-icon name="check"></wa-icon>
+            </wa-button>
+          </div>
+        </wa-card>`;
+      },
+    });
+  }
+
+  createRenderRoot(): this {
+    return this;
   }
 }
 

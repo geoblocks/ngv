@@ -28,8 +28,16 @@ export class NgvColoredSlider extends LitElement {
   static styles = css`
     .slider-container {
       display: flex;
-      flex-direction: column;
+      flex-direction: row;
+      align-items: center;
+      justify-content: center;
       width: 100%;
+      gap: 7px;
+    }
+
+    .slider-container label {
+      white-space: nowrap;
+      width: 100px;
     }
 
     .slider-container input {
@@ -60,7 +68,6 @@ export class NgvColoredSlider extends LitElement {
   public override render(): HTMLTemplateResult {
     return html`
       <div class="slider-container">
-        <label .hidden="${!this.title}">${this.title}</label>
         <input
           type="range"
           min="${this.min}"

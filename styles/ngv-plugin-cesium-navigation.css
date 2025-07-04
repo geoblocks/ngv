@@ -1,0 +1,49 @@
+wa-details.ngv-vertical-menu wa-card.ngv-view-navigation-card::part(body) {
+  padding: 12px 0;
+}
+
+wa-details.ngv-vertical-menu wa-card.ngv-view-navigation-card::part(header) {
+  padding: 12px 0 0 0;
+}
+
+.ngv-view-btns {
+  box-shadow: none;
+  background-color: var(--c2c-secondary-background-color);
+  border: none;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: var(--c2c-gap-s);
+  border-radius: var(--wa-border-radius-m);
+  padding: 12px;
+}
+.ngv-view-btns-n {
+  grid-area: 1 / 2 / 2 / 3;
+}
+.ngv-view-btns-w {
+  grid-area: 2 / 1 / 3 / 2;
+}
+.ngv-view-btns-t {
+  grid-area: 2 / 2 / 3 / 3;
+}
+.ngv-view-btns-e {
+  grid-area: 2 / 3 / 3 / 4;
+}
+.ngv-view-btns-s {
+  grid-area: 3 / 2 / 4 / 3;
+}
+
+ngv-plugin-cesium-navigation wa-card.nav-container::part(body) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+}
+
+ngv-plugin-cesium-navigation wa-select::part(combobox):hover {
+  border-color: var(--wa-color-focus);
+}
+
+ngv-plugin-cesium-navigation wa-select::part(expand-icon) {
+  display: none;
+}

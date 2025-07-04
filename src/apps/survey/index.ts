@@ -1,10 +1,12 @@
-import type {HTMLTemplateResult, TemplateResult} from 'lit';
+import type {HTMLTemplateResult} from 'lit';
+import {css} from 'lit';
 import {html} from 'lit';
 import {customElement, query, state} from 'lit/decorators.js';
 
 import '../../structure/ngv-structure-app.js';
 import {localized, msg} from '@lit/localize';
 import {ABaseApp} from '../../structure/BaseApp.js';
+import '../../structure/ngv-structure-overlay';
 
 import type {ISurveyConfig} from './ingv-config-survey.js';
 import '../../plugins/cesium/ngv-plugin-cesium-widget';
@@ -32,41 +34,50 @@ import {
 } from '@cesium/engine';
 import type {ViewerInitializedDetails} from '../../plugins/cesium/ngv-plugin-cesium-widget.js';
 import type {ClickDetail} from '../../plugins/cesium/ngv-plugin-cesium-click-info.js';
-import type {FieldValues} from '../../plugins/ui/ngv-survey.js';
 import {
-  getJson,
+  getJson as readJsonFile,
   getOrCreateDirectoryChain,
   persistJson,
   removeFile,
 } from '../../utils/storage-utils.js';
-import type {Coordinate} from '../../utils/generalTypes.js';
-import proj4 from 'proj4';
+import type {FieldValues} from '../../utils/generalTypes.js';
 import {Task} from '@lit/task';
 import type {OfflineInfo} from '../../plugins/cesium/ngv-plugin-cesium-offline.js';
 import type {NgvPluginCesiumNavigation} from '../../plugins/cesium/ngv-plugin-cesium-navigation.js';
 import type {IngvCesiumContext} from '../../interfaces/cesium/ingv-cesium-context.js';
+import {poolRunner} from '../../utils/pool-runner.js';
+import type {LabelValue, SurveyField} from '../../interfaces/ui/ingv-survey.js';
+import type {config} from './demoSurveyConfig.js';
+import {classMap} from 'lit/directives/class-map.js';
+
+type ItemSummary =
+  typeof config extends ISurveyConfig<infer I, any> ? I : never;
+type Item = typeof config extends ISurveyConfig<any, infer I> ? I : never;
 
 const STORAGE_DIR = ['surveys'];
 const STORAGE_LIST_NAME = 'surveys.json';
 
-type SurveysListItem = {
-  id: string;
-  coordinate: Coordinate;
-};
-
 @customElement('ngv-app-survey')
 @localized()
-export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
+export class NgvAppSurvey extends ABaseApp<typeof config> {
   @state()
   private viewer: CesiumWidget;
   @state()
   private showSurvey = false;
   @state()
-  private surveys: SurveysListItem[] = [];
+  private surveys: ItemSummary[] = [];
+  @state()
+  private failedSurveys: ItemSummary[] = [];
   @state()
   private offline: boolean = false;
+  @state()
+  private initialized = false;
+  @state()
+  private surveyFieldValuesPromise: Promise<FieldValues> | undefined;
   @query('ngv-plugin-cesium-navigation')
   private navElement: NgvPluginCesiumNavigation;
+  @query('.ngv-vertical-menu')
+  private verticalMenu: HTMLElement & {show: () => void};
   private dataSourceCollection: DataSourceCollection;
   private dataSource: CustomDataSource = new CustomDataSource();
   private lastPoint: Entity | undefined;
@@ -77,29 +88,85 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
   private currentView: IngvCesiumContext['views'][number] | null = null;
 
   private collections: ViewerInitializedDetails['primitiveCollections'];
-  private surveyFieldValues:
-    | Record<
-        string,
-        | string
-        | number
-        | Record<string, boolean>
-        | Coordinate
-        | TemplateResult<1>
-      >
-    | undefined = {};
+
+  static styles = css`
+    details {
+      border-radius: 4px;
+      border: 1px solid rgba(0, 0, 0, 0.16);
+      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05);
+      padding: 8px 16px;
+      user-select: none;
+    }
+    summary {
+      cursor: pointer;
+    }
+  `;
 
   constructor() {
     super(() => import('./demoSurveyConfig.js'));
   }
 
+  async resolveFieldsConfig(
+    offline: boolean,
+    surveyFields: SurveyField[],
+  ): Promise<void> {
+    const promises = surveyFields.map((v) => {
+      if (
+        (v.type !== 'select' &&
+          v.type !== 'radio' &&
+          v.type !== 'checkbox' &&
+          v.type !== 'readonly') ||
+        typeof v.options !== 'function'
+      ) {
+        return null;
+      }
+      const filename = `field-${v.id}.json`;
+      if (offline) {
+        return readJsonFile<LabelValue[]>(this.persistentDir, filename).then(
+          (result) => (v.options = result),
+        );
+      }
+      return v.options().then(async (result) => {
+        v.options = result;
+        await persistJson(this.persistentDir, filename, result);
+        return result;
+      });
+    });
+    await Promise.all(promises);
+  }
+
+  // @ts-expect-error TS6133
+  private _showSurveyChange = new Task(this, {
+    args: (): [boolean] => [this.showSurvey],
+    task: ([showSurvey]) => {
+      if (showSurvey) {
+        this.verticalMenu.show();
+      }
+    },
+  });
+
   // @ts-expect-error TS6133
   private _configChange = new Task(this, {
-    args: (): [ISurveyConfig] => [this.config],
-    task: ([config]) => {
+    args: (): [typeof config, ItemSummary[]] => [this.config, this.surveys],
+    task: async ([config, _surveys]) => {
+      if (config.app.cesiumContext.offline) {
+        const appName = config.app.cesiumContext.name;
+        this.offline = localStorage.getItem(`${appName}_offline`) === 'true';
+      }
+
+      this.persistentDir = await getOrCreateDirectoryChain([
+        this.config.app.cesiumContext.name,
+        // we have only a global persistence to simplify initialization
+        // this.currentView.id,
+        ...STORAGE_DIR,
+      ]);
+
       const pointConf = config.app.cesiumContext.surveyOptions?.pointOptions;
       this.pointConfig = {
         color: pointConf?.color
-          ? Color.fromCssColorString(pointConf?.color)
+          ? typeof pointConf.color === 'string'
+            ? Color.fromCssColorString(pointConf?.color)
+            : pointConf.color
           : Color.RED,
         outlineWidth:
           typeof pointConf?.outlineWidth === 'number'
@@ -134,39 +201,39 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
             ? pointHighlightConf?.disableDepthTestDistance
             : undefined,
       };
+      await this.resolveFieldsConfig(this.offline, config.app.survey.fields);
+      this.initialized = true;
     },
   });
 
-  async loadSurveys(): Promise<void> {
+  async loadSurveys(offline: boolean): Promise<void> {
     if (!this.persistentDir) {
       console.error('Directory not defined.');
       return;
     }
-    this.dataSource.entities.removeAll();
-    this.surveys =
-      (await getJson<SurveysListItem[]>(
+    if (!offline && this.config.app.survey.listItems) {
+      this.surveys = await this.config.app.survey.listItems({
+        id: this.currentView.id,
+      });
+      await persistJson(this.persistentDir, STORAGE_LIST_NAME, this.surveys);
+      console.log('Persisted surveys');
+    } else {
+      console.log('Reading surveys from storage');
+      this.surveys = await readJsonFile<ItemSummary[]>(
         this.persistentDir,
         STORAGE_LIST_NAME,
-      )) || [];
-    const projection =
-      this.config.app.cesiumContext.clickInfoOptions?.projection;
-    const transform = projection && proj4(projection, 'EPSG:4326');
-    this.surveys.forEach((s) => {
-      const coords = {...s.coordinate};
-      if (transform) {
-        const projectedCoords = transform.forward([
-          coords.longitude,
-          coords.latitude,
-        ]);
-        coords.longitude = projectedCoords[0];
-        coords.latitude = projectedCoords[1];
-      }
-      const position = Cartesian3.fromDegrees(
-        coords.longitude,
-        coords.latitude,
-        coords.height,
       );
-      this.addPoint(position, s.id);
+    }
+    if (!this.surveys) {
+      this.surveys = [];
+    }
+
+    this.dataSource.entities.removeAll();
+
+    this.surveys.forEach((s) => {
+      const coords = s.coordinates;
+      const position = Cartesian3.fromDegrees(coords[0], coords[1], coords[2]);
+      this.addPoint(position, s.id, s);
       this.viewer.scene.requestRender();
     });
   }
@@ -190,17 +257,25 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
         ) {
           return undefined;
         }
-        this.editSurvey(pickedObject?.id?.id).catch((e) => console.error(e));
+        this.editSurvey(pickedObject?.id?.id);
       },
       ScreenSpaceEventType.LEFT_CLICK,
     );
   }
 
-  addPoint(position: Cartesian3, id?: string): Entity {
+  addPoint(position: Cartesian3, id?: string, item?: ItemSummary): Entity {
+    const entExists = id && this.dataSource.entities.getById(id);
+    if (entExists) return entExists;
+    let color = this.pointConfig.color;
+    const colorCallback =
+      this.config.app.cesiumContext.surveyOptions?.pointOptions?.colorCallback;
+    if (item && colorCallback) {
+      color = colorCallback(item);
+    }
     return this.dataSource.entities.add({
       id,
       position,
-      point: this.pointConfig,
+      point: {...this.pointConfig, color},
     });
   }
 
@@ -208,47 +283,93 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
     if (this.lastPoint) this.cancel();
     this.lastPoint = this.addPoint(detail.cartesian3);
     this.showSurvey = true;
-    const idField = this.config.app.survey.find((f) => f.type === 'id');
+    const idField = this.config.app.survey.fields.find((f) => f.type === 'id');
+    const fields: FieldValues = {};
     if (idField) {
-      this.surveyFieldValues[idField.id] = this.lastPoint.id;
+      fields[idField.id] = this.lastPoint.id;
     }
-    const coordsFiled = this.config.app.survey.find(
+    const coordsField = this.config.app.survey.fields.find(
       (f) => f.type === 'coordinates',
     );
-    if (coordsFiled) {
-      const longitude = detail.projection
-        ? detail.projected.longitude
-        : detail.wgs84.longitude;
-      const latitude = detail.projection
-        ? detail.projected.latitude
-        : detail.wgs84.latitude;
-      this.surveyFieldValues[coordsFiled.id] = {
-        longitude,
-        latitude,
-        height: Number(detail.elevation.toFixed(2)),
+    if (coordsField) {
+      fields[coordsField.id] = {
+        wgs84: [
+          detail.wgs84.longitude,
+          detail.wgs84.latitude,
+          detail.elevation,
+        ],
+        projected: detail.projected && [
+          detail.projected.longitude,
+          detail.projected.latitude,
+          detail.elevation,
+        ],
       };
     }
+    const requiredDateField = this.config.app.survey.fields.find(
+      (f) =>
+        f.type === 'input' && f.inputType === 'datetime-local' && f.required,
+    );
+    if (requiredDateField) {
+      fields[requiredDateField.id] = new Date().toISOString().split('.')[0];
+    }
+    // converting to get missing properties
+    const item = this.config.app.survey.fieldsToItem(
+      fields,
+      this.currentView.id,
+      this.surveys.length + 1,
+    );
+    this.surveyFieldValuesPromise = Promise.resolve(
+      this.config.app.survey.itemToFields(item),
+    );
   }
 
   hideSurvey(): void {
     this.showSurvey = false;
     this.lastPoint = undefined;
-    this.surveyFieldValues = {};
+    this.surveyFieldValuesPromise = undefined;
   }
 
   async confirm(evt: CustomEvent<FieldValues>): Promise<void> {
-    const idField = this.config.app.survey.find((f) => f.type === 'id');
-    const id = <string>this.surveyFieldValues[idField?.id];
-    const coordinatesField = this.config.app.survey.find(
-      (f) => f.type === 'coordinates',
-    );
-    const coordinate = <Coordinate>this.surveyFieldValues[coordinatesField?.id];
+    if (!evt.detail) throw new Error('No survey data');
+    const idField = this.config.app.survey.fields.find((f) => f.type === 'id');
+    let id = <string>evt.detail[idField?.id];
     if (!id) return;
-    if (!this.surveys.find((s) => s.id === id)) {
-      this.surveys.push({id, coordinate});
-      await persistJson(this.persistentDir, STORAGE_LIST_NAME, this.surveys);
+    const surveyIndex = this.surveys.findIndex((s) => s.id === id);
+    const itemNumber =
+      surveyIndex < 0 ? this.surveys.length + 1 : surveyIndex + 1;
+    const item = this.config.app.survey.fieldsToItem(
+      evt.detail,
+      this.currentView.id,
+      itemNumber,
+    );
+    item.modifiedOffline = this.offline;
+    if (surveyIndex < 0) {
+      this.surveys.push(item);
+    } else {
+      this.surveys[surveyIndex] = item;
     }
-    await persistJson(this.persistentDir, `${id}.json`, evt.detail);
+    if (this.offline) {
+      await persistJson(this.persistentDir, STORAGE_LIST_NAME, this.surveys);
+      await persistJson(this.persistentDir, `${id}.json`, item);
+    } else {
+      const res = await this.config.app.survey.saveItem(item);
+      id = res.id;
+    }
+    if (this.lastPoint) {
+      const position = this.lastPoint.position.getValue();
+      this.dataSource.entities.remove(this.lastPoint);
+      this.addPoint(position, id, item);
+    } else {
+      const colorCallback =
+        this.config.app.cesiumContext.surveyOptions?.pointOptions
+          ?.colorCallback;
+      if (item && colorCallback) {
+        const entity = this.dataSource.entities.getById(item.id);
+        if (entity) {
+          entity.point.color = new ConstantProperty(colorCallback(item));
+        }
+      }
+    }
     this.hideSurvey();
   }
 
@@ -266,34 +387,39 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
       this.surveys.splice(index, 1);
       await persistJson(this.persistentDir, STORAGE_LIST_NAME, this.surveys);
       this.surveys = [...this.surveys];
+      const entity = this.dataSource.entities.getById(id);
+      if (entity) {
+        this.dataSource.entities.remove(entity);
+      }
     }
   }
 
-  async onEdit(index: number): Promise<void> {
+  onEdit(index: number): void {
     const id = this.surveys[index]?.id;
-    await this.editSurvey(id);
+    this.editSurvey(id);
   }
 
   async onViewChanged(view: IngvCesiumContext['views'][number]): Promise<void> {
     if (!view) return;
     this.currentView = view;
-    this.persistentDir = await getOrCreateDirectoryChain([
-      this.config.app.cesiumContext.name,
-      this.currentView.id,
-      ...STORAGE_DIR,
-    ]);
-    await this.loadSurveys();
+    await this.loadSurveys(this.offline);
   }
 
-  async editSurvey(id: string): Promise<void> {
+  editSurvey(id: string): void {
     if (!id) {
       return;
     }
-    const survey = await getJson<FieldValues>(this.persistentDir, `${id}.json`);
-    if (survey) {
-      this.surveyFieldValues = survey;
-      this.showSurvey = true;
+    this.showSurvey = true;
+    this.surveyFieldValuesPromise = this.getOrReadSurvey(id);
+  }
+  async getOrReadSurvey(id: string): Promise<FieldValues> {
+    let item: Item;
+    if (this.offline) {
+      item = await readJsonFile<Item>(this.persistentDir, `${id}.json`);
+    } else {
+      item = await this.config.app.survey.getItem({id});
     }
+    return this.config.app.survey.itemToFields(item);
   }
 
   highlightEntity(id: string): void {
@@ -314,10 +440,14 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
     );
   }
 
-  removeEntityHighlight(id: string): void {
+  removeEntityHighlight(id: string, item: ItemSummary): void {
     const ent = this.dataSource.entities.getById(id);
     if (!ent) return;
-    ent.point.color = new ConstantProperty(this.pointConfig.color);
+    const colorCallback =
+      this.config.app.cesiumContext.surveyOptions?.pointOptions?.colorCallback;
+    ent.point.color = new ConstantProperty(
+      item && colorCallback ? colorCallback(item) : this.pointConfig.color,
+    );
     ent.point.outlineColor = new ConstantProperty(
       this.pointConfig.outlineColor,
     );
@@ -330,17 +460,131 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
     );
   }
 
+  async beforeSwitchDispatch(goingOffline: boolean): Promise<void> {
+    if (goingOffline) {
+      // refresh survey list
+      await this.loadSurveys(!goingOffline);
+      // download all the survey items
+      await poolRunner({
+        concurrency: 7,
+        tasks: this.surveys,
+        runTask: async (s) => {
+          const item = await this.config.app.survey.getItem({id: s.id});
+          await persistJson(this.persistentDir, `${item.id}.json`, item);
+          console.log('->', `${item.id}.json`, item);
+          // FIXME: here we can download all the photos (or append to a list to be downloaded later)
+        },
+        // no signal, we could allow to cancel
+      });
+    } else {
+      // going online
+      const modifiedSurveys = this.surveys.filter((s) => s.modifiedOffline);
+      this.failedSurveys = [];
+      await Promise.all(
+        modifiedSurveys.map(async (s) => {
+          try {
+            console.log(`Sync survey ${s.id}`, s);
+            const survey = await readJsonFile<Item>(
+              this.persistentDir,
+              `${s.id}.json`,
+            );
+            // Should item be created or updated handles in saveItem function
+            // For now, all items modified in offline mode will be updated in DB. Latter modified_at check can be added.
+            await this.config.app.survey.saveItem(survey);
+          } catch (error) {
+            console.error(`Survey ${s.id} sync failed with error:`, error);
+            this.failedSurveys.push(s);
+          }
+        }),
+      ).finally(() => {
+        this.requestUpdate();
+        if (this.failedSurveys.length > 0) {
+          console.log(this.failedSurveys);
+          throw new Error(`Surveys sync failed.`);
+        }
+      });
+    }
+  }
+
   disconnectedCallback(): void {
     this.eventHandler.destroy();
     this.dataSourceCollection.destroy();
     super.disconnectedCallback();
   }
 
-  render(): HTMLTemplateResult {
-    const r = super.render();
-    if (r && !this.config) {
-      return r;
-    }
+  topLeftRender(): HTMLTemplateResult {
+    return html`<wa-card class="ngv-toolbar">
+      <div class="ngv-tools-icon-container">
+        <img src="../../../icons/c2c_logo.svg" alt="logo" />
+      </div>
+      <div class="ngv-tools-btns">
+        <ngv-plugin-cesium-slicing
+          .viewer="${this.viewer}"
+          .tiles3dCollection="${this.collections.tiles3d}"
+          .dataSourceCollection="${this.dataSourceCollection}"
+          .options="${this.config.app.cesiumContext.clippingOptions}"
+        ></ngv-plugin-cesium-slicing>
+        <ngv-plugin-cesium-measure
+          .viewer="${this.viewer}"
+          .dataSourceCollection="${this.dataSourceCollection}"
+          .options=${this.config.app.cesiumContext.measureOptions}
+        ></ngv-plugin-cesium-measure>
+      </div>
+    </wa-card>`;
+  }
+
+  renderSurveysList(surveys: ItemSummary[], title: string): HTMLTemplateResult {
+    return html` <div .hidden=${!surveys?.length || this.showSurvey}>
+      <wa-card
+        with-header
+        class="${classMap({
+          'wa-visually-hidden': !surveys?.length || this.showSurvey,
+        })}"
+      >
+        <div slot="header">${title}</div>
+        <ngv-layers-list
+          .layers="${surveys.map((s) => {
+            return {
+              name: s.title ? `${s.id}:${s.title}` : s.id,
+            };
+          })}"
+          .options="${{
+            showDeleteBtnCallback: (i: number) => !Number(surveys[i]?.id),
+            showZoomBtns: true,
+            showEditBtns: true,
+          }}"
+          @remove=${async (evt: {detail: number}) => this.onRemove(evt.detail)}
+          @zoom=${(evt: {detail: number}) => {
+            const id = surveys[evt.detail]?.id;
+            if (id) {
+              const ent = this.dataSource.entities.getById(id);
+              // todo decide how and improve
+              const sphere = new BoundingSphere(
+                ent.position.getValue(JulianDate.now()),
+                2,
+              );
+              this.viewer.camera.flyToBoundingSphere(sphere);
+            }
+          }}
+          @edit="${(evt: {detail: number}) => this.onEdit(evt.detail)}"
+          @zoomEnter=${(e: {detail: number}) => {
+            const id = surveys[e.detail]?.id;
+            if (id) {
+              this.highlightEntity(id);
+            }
+          }}
+          @zoomOut=${(e: {detail: number}) => {
+            const id = surveys[e.detail]?.id;
+            if (id) {
+              this.removeEntityHighlight(id, surveys[e.detail]);
+            }
+          }}
+        ></ngv-layers-list>
+      </wa-card>
+    </div>`;
+  }
+
+  leftMenuContentRender(): HTMLTemplateResult {
     const offlineInfo: OfflineInfo = this.config.app.cesiumContext.offline
       ? {
           appName: this.config.app.cesiumContext.name,
@@ -348,109 +592,81 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
           ...this.config.app.cesiumContext.offline,
         }
       : undefined;
+
+    return html`<div>
+      <wa-details
+        class="ngv-vertical-menu"
+        @wa-hide=${(e: Event) => {
+          if (this.showSurvey && e.target === this.verticalMenu) {
+            this.cancel();
+          }
+        }}
+      >
+        <div class="ngv-vertical-menu-content">
+          ${offlineInfo
+            ? html`<ngv-plugin-cesium-offline
+                .hidden=${this.showSurvey}
+                .viewer="${this.viewer}"
+                .ionAssetUrl="${this.config.app.cesiumContext.ionAssetUrl}"
+                .cesiumApiUrl="${this.config.app.cesiumContext.cesiumApiUrl}"
+                .info="${offlineInfo}"
+                .beforeSwitchDispatch=${this.beforeSwitchDispatch.bind(this)}
+                @switch="${(evt: {detail: {offline: boolean}}) => {
+                  this.offline = evt.detail.offline;
+                  if (!this.offline) {
+                    this.loadSurveys(this.offline).catch((e) =>
+                      console.error(e),
+                    );
+                  }
+                }}"
+                @offlineInfo="${(evt: {detail: OfflineInfo}) => {
+                  if (!evt.detail?.view?.id) return;
+                  this.offline = true;
+                  this.navElement.setViewById(evt.detail.view.id);
+                }}"
+              ></ngv-plugin-cesium-offline>`
+            : ''}
+          <ngv-survey
+            .hidden=${!this.showSurvey}
+            .surveyFields="${this.config.app.survey.fields}"
+            .fetchFieldValues="${this.surveyFieldValuesPromise}"
+            .projection=${this.config.app.cesiumContext.clickInfoOptions
+              ?.projection}
+            @confirm=${(evt: CustomEvent<FieldValues>) => {
+              this.confirm(evt).catch((e) => console.error(e));
+            }}
+            @cancel=${() => {
+              this.cancel();
+            }}
+          ></ngv-survey>
+          <ngv-plugin-cesium-navigation
+            .hidden=${this.showSurvey}
+            .viewer="${this.viewer}"
+            .config="${this.config.app.cesiumContext}"
+            .dataSourceCollection="${this.dataSourceCollection}"
+            .tiles3dCollection="${this.collections.tiles3d}"
+            .offline="${this.offline}"
+            @viewChanged=${(evt: {
+              detail: IngvCesiumContext['views'][number];
+            }) => this.onViewChanged(evt.detail)}
+          ></ngv-plugin-cesium-navigation>
+          ${this.renderSurveysList(
+            this.failedSurveys,
+            msg('Failed sync surveys'),
+          )}
+          ${this.renderSurveysList(this.surveys, msg('Surveys'))}
+        </div>
+      </wa-details>
+    </div>`;
+  }
+
+  render(): HTMLTemplateResult {
+    const r = super.render();
+    if ((r && !this.config) || !this.initialized) {
+      return r;
+    }
     return html`
       <ngv-structure-app .config=${this.config}>
-        <div
-          slot="menu"
-          style="display: flex; flex-direction: column; row-gap: 10px;"
-        >
-          ${this.viewer
-            ? html`
-                <ngv-plugin-cesium-slicing
-                  .viewer="${this.viewer}"
-                  .tiles3dCollection="${this.collections.tiles3d}"
-                  .dataSourceCollection="${this.dataSourceCollection}"
-                  .options="${this.config.app.cesiumContext.clippingOptions}"
-                ></ngv-plugin-cesium-slicing>
-                <ngv-plugin-cesium-measure
-                  .viewer="${this.viewer}"
-                  .dataSourceCollection="${this.dataSourceCollection}"
-                  .options=${this.config.app.cesiumContext.measureOptions}
-                ></ngv-plugin-cesium-measure>
-                ${offlineInfo
-                  ? html`<ngv-plugin-cesium-offline
-                      .viewer="${this.viewer}"
-                      .ionAssetUrl="${this.config.app.cesiumContext
-                        .ionAssetUrl}"
-                      .cesiumApiUrl="${this.config.app.cesiumContext
-                        .cesiumApiUrl}"
-                      .info="${offlineInfo}"
-                      @switch="${(evt: {detail: {offline: boolean}}) => {
-                        this.offline = evt.detail.offline;
-                      }}"
-                      @offlineInfo="${(evt: {detail: OfflineInfo}) => {
-                        if (!evt.detail?.view?.id) return;
-                        this.offline = true;
-                        this.navElement.setViewById(evt.detail.view.id);
-                      }}"
-                    ></ngv-plugin-cesium-offline>`
-                  : ''}
-                <ngv-plugin-cesium-navigation
-                  .viewer="${this.viewer}"
-                  .config="${this.config.app.cesiumContext}"
-                  .dataSourceCollection="${this.dataSourceCollection}"
-                  .tiles3dCollection="${this.collections.tiles3d}"
-                  .offline="${this.offline}"
-                  @viewChanged=${(evt: {
-                    detail: IngvCesiumContext['views'][number];
-                  }) => this.onViewChanged(evt.detail)}
-                ></ngv-plugin-cesium-navigation>
-                ${this.showSurvey
-                  ? html` <ngv-survey
-                      .surveyConfig="${this.config.app.survey}"
-                      .fieldValues="${this.surveyFieldValues}"
-                      @confirm=${(evt: CustomEvent<FieldValues>) => {
-                        this.confirm(evt).catch((e) => console.error(e));
-                      }}
-                      @cancel=${() => {
-                        this.cancel();
-                      }}
-                    ></ngv-survey>`
-                  : html`<ngv-layers-list
-                      .layers="${this.surveys.map((s) => {
-                        return {
-                          name: s.id,
-                        };
-                      })}"
-                      .options="${{
-                        title: msg('Surveys'),
-                        showDeleteBtns: true,
-                        showZoomBtns: true,
-                        showEditBtns: true,
-                      }}"
-                      @remove=${async (evt: {detail: number}) =>
-                        this.onRemove(evt.detail)}
-                      @zoom=${(evt: {detail: number}) => {
-                        const id = this.surveys[evt.detail]?.id;
-                        if (id) {
-                          const ent = this.dataSource.entities.getById(id);
-                          // todo decide how and improve
-                          const sphere = new BoundingSphere(
-                            ent.position.getValue(JulianDate.now()),
-                            2,
-                          );
-                          this.viewer.camera.flyToBoundingSphere(sphere);
-                        }
-                      }}
-                      @edit="${(evt: {detail: number}) =>
-                        this.onEdit(evt.detail)}"
-                      @zoomEnter=${(e: {detail: number}) => {
-                        const id = this.surveys[e.detail]?.id;
-                        if (id) {
-                          this.highlightEntity(id);
-                        }
-                      }}
-                      @zoomOut=${(e: {detail: number}) => {
-                        const id = this.surveys[e.detail]?.id;
-                        if (id) {
-                          this.removeEntityHighlight(id);
-                        }
-                      }}
-                    ></ngv-layers-list>`}
-              `
-            : ''}
-        </div>
-
         <ngv-plugin-cesium-widget
           .cesiumContext=${this.config.app.cesiumContext}
           @viewerInitialized=${(evt: CustomEvent<ViewerInitializedDetails>) => {
@@ -458,16 +674,24 @@ export class NgvAppSurvey extends ABaseApp<ISurveyConfig> {
           }}
         >
           ${this.viewer
-            ? html`<ngv-plugin-cesium-click-info
-                .viewer="${this.viewer}"
-                .dataSourceCollection="${this.dataSourceCollection}"
-                .options=${this.config.app.cesiumContext.clickInfoOptions}
-                @action=${(evt: CustomEvent<ClickDetail>) =>
-                  this.addMarker(evt.detail)}
-              ></ngv-plugin-cesium-click-info>`
+            ? html` <ngv-structure-overlay>
+                <div slot="top-left">${this.topLeftRender()}</div>
+                <div slot="menu-left">${this.leftMenuContentRender()}</div>
+                <ngv-plugin-cesium-click-info
+                  .viewer="${this.viewer}"
+                  .dataSourceCollection="${this.dataSourceCollection}"
+                  .options=${this.config.app.cesiumContext.clickInfoOptions}
+                  @action=${(evt: CustomEvent<ClickDetail>) =>
+                    this.addMarker(evt.detail)}
+                ></ngv-plugin-cesium-click-info>
+              </ngv-structure-overlay>`
             : ''}
         </ngv-plugin-cesium-widget>
       </ngv-structure-app>
     `;
+  }
+
+  createRenderRoot(): this {
+    return this;
   }
 }

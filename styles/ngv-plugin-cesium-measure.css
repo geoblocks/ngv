@@ -1,0 +1,78 @@
+.ngv-measure-btns-container {
+  display: flex;
+  gap: var(--c2c-gap-s);
+}
+
+.ngv-measure-info-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--c2c-gap-s);
+}
+
+.ngv-measure-info-container > wa-details::part(header) {
+  font-weight: bold;
+}
+
+.ngv-measure-info-container > wa-details::part(base) {
+  padding: 0;
+  border: 0;
+}
+
+.ngv-measure-info-container > wa-details::part(content) {
+  padding: var(--c2c-half-gap-s) 0 0 0;
+}
+
+.ngv-measure-info {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--c2c-secondary-background-color);
+  border-radius: var(--wa-border-radius-m);
+  padding: var(--c2c-gap-s);
+}
+
+.ngv-measure-info > div {
+  display: flex;
+  justify-content: space-between;
+  font-weight: bold;
+}
+
+.ngv-measure-info > div:not(:last-child) {
+  border-bottom: 1px solid var(--wa-color-surface-default);
+  padding-bottom: var(--c2c-half-gap-s);
+}
+
+.ngv-measure-info > div:not(:first-child) {
+  padding-top: var(--c2c-half-gap-s);
+}
+
+.ngv-measure-segments-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--c2c-gap-s);
+  background-color: var(--c2c-secondary-background-color);
+  border-radius: var(--wa-border-radius-m);
+  padding: var(--c2c-gap-s);
+  max-height: 140px;
+  overflow-y: auto;
+}
+
+.ngv-measure-segments-info-item {
+  display: flex;
+  flex-direction: column;
+  padding: 0 var(--c2c-gap-s);
+}
+
+.ngv-measure-segments-info-item > span:first-child {
+  font-weight: bold;
+}
+
+.ngv-measure-segments-info-item:hover {
+  background-color: rgba(255, 253, 251, 1);
+  cursor: pointer;
+  border-radius: var(--wa-border-radius-m);
+}
+
+.ngv-finish-measure-btn::part(base) {
+  margin-bottom: var(--c2c-gap-s);
+  width: 100%;
+}

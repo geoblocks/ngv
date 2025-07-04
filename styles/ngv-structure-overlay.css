@@ -1,0 +1,33 @@
+ngv-structure-overlay {
+  position: absolute;
+  z-index: 1;
+}
+ngv-structure-overlay > .top-left,
+ngv-structure-overlay > .top-right,
+ngv-structure-overlay > .menu-left,
+ngv-structure-overlay > .bottom-left,
+ngv-structure-overlay > .bottom-right,
+ngv-structure-overlay > .on-map {
+  position: absolute;
+}
+
+ngv-structure-overlay > .top-left,
+ngv-structure-overlay > .top-right,
+ngv-structure-overlay > .bottom-left,
+ngv-structure-overlay > .bottom-right {
+  z-index: 2;
+}
+
+ngv-structure-overlay > .on-map {
+  z-index: 3;
+}
+
+ngv-structure-overlay > .top-left {
+  top: 14px;
+  left: 14px;
+}
+
+ngv-structure-overlay > .menu-left {
+  top: 150px;
+  left: 14px;
+}

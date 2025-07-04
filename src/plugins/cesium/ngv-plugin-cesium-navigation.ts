@@ -1,5 +1,5 @@
 import {customElement, property, state} from 'lit/decorators.js';
-import {css, html, type HTMLTemplateResult, LitElement} from 'lit';
+import {html, type HTMLTemplateResult, LitElement} from 'lit';
 import {Task} from '@lit/task';
 import type {
   CesiumWidget,
@@ -22,7 +22,6 @@ import {
   updateHeightForCartesianPositions,
 } from './interactionHelpers.js';
 import {msg} from '@lit/localize';
-import {classMap} from 'lit/directives/class-map.js';
 import {getTilesetForOffline} from './cesium-utils.js';
 
 type NavView = {
@@ -58,105 +57,9 @@ export class NgvPluginCesiumNavigation extends LitElement {
   private currentView: NavViews;
   private dataSource: CustomDataSource = new CustomDataSource();
 
-  static styles = css`
-    button {
-      border-radius: 4px;
-      padding: 0 16px;
-      height: 40px;
-      cursor: pointer;
-      background-color: white;
-      border: 1px solid rgba(0, 0, 0, 0.16);
-      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05);
-      transition: background-color 200ms;
-      width: 100%;
-    }
-
-    button[disabled] {
-      cursor: not-allowed;
-    }
-
-    .container {
-      display: flex;
-      flex-direction: column;
-      margin-left: auto;
-      margin-right: auto;
-      padding: 10px;
-      gap: 10px;
-      border-radius: 4px;
-      border: 1px solid rgba(0, 0, 0, 0.16);
-      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05);
-    }
-
-    .nav-container {
-      display: flex;
-      column-gap: 5px;
-    }
-
-    .view-btns {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      column-gap: 5px;
-      align-items: center;
-    }
-
-    .view-btns > div {
-      display: flex;
-      flex-direction: column;
-      row-gap: 5px;
-    }
-
-    .view-container {
-      display: flex;
-      flex-direction: column;
-      row-gap: 5px;
-      padding: 5px;
-    }
-
-    .view-container > h4 {
-      margin: 0;
-      padding: 5px;
-    }
-
-    .view-container > h4:hover {
-      background-color: lightyellow;
-      cursor: pointer;
-    }
-
-    .divider {
-      width: 100%;
-      border: 1px solid #e0e3e6;
-    }
-
-    .view-list {
-      border-radius: 4px;
-      border: 1px solid rgba(0, 0, 0, 0.16);
-      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05);
-      padding: 8px 16px;
-    }
-    .view-list summary {
-      cursor: pointer;
-    }
-
-    .view-list > div {
-      margin-top: 10px;
-      display: flex;
-      flex-direction: column;
-      row-gap: 5px;
-    }
-
-    .view-list button {
-      height: auto;
-      padding: 6px;
-      border: none;
-      text-align: left;
-    }
-
-    .view-list button.active,
-    .view-list button:active,
-    .view-list button:hover {
-      background-color: lightyellow;
-    }
-  `;
+  createRenderRoot(): this {
+    return this;
+  }
 
   // @ts-expect-error TS6133
   private _offlineChangeTask = new Task(this, {
@@ -216,7 +119,8 @@ export class NgvPluginCesiumNavigation extends LitElement {
           material: v.highlightColor
             ? Color.fromCssColorString(v.highlightColor)
             : Color.RED.withAlpha(0.6),
-          extrudedHeight: v.height,
+          extrudedHeight: v.elevation + v.height,
+          height: v.elevation,
         },
       }),
     );
@@ -300,89 +204,121 @@ export class NgvPluginCesiumNavigation extends LitElement {
 
   render(): HTMLTemplateResult | string {
     if (!this.config.views?.length) return '';
-    return html`<div class="container">
+    return html` <wa-card with-header>
+      <div slot="header">
+        <wa-icon src="../../../icons/camera.svg"></wa-icon>
+        ${msg('Interact with objects in the scene')}
+      </div>
       ${this.config.views.length > 1
-        ? html`<div class="nav-container">
-              <button
-                .disabled=${this.offline}
-                @click=${() => this.toPrevView()}
+        ? html`<wa-card class="nav-container">
+            <wa-icon-button
+              name="chevron-left"
+              .disabled=${this.offline}
+              @click="${() => this.toPrevView()}"
+            ></wa-icon-button>
+            <wa-dropdown placement="bottom">
+              <wa-button
+                slot="trigger"
+                size="medium"
+                appearance="outlined"
+                @mouseenter="${() => {
+                  this.currentView.highlightEntity.show = true;
+                }}"
+                @mouseout="${() => {
+                  this.currentView.highlightEntity.show = false;
+                }}"
+                >${this.currentView?.title}</wa-button
               >
-                ${msg('Previous')}
-              </button>
-              <button
-                .disabled=${this.offline}
-                @click=${() => this.toNextView()}
-              >
-                ${msg('Next')}
-              </button>
-            </div>
-            <details .hidden=${this.offline} class="view-list">
-              <summary>${msg('Places')}</summary>
-              <div>
-                ${this.config.views.map(
-                  (view, index) =>
-                    html` <button
-                      class="${classMap({
-                        active: this.currentViewIndex === index,
-                      })}"
-                      @click=${() => this.setViewById(view.id)}
-                    >
-                      ${view.title}
-                    </button>`,
-                )}
-              </div>
-            </details>
-            <div class="divider"></div>`
+              <wa-menu>
+                ${this.config.views.map((view, index) => {
+                  return html` <wa-menu-item
+                    .value=${index}
+                    @click=${() => this.setViewById(view.id)}
+                  >
+                    ${view.title}
+                  </wa-menu-item>`;
+                })}
+              </wa-menu>
+            </wa-dropdown>
+            <wa-icon-button
+              name="chevron-right"
+              .disabled=${this.offline}
+              @click=${() => this.toNextView()}
+            ></wa-icon-button>
+          </wa-card>`
         : ''}
       ${!this.currentView
         ? ''
-        : html` <div class="view-container">
-            <h4
-              @mouseenter="${() => {
-                this.currentView.highlightEntity.show = true;
-              }}"
-              @mouseout="${() => {
-                this.currentView.highlightEntity.show = false;
-              }}"
-            >
-              ${this.currentView.title}
-            </h4>
-            <div class="view-btns">
-              <button
-                @click="${() =>
-                  this.viewer.camera.flyTo(this.currentView.west)}"
-              >
-                W
-              </button>
-              <div>
-                <button
+        : html`<wa-card class="ngv-view-navigation-card" with-header>
+            <div slot="header">${msg('Choose a view')}</div>
+            <div>
+              <div class="ngv-view-btns">
+                <wa-button
+                  class="ngv-view-btns-n"
+                  size="small"
+                  appearance="filled"
                   @click="${() =>
                     this.viewer.camera.flyTo(this.currentView.north)}"
                 >
-                  N
-                </button>
-                <button
+                  <wa-icon
+                    slot="prefix"
+                    src="../../../icons/north.svg"
+                  ></wa-icon>
+                  ${msg('North')}
+                </wa-button>
+                <wa-button
+                  class="ngv-view-btns-w"
+                  size="small"
+                  appearance="filled"
+                  @click="${() =>
+                    this.viewer.camera.flyTo(this.currentView.west)}"
+                >
+                  <wa-icon
+                    slot="prefix"
+                    src="../../../icons/west.svg"
+                  ></wa-icon>
+                  ${msg('West')}
+                </wa-button>
+                <wa-button
+                  class="ngv-view-btns-t"
+                  size="small"
+                  appearance="filled"
                   @click="${() =>
                     this.viewer.camera.flyTo(this.currentView.top)}"
                 >
-                  TOP
-                </button>
-                <button
+                  <wa-icon slot="prefix" src="../../../icons/top.svg"></wa-icon>
+                  ${msg('Top')}
+                </wa-button>
+                <wa-button
+                  class="ngv-view-btns-e"
+                  size="small"
+                  appearance="filled"
+                  @click="${() =>
+                    this.viewer.camera.flyTo(this.currentView.east)}"
+                >
+                  <wa-icon
+                    slot="prefix"
+                    src="../../../icons/east.svg"
+                  ></wa-icon>
+                  ${msg('East')}
+                </wa-button>
+                <wa-button
+                  class="ngv-view-btns-s"
+                  size="small"
+                  appearance="filled"
                   @click="${() =>
                     this.viewer.camera.flyTo(this.currentView.south)}"
                 >
-                  S
-                </button>
+                  <wa-icon
+                    slot="prefix"
+                    src="../../../icons/south.svg"
+                  ></wa-icon>
+                  ${msg('South')}
+                </wa-button>
               </div>
-              <button
-                @click="${() =>
-                  this.viewer.camera.flyTo(this.currentView.east)}"
-              >
-                E
-              </button>
             </div>
-          </div>`}
-    </div>`;
+          </wa-card>`}
+    </wa-card>`;
   }
 }
 

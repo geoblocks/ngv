@@ -16,11 +16,23 @@ server {
   gzip_types application/javascript text/css application/json;
 
 
+  # Everything containing index.html should be no-cache so that they are immediately updated
+  location ~* index\.html {
+    try_files $uri $uri/ =404;
+    expires -1;
+  }
+
+  # The service worker should be no-cache to hope for being up-to-date
+  location = /sw.js {
+    try_files $uri $uri/ =404;
+    expires -1;
+  }
+
+  # All other files are supposed to be cached with the default lengh (currently 4h)
   location / {
 # root and alias cannot be use here, because we need to access common files at the root
     index $APP_PATH/index.html;
     try_files $uri $uri/ =404;
-    expires -1;
   }
 
 }
