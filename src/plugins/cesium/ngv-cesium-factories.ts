@@ -240,13 +240,12 @@ export async function initCesiumWidget(
     (() => {
       console.warn('Missing modelCallback');
     });
-  if (!cesiumContext.baseUrl) {
-    if (document.location.host.endsWith('.github.io')) {
-      // FIXME: ideally this would be done at the application level
-      cesiumContext.baseUrl = document.location.search.split('/')[1];
-    }
+
+  if (cesiumContext.baseUrl) {
+    window.CESIUM_BASE_URL = cesiumContext.baseUrl;
+  } else {
+    window.CESIUM_BASE_URL = window.NGV_BASE_URL;
   }
-  window.CESIUM_BASE_URL = cesiumContext.baseUrl || '/';
 
   if (cesiumContext.ionDefaultAccessToken) {
     Ion.defaultAccessToken = cesiumContext.ionDefaultAccessToken;

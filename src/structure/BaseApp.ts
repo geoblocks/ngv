@@ -48,6 +48,16 @@ export abstract class ABaseApp<
         this.config = (await result.json()) as ConfigType;
       }
 
+      if (!window.NGV_BASE_URL) {
+        // this should probably be done elsewhere
+        const prefix =
+          document.location.host.endsWith('.github.io') ||
+          document.location.href.startsWith('http://127.0.0.1:8000/ngv')
+            ? document.location.pathname.split('/')[1]
+            : '';
+        window.NGV_BASE_URL = '/' + prefix;
+      }
+
       this.configLoading = 'ready';
     } catch (e) {
       this.configLoading = 'error';
@@ -72,7 +82,11 @@ export abstract class ABaseApp<
               (<ProjectionWithGrid[]>projections).map(async (proj) => {
                 if (proj.gridKey && proj.gridUrl) {
                   try {
-                    const response = await fetch(proj.gridUrl);
+                    let gridUrl = proj.gridUrl;
+                    if (gridUrl[0] === '/') {
+                      gridUrl = window.NGV_BASE_URL + gridUrl;
+                    }
+                    const response = await fetch(gridUrl);
                     const buffer = await response.arrayBuffer();
                     proj4.nadgrid(proj.gridKey, buffer);
                   } catch (error) {
@@ -100,5 +114,11 @@ export abstract class ABaseApp<
         .language=${this.localeLoading}
       ></ngv-structure-apploading>
     `;
+  }
+}
+
+declare global {
+  interface Window {
+    NGV_BASE_URL: string;
   }
 }
