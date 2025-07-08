@@ -10,6 +10,7 @@ export interface ItemSummary {
   projectedCoordinates: number[];
   modifiedOffline?: boolean;
   title?: string;
+  sitecode?: string | number;
 }
 
 export type Context = {

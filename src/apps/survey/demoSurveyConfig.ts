@@ -1,4 +1,4 @@
-import type {FieldValues} from '../../utils/generalTypes.js';
+import type {Coordinates, FieldValues} from '../../utils/generalTypes.js';
 import type {
   Context,
   ISurveyConfig,
@@ -6,7 +6,61 @@ import type {
   ItemSummary,
 } from './ingv-config-survey.js';
 
-export const config: ISurveyConfig<ItemSummary, Item> = {
+interface DemoItem extends Item {
+  siteName: string;
+  reporter: string;
+  dateRecorded: string;
+  poiNotes: string;
+  coordinates: number[];
+}
+
+const prefix = 'ngvfake_';
+let maxId = 1;
+
+async function listItems(context: Context): Promise<DemoItem[]> {
+  const items = [];
+  const {id} = context;
+  if (!id) {
+    throw new Error('Missing id in context');
+  }
+  for (let i = localStorage.length - 1; i >= 0; i--) {
+    const k = localStorage.key(i);
+    if (k.startsWith(prefix)) {
+      const item = JSON.parse(localStorage.getItem(k)) as DemoItem;
+      // @ts-expect-error linter does not like isNaN
+      if (!isNaN(item.id) && parseInt(item.id) > maxId) {
+        maxId = parseInt(item.id);
+      }
+      if (item.sitecode === id) {
+        items.push(item);
+      }
+    }
+  }
+  return Promise.resolve(items);
+}
+
+async function getItem(context: Context): Promise<DemoItem> {
+  const {id} = context;
+  if (!id) {
+    throw new Error('Missing id in context');
+  }
+  const item = localStorage.getItem(prefix + id);
+  return Promise.resolve(JSON.parse(item) as DemoItem);
+}
+
+async function saveItem(item: DemoItem): Promise<{id: string}> {
+  // @ts-expect-error linter does not like isNaN
+  if (isNaN(item.id)) {
+    item.id = (++maxId).toFixed();
+  }
+  item.reporter = 'Demo user'; // the backend should set this
+  localStorage.setItem(prefix + item.id, JSON.stringify(item));
+  return Promise.resolve({
+    id: item.id,
+  });
+}
+
+export const config: ISurveyConfig<ItemSummary, DemoItem> = {
   languages: ['en'],
   header: {
     title: {
@@ -15,42 +69,39 @@ export const config: ISurveyConfig<ItemSummary, Item> = {
   },
   app: {
     survey: {
-      async listItems(context) {
-        const {id} = context;
-        if (!id) {
-          throw new Error('Missing id in context');
-        }
-        return Promise.resolve([]);
-      },
-      async getItem(context: Context) {
-        console.log(context);
-        return Promise.resolve({
-          id: context.id,
-          coordinates: [],
-          lastModifiedMs: Date.now(),
-          projectedCoordinates: [],
-        });
-      },
-      async saveItem(item: Item) {
-        // todo
-        console.log('not implemented', item);
-        return Promise.resolve({});
-      },
-      itemToFields(item: Item) {
-        // todo
-        console.log('not implemented', item);
-        return {};
+      listItems: listItems,
+      getItem: getItem,
+      saveItem: saveItem,
+      itemToFields(item: DemoItem) {
+        return {
+          siteCode: item.sitecode,
+          id: item.id,
+          reporter: item.reporter,
+          dateRecorded: item.dateRecorded,
+          poiNotes: item.poiNotes,
+          coordinates: {
+            wgs84: item.coordinates,
+            projected: item.projectedCoordinates,
+          },
+        };
       },
       fieldsToItem(
         fields: FieldValues,
         viewId?: string,
-        itemNumber?: number,
-      ): Item {
-        // todo
-        console.log('not implemented', fields, viewId, itemNumber);
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-expect-error
-        return {};
+        _itemNumber?: number,
+      ): DemoItem {
+        const coos = <Coordinates>fields.coordinates;
+        return {
+          sitecode: viewId,
+          siteName: viewId,
+          reporter: <string>fields.reporter,
+          coordinates: coos.wgs84,
+          dateRecorded: <string>fields.dateRecorded,
+          id: <string>fields.id,
+          lastModifiedMs: Date.now(),
+          poiNotes: <string>fields.poiNotes,
+          projectedCoordinates: coos.projected,
+        };
       },
       fields: [
         {
@@ -77,13 +128,14 @@ export const config: ISurveyConfig<ItemSummary, Item> = {
           id: 'dateRecorded',
           type: 'input',
           label: 'Date',
+          required: true,
           inputType: 'datetime-local',
         },
         {
-          id: 'defectNotes',
+          id: 'poiNotes',
           type: 'textarea',
           required: false,
-          label: 'Description of defect',
+          label: 'Description of POI',
           placeholder: 'Optional free text',
         },
         {
