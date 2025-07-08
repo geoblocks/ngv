@@ -42,7 +42,7 @@ jobs:
 
   trigger_deploy:
     name: Trigger deploy on lab
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' && secrets.GH_PAT_DEPLOY }}
     runs-on: ubuntu-latest
     needs: build_and_publish
     steps:
