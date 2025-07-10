@@ -83,7 +83,7 @@ export abstract class ABaseApp<
                 if (proj.gridKey && proj.gridUrl) {
                   try {
                     let gridUrl = proj.gridUrl;
-                    if (gridUrl[0] === '/') {
+                    if (gridUrl[0] === '/' && window.NGV_BASE_URL !== '/') {
                       gridUrl = window.NGV_BASE_URL + gridUrl;
                     }
                     const response = await fetch(gridUrl);
