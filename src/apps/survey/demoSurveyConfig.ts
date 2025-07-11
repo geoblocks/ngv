@@ -5,13 +5,20 @@ import type {
   Item,
   ItemSummary,
 } from './ingv-config-survey.js';
+import {Color} from '@cesium/engine';
 
 interface DemoItem extends Item {
+  title?: string;
   siteName: string;
   reporter: string;
   dateRecorded: string;
   poiNotes: string;
+  urgency: string;
+  injuryProbability: string;
+  poiCondition: string;
   coordinates: number[];
+  poiType: string;
+  urgencyColor: string;
 }
 
 const prefix = 'ngvfake_';
@@ -48,6 +55,15 @@ async function getItem(context: Context): Promise<DemoItem> {
   return Promise.resolve(JSON.parse(item) as DemoItem);
 }
 
+async function removeItem(context: Context): Promise<void> {
+  const {id} = context;
+  if (!id) {
+    throw new Error('Missing id in context');
+  }
+  localStorage.removeItem(prefix + id);
+  await Promise.resolve();
+}
+
 async function saveItem(item: DemoItem): Promise<{id: string}> {
   // @ts-expect-error linter does not like isNaN
   if (isNaN(item.id)) {
@@ -58,6 +74,19 @@ async function saveItem(item: DemoItem): Promise<{id: string}> {
   return Promise.resolve({
     id: item.id,
   });
+}
+
+function getUrgencyColor(urgency: string) {
+  switch (urgency) {
+    case 'Not urgent':
+      return '#008000';
+    case 'Urgent':
+      return '#ffff00';
+    case 'Very urgent':
+      return '#ff0000';
+    default:
+      return '#808080';
+  }
 }
 
 export const config: ISurveyConfig<ItemSummary, DemoItem> = {
@@ -72,13 +101,20 @@ export const config: ISurveyConfig<ItemSummary, DemoItem> = {
       listItems: listItems,
       getItem: getItem,
       saveItem: saveItem,
+      removeItem: removeItem,
       itemToFields(item: DemoItem) {
         return {
           siteCode: item.sitecode,
           id: item.id,
+          title: item.title,
           reporter: item.reporter,
           dateRecorded: item.dateRecorded,
           poiNotes: item.poiNotes,
+          urgency: item.urgency,
+          injuryProbability: item.injuryProbability,
+          poiCondition: item.poiCondition,
+          poiType: item.poiType,
+          urgencyColor: item.urgencyColor,
           coordinates: {
             wgs84: item.coordinates,
             projected: item.projectedCoordinates,
@@ -94,13 +130,19 @@ export const config: ISurveyConfig<ItemSummary, DemoItem> = {
         return {
           sitecode: viewId,
           siteName: viewId,
+          title: <string>fields.title,
           reporter: <string>fields.reporter,
           coordinates: coos.wgs84,
           dateRecorded: <string>fields.dateRecorded,
           id: <string>fields.id,
           lastModifiedMs: Date.now(),
           poiNotes: <string>fields.poiNotes,
+          injuryProbability: <string>fields.injuryProbability,
+          poiCondition: <string>fields.poiCondition,
+          urgency: <string>fields.urgency,
           projectedCoordinates: coos.projected,
+          poiType: <string>fields.poiType,
+          urgencyColor: <string>fields.urgencyColor,
         };
       },
       fields: [
@@ -132,11 +174,94 @@ export const config: ISurveyConfig<ItemSummary, DemoItem> = {
           inputType: 'datetime-local',
         },
         {
+          id: 'title',
+          label: 'Title',
+          type: 'input',
+          inputType: 'text',
+        },
+        {
           id: 'poiNotes',
           type: 'textarea',
           required: false,
           label: 'Description of POI',
           placeholder: 'Optional free text',
+        },
+        {
+          id: 'poiType',
+          type: 'select',
+          label: 'POI Type',
+          required: true,
+          options: [
+            {label: 'Wall', value: 'wall'},
+            {label: 'Roof', value: 'roof'},
+            {label: 'Door', value: 'door'},
+            {label: 'Pavement', value: 'pavement'},
+          ],
+        },
+        {
+          id: 'poiCondition',
+          type: 'radio',
+          label: 'Condition',
+          defaultValue: '1',
+          required: true,
+          options: [
+            {label: 'Broken', value: '4'},
+            {label: 'Almost broken', value: '3'},
+            {label: 'OK', value: '2'},
+            {label: 'Good', value: '1'},
+          ],
+        },
+        {
+          id: 'injuryProbability',
+          type: 'select',
+          label: 'Can a visitor get injured?',
+          required: true,
+          options: [
+            {
+              label: 'No',
+              value: '1',
+            },
+            {
+              label: 'Probably no',
+              value: '2',
+            },
+            {
+              label: 'Yes',
+              value: '3',
+            },
+          ],
+        },
+        {
+          id: 'urgency',
+          type: 'readonly',
+          label: 'Fixing urgency',
+          options: {
+            '1': 'Not urgent',
+            '2': 'Not urgent',
+            '3': 'Not urgent',
+            '4': 'Not urgent',
+            '5': 'Urgent',
+            '6': 'Urgent',
+            '7': 'Urgent',
+            '8': 'Urgent',
+            '9': 'Very urgent',
+            '10': 'Very urgent',
+            '11': 'Very urgent',
+            '12': 'Very urgent',
+          },
+          keyCallback: (item: DemoItem): string => {
+            const rating =
+              Number(item.poiCondition) * Number(item.injuryProbability);
+            return rating ? String(rating) : '';
+          },
+        },
+        {
+          id: 'urgencyColor',
+          type: 'color',
+          disabled: true,
+          valueCallback: (item: FieldValues): string => {
+            return getUrgencyColor(<string>item.urgency);
+          },
         },
         {
           id: 'coordinates',
@@ -236,7 +361,13 @@ export const config: ISurveyConfig<ItemSummary, DemoItem> = {
         tiles3dSubdir: 'tiles3d',
         imagerySubdir: 'imageries',
       },
-      surveyOptions: {},
+      surveyOptions: {
+        pointOptions: {
+          colorCallback: (values: DemoItem) => {
+            return Color.fromCssColorString(getUrgencyColor(values.urgency));
+          },
+        },
+      },
     },
   },
   projections: [

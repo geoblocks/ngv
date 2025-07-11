@@ -382,15 +382,20 @@ export class NgvAppSurvey extends ABaseApp<typeof config> {
 
   async onRemove(index: number): Promise<void> {
     const id = this.surveys[index]?.id;
-    if (id) {
+    if (!id) {
+      return;
+    }
+    if (this.offline) {
       await removeFile(this.persistentDir, `${id}.json`);
-      this.surveys.splice(index, 1);
-      await persistJson(this.persistentDir, STORAGE_LIST_NAME, this.surveys);
-      this.surveys = [...this.surveys];
-      const entity = this.dataSource.entities.getById(id);
-      if (entity) {
-        this.dataSource.entities.remove(entity);
-      }
+    } else {
+      await this.config.app.survey.removeItem({id});
+    }
+    this.surveys.splice(index, 1);
+    await persistJson(this.persistentDir, STORAGE_LIST_NAME, this.surveys);
+    this.surveys = [...this.surveys];
+    const entity = this.dataSource.entities.getById(id);
+    if (entity) {
+      this.dataSource.entities.remove(entity);
     }
   }
 
@@ -549,9 +554,9 @@ export class NgvAppSurvey extends ABaseApp<typeof config> {
             };
           })}"
           .options="${{
-            showDeleteBtnCallback: (i: number) => !Number(surveys[i]?.id),
             showZoomBtns: true,
             showEditBtns: true,
+            showDeleteBtns: true,
           }}"
           @remove=${async (evt: {detail: number}) => this.onRemove(evt.detail)}
           @zoom=${(evt: {detail: number}) => {

@@ -98,7 +98,7 @@ export class NgvSurvey extends LitElement {
           .type="${options.inputType}"
           .placeholder="${options.placeholder || ''}"
           .value="${value}"
-          disabled="${options.disabled}"
+          ?disabled="${options.disabled}"
           .minlength="${isText && options.min ? options.min : null}"
           .maxlength="${isText && options.max ? options.max : null}"
           .min="${!isText && options.min ? options.min : null}"

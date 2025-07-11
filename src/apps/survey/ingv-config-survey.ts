@@ -34,7 +34,8 @@ export interface ISurveyConfig<
     survey: {
       listItems: (context: Context) => Promise<ItemSummaryType[]>;
       getItem: (context: Context) => Promise<ItemType>;
-      saveItem: (context: ItemType) => Promise<ItemSaveResponseType>;
+      removeItem: (context: Context) => Promise<void>;
+      saveItem: (item: ItemType) => Promise<ItemSaveResponseType>;
       itemToFields: (item: ItemType) => FieldValues;
       fieldsToItem: (
         fields: FieldValues,
