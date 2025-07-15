@@ -345,7 +345,7 @@ export const config: ISurveyConfig<ItemSummary, DemoItem> = {
         showTerrainDistance: false,
         projection: 'EPSG:27700',
         actionBtn: true,
-        actionBtnLabel: 'Add defect',
+        actionBtnLabel: 'Add POI',
       },
       measureOptions: {
         showSegmentsInfo: true,
