@@ -1,12 +1,16 @@
 import type {INGVCatalog} from '../interfaces/cesium/ingv-catalog.js';
 
+const onGithubIO = document.location
+  .toString()
+  .startsWith('https://geoblocks.github.io/ngv/');
+
 export const catalog: INGVCatalog = {
   id: '@demo',
   credits: '© various',
   layers: {
     thatopensmall: {
       type: 'ifc',
-      url: 'https://thatopen.github.io/engine_components/resources/small.ifc',
+      url: (onGithubIO ? '/ngv' : '') + '/small.ifc',
       options: {
         modelOptions: {
           credit: 'test',
