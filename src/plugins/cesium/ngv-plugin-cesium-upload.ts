@@ -55,13 +55,18 @@ export class NgvPluginCesiumUpload extends LitElement {
     let blob = new Blob([arrayBuffer]);
     url = URL.createObjectURL(blob);
     if (isIfc) {
+      // #FIXME: find a better solution
+      // also, this should be made common with ngv-cesium-factories
+      const onGithubIO = document.location
+        .toString()
+        .startsWith('https://geoblocks.github.io/ngv/');
       const {ifcToGLTF} = await import('@geoblocks/ifc-gltf');
       try {
         const {glb} = await ifcToGLTF({
           url: url,
           webIfcSettings: {
             wasm: {
-              path: '/',
+              path: onGithubIO ? '/ngv/' : '/',
               absolute: true,
             },
           },

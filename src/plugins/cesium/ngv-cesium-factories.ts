@@ -356,7 +356,7 @@ export async function initCesiumWidget(
         url: ifcUrl,
         webIfcSettings: {
           wasm: {
-            path: onGithubIO ? '/ngv' : '/',
+            path: onGithubIO ? '/ngv/' : '/',
             absolute: true,
           },
         },
