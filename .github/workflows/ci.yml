@@ -33,7 +33,8 @@ jobs:
         run: npm run lint
       # - name: Api extractor
       #   run: npm run api-extractor-check
-
+      - name: Copy ifc
+        run: cp public/*.ifc dist/
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

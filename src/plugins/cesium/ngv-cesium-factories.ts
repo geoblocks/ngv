@@ -347,12 +347,16 @@ export async function initCesiumWidget(
       const ifcUrl = config.url;
       const modelOptions = config.options?.modelOptions;
       const {ifcToGLTF} = await import('@geoblocks/ifc-gltf');
+      // #FIXME: find a better solution
+      const onGithubIO = document.location
+        .toString()
+        .startsWith('https://geoblocks.github.io/ngv/');
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const {metadata, glb, coordinationMatrix} = await ifcToGLTF({
         url: ifcUrl,
         webIfcSettings: {
           wasm: {
-            path: '/',
+            path: onGithubIO ? '/ngv' : '/',
             absolute: true,
           },
         },
