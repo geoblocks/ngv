@@ -11,6 +11,7 @@ import {
   type ImageryProvider,
   Ion,
   Math as CesiumMath,
+  Matrix4,
   Model,
   OpenStreetMapImageryProvider,
   PrimitiveCollection,
@@ -438,7 +439,7 @@ export async function initCesiumWidget(
     await Promise.allSettled(modelPromises);
   }
 
-  cesiumContext.layers.imageries.map((name) => {
+  cesiumContext.layers.imageries?.forEach((name) => {
     const config = resolvedLayers[name];
     if (!isImageryConfig(config)) {
       throw new Error();
@@ -454,14 +455,102 @@ export async function initCesiumWidget(
   // return Promise.all(stuffToDo);
 
   const cameraConfig = cesiumContext.camera;
-  viewer.camera.flyTo({
-    destination: Cartesian3.fromDegrees(...cameraConfig.position),
-    orientation: {
-      heading: CesiumMath.toRadians(cameraConfig.orientation.heading),
-      pitch: CesiumMath.toRadians(cameraConfig.orientation.pitch),
-    },
-    duration: 0,
-  });
+
+  // If there are 3D tilesets but no terrain provider (e.g. googlePhotorealistic),
+  // sample the actual surface height from the tiles to correctly place models and camera.
+  const has3dTiles = !!cesiumContext.layers.tiles3d?.length;
+  const hasTerrain = !!cesiumContext.layers.terrain;
+
+  if (has3dTiles && !hasTerrain) {
+    // Wait for all pending tileset/model loading to finish
+    await Promise.allSettled(stuffToDo);
+
+    // Build a list of cartographic positions to sample: one per model + camera
+    const modelPositions: {model: INGVCesiumModel; carto: Cartographic}[] = [];
+    for (let i = 0; i < primitiveCollections.models.length; i++) {
+      const model = primitiveCollections.models.get(i) as INGVCesiumModel;
+      const translation = new Cartesian3();
+      Matrix4.getTranslation(model.modelMatrix, translation);
+      const carto = Cartographic.fromCartesian(translation);
+      // Reset height to 0 so sampleHeightMostDetailed samples the surface
+      carto.height = 0;
+      modelPositions.push({model, carto});
+    }
+
+    const cameraCartographic = Cartographic.fromDegrees(
+      cameraConfig.position[0],
+      cameraConfig.position[1],
+      0,
+    );
+    const allPositions = [
+      ...modelPositions.map((mp) => mp.carto),
+      cameraCartographic,
+    ];
+
+    try {
+      const sampled = await viewer.scene.sampleHeightMostDetailed(allPositions);
+
+      // Update each model matrix with the sampled surface height
+      modelPositions.forEach(({model}, idx) => {
+        const sampledCarto = sampled[idx];
+        const surfaceHeight = sampledCarto.height;
+        const cartesianPos = Cartographic.toCartesian(
+          new Cartographic(
+            sampledCarto.longitude,
+            sampledCarto.latitude,
+            surfaceHeight,
+          ),
+        );
+        // Extract the existing heading/pitch/roll from the current model matrix
+        const hpr = Transforms.fixedFrameToHeadingPitchRoll(model.modelMatrix);
+        // Rebuild the matrix at the correct surface height, preserving rotation
+        const newMatrix = Transforms.headingPitchRollToFixedFrame(
+          cartesianPos,
+          hpr,
+          Ellipsoid.WGS84,
+          Transforms.localFrameToFixedFrameGenerator('north', 'west'),
+        );
+        Matrix4.clone(newMatrix, model.modelMatrix);
+      });
+
+      // Update camera height: use sampled surface height + original offset above terrain
+      const sampledCamera = sampled[modelPositions.length];
+      const terrainHeight = sampledCamera.height;
+      const configHeight = cameraConfig.position[2];
+      // configHeight is treated as meters above terrain
+      viewer.camera.flyTo({
+        destination: Cartesian3.fromDegrees(
+          cameraConfig.position[0],
+          cameraConfig.position[1],
+          terrainHeight + configHeight,
+        ),
+        orientation: {
+          heading: CesiumMath.toRadians(cameraConfig.orientation.heading),
+          pitch: CesiumMath.toRadians(cameraConfig.orientation.pitch),
+        },
+        duration: 0,
+      });
+    } catch (e) {
+      console.warn('Height sampling failed, using configured heights', e);
+      viewer.camera.flyTo({
+        destination: Cartesian3.fromDegrees(...cameraConfig.position),
+        orientation: {
+          heading: CesiumMath.toRadians(cameraConfig.orientation.heading),
+          pitch: CesiumMath.toRadians(cameraConfig.orientation.pitch),
+        },
+        duration: 0,
+      });
+    }
+  } else {
+    viewer.camera.flyTo({
+      destination: Cartesian3.fromDegrees(...cameraConfig.position),
+      orientation: {
+        heading: CesiumMath.toRadians(cameraConfig.orientation.heading),
+        pitch: CesiumMath.toRadians(cameraConfig.orientation.pitch),
+      },
+      duration: 0,
+    });
+  }
 
   return {viewer, dataSourceCollection, primitiveCollections};
 }

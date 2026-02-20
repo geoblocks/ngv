@@ -10,7 +10,7 @@ import type {
   Cesium3DTileset,
   Event,
 } from '@cesium/engine';
-import {Matrix3, HeadingPitchRoll} from '@cesium/engine';
+import {HeadingPitchRoll, Transforms, Ellipsoid as CesiumEllipsoid} from '@cesium/engine';
 import {Cartographic, Math as CMath} from '@cesium/engine';
 import {
   Model,
@@ -52,7 +52,7 @@ import {
   showModelBBox,
 } from './interactionHelpers.js';
 import type {INGVCesiumModel} from '../../interfaces/cesium/ingv-layers.js';
-import type {ClippingChangeDetail} from '../ui/ngv-layer-details.js';
+import type {ClippingChangeDetail, PositionChangeDetail} from '../ui/ngv-layer-details.js';
 import {Task} from '@lit/task';
 
 type GrabType = 'side' | 'top' | 'edge' | 'corner' | undefined;
@@ -90,6 +90,13 @@ export class NgvPluginCesiumModelInteract extends LitElement {
   private chosenModel: INGVCesiumModel | undefined;
   @state()
   private position: Cartesian3 = new Cartesian3();
+  @state()
+  private modelPosition: {
+    longitude: number;
+    latitude: number;
+    height: number;
+    heading: number;
+  } | undefined;
   @state()
   private models: INGVCesiumModel[] = [];
   private eventHandler: ScreenSpaceEventHandler | undefined;
@@ -196,12 +203,34 @@ export class NgvPluginCesiumModelInteract extends LitElement {
     }
   }
 
+  extractModelPosition(model: INGVCesiumModel): {
+    longitude: number;
+    latitude: number;
+    height: number;
+    heading: number;
+  } {
+    const cartesianPosition = new Cartesian3();
+    Matrix4.getTranslation(model.modelMatrix, cartesianPosition);
+    const cartographicPosition = Cartographic.fromCartesian(cartesianPosition);
+    const longitude = CMath.toDegrees(cartographicPosition.longitude);
+    const latitude = CMath.toDegrees(cartographicPosition.latitude);
+    const height = cartographicPosition.height;
+    const hpr = Transforms.fixedFrameToHeadingPitchRoll(
+      model.modelMatrix,
+      CesiumEllipsoid.WGS84,
+      Transforms.localFrameToFixedFrameGenerator('north', 'west'),
+    );
+    const heading = CMath.toDegrees(hpr.heading);
+    return {longitude, latitude, height, heading};
+  }
+
   onClick(evt: ScreenSpaceEventHandler.PositionedEvent): void {
     const model: Model | undefined = this.pickModel(evt.position);
     if (model) {
       if (!this.chosenModel) {
         this.chosenModel = model;
         Matrix4.getTranslation(this.chosenModel.modelMatrix, this.position);
+        this.modelPosition = this.extractModelPosition(this.chosenModel);
         showModelBBox(
           {
             topDownPlanesDataSource: this.topDownPlanesDataSource,
@@ -253,6 +282,10 @@ export class NgvPluginCesiumModelInteract extends LitElement {
       }
       this.viewer.scene.screenSpaceCameraController.enableInputs = true;
       this.grabType = undefined;
+      // Sync position inputs after drag/rotate/scale
+      if (this.chosenModel) {
+        this.modelPosition = this.extractModelPosition(this.chosenModel);
+      }
     }
   }
 
@@ -512,6 +545,7 @@ export class NgvPluginCesiumModelInteract extends LitElement {
               terrainClipping: this.chosenModel.id.terrainClipping,
               tilesClipping: this.chosenModel.id.tilesClipping,
             },
+            position: this.modelPosition,
           }}"
           .showDone=${true}
           @clippingChange=${(evt: {detail: ClippingChangeDetail}) => {
@@ -528,30 +562,59 @@ export class NgvPluginCesiumModelInteract extends LitElement {
               this.viewer.scene.globe,
             );
           }}
+          @positionChange=${(evt: {detail: PositionChangeDetail}) => {
+            if (!this.chosenModel || !this.modelPosition) return;
+            const updated = {...this.modelPosition, ...evt.detail};
+            this.modelPosition = updated;
+            const cartesian = Cartographic.toCartesian(
+              Cartographic.fromDegrees(
+                updated.longitude,
+                updated.latitude,
+                updated.height,
+              ),
+            );
+            // Correctly extract pitch/roll from the world-fixed matrix
+            const currentHpr = Transforms.fixedFrameToHeadingPitchRoll(
+              this.chosenModel.modelMatrix,
+              CesiumEllipsoid.WGS84,
+              Transforms.localFrameToFixedFrameGenerator('north', 'west'),
+            );
+            const newHpr = new HeadingPitchRoll(
+              CMath.toRadians(updated.heading),
+              currentHpr.pitch,
+              currentHpr.roll,
+            );
+            // Preserve scale from the original matrix
+            const existingScale = Matrix4.getScale(
+              this.chosenModel.modelMatrix,
+              new Cartesian3(),
+            );
+            const newMatrix = Transforms.headingPitchRollToFixedFrame(
+              cartesian,
+              newHpr,
+              CesiumEllipsoid.WGS84,
+              Transforms.localFrameToFixedFrameGenerator('north', 'west'),
+            );
+            Matrix4.setScale(newMatrix, existingScale, newMatrix);
+            Matrix4.clone(newMatrix, this.chosenModel.modelMatrix);
+            Matrix4.getTranslation(
+              this.chosenModel.modelMatrix,
+              this.position,
+            );
+            if (
+              this.chosenModel.id.tilesClipping ||
+              this.chosenModel.id.terrainClipping
+            ) {
+              updateModelClipping(
+                this.chosenModel,
+                this.tiles3dCollection,
+                this.viewer.scene.globe,
+              );
+            }
+          }}
           @done="${() => {
-            const modelMatrix = this.chosenModel.modelMatrix;
-            const cartesianPosition = new Cartesian3();
-            Matrix4.getTranslation(modelMatrix, cartesianPosition);
-            const cartographicPosition =
-              Cartographic.fromCartesian(cartesianPosition);
-            const longitude = CMath.toDegrees(cartographicPosition.longitude);
-            const latitude = CMath.toDegrees(cartographicPosition.latitude);
-            const height = cartographicPosition.height;
-            // todo show in panel
-            console.log(
-              `Longitude: ${longitude}, Latitude: ${latitude}, Height: ${height}`,
-            );
-            const rotationMatrix = new Matrix3();
-            Matrix4.getRotation(modelMatrix, rotationMatrix);
-            const euler = HeadingPitchRoll.fromQuaternion(
-              Quaternion.fromRotationMatrix(rotationMatrix),
-            );
-            const heading = CMath.toDegrees(euler.heading);
-            const pitch = CMath.toDegrees(euler.pitch);
-            const roll = CMath.toDegrees(euler.roll);
-            // todo show in panel
-            console.log(`Heading: ${heading}, Pitch: ${pitch}, Roll: ${roll}`);
             this.chosenModel = undefined;
+            this.modelPosition = undefined;
             this.sidePlanesDataSource.entities.removeAll();
             this.topDownPlanesDataSource.entities.removeAll();
             this.edgeLinesDataSource.entities.removeAll();

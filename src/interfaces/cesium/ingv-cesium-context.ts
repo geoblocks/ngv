@@ -24,7 +24,7 @@ export interface IngvCesiumContext {
     terrain?: string;
     tiles3d?: string[]; // will be ignored if 3d tiles specified in views
     models?: string[];
-    imageries: string[];
+    imageries?: string[];
   };
   /**
    * These are lists of selected layers.

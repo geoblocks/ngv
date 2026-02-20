@@ -3,6 +3,7 @@ import type {HTMLTemplateResult} from 'lit';
 import {customElement, property} from 'lit/decorators.js';
 import {msg} from '@lit/localize';
 import {classMap} from 'lit/directives/class-map.js';
+import {live} from 'lit/directives/live.js';
 
 export type LayerDetails = {
   name: string;
@@ -11,11 +12,24 @@ export type LayerDetails = {
     terrainClipping: boolean;
     tilesClipping: boolean;
   };
+  position?: {
+    longitude: number;
+    latitude: number;
+    height: number;
+    heading: number;
+  };
 };
 
 export type ClippingChangeDetail = {
   terrainClipping?: boolean;
   tilesClipping?: boolean;
+};
+
+export type PositionChangeDetail = {
+  longitude?: number;
+  latitude?: number;
+  height?: number;
+  heading?: number;
 };
 
 @customElement('ngv-layer-details')
@@ -65,6 +79,74 @@ export class NgvLayerDetails extends LitElement {
               >
                 ${msg('Clipping terrain')}
               </wa-checkbox>
+            </div>`
+          : ''}
+        ${this.layer.position
+          ? html`<div class="ngv-layer-details-options">
+              <wa-input
+                label=${msg('Longitude')}
+                type="number"
+                size="small"
+                step="0.000001"
+                .value=${live(String(this.layer.position.longitude))}
+                @change=${(e: InputEvent) => {
+                  const val = parseFloat((<HTMLInputElement>e.target).value);
+                  if (!isNaN(val))
+                    this.dispatchEvent(
+                      new CustomEvent<PositionChangeDetail>('positionChange', {
+                        detail: {longitude: val},
+                      }),
+                    );
+                }}
+              ></wa-input>
+              <wa-input
+                label=${msg('Latitude')}
+                type="number"
+                size="small"
+                step="0.000001"
+                .value=${live(String(this.layer.position.latitude))}
+                @change=${(e: InputEvent) => {
+                  const val = parseFloat((<HTMLInputElement>e.target).value);
+                  if (!isNaN(val))
+                    this.dispatchEvent(
+                      new CustomEvent<PositionChangeDetail>('positionChange', {
+                        detail: {latitude: val},
+                      }),
+                    );
+                }}
+              ></wa-input>
+              <wa-input
+                label=${msg('Height (m)')}
+                type="number"
+                size="small"
+                step="0.1"
+                .value=${live(String(this.layer.position.height))}
+                @change=${(e: InputEvent) => {
+                  const val = parseFloat((<HTMLInputElement>e.target).value);
+                  if (!isNaN(val))
+                    this.dispatchEvent(
+                      new CustomEvent<PositionChangeDetail>('positionChange', {
+                        detail: {height: val},
+                      }),
+                    );
+                }}
+              ></wa-input>
+              <wa-input
+                label=${msg('Heading (°)')}
+                type="number"
+                size="small"
+                step="1"
+                .value=${live(String(this.layer.position.heading))}
+                @change=${(e: InputEvent) => {
+                  const val = parseFloat((<HTMLInputElement>e.target).value);
+                  if (!isNaN(val))
+                    this.dispatchEvent(
+                      new CustomEvent<PositionChangeDetail>('positionChange', {
+                        detail: {heading: val},
+                      }),
+                    );
+                }}
+              ></wa-input>
             </div>`
           : ''}
         <div class="ngv-layer-details-actions">
