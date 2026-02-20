@@ -1,6 +1,7 @@
 import {VitePWA} from 'vite-plugin-pwa';
 import {defineConfig} from 'vite';
 import {resolve} from 'path';
+import cesium from 'vite-plugin-cesium';
 
 export default defineConfig({
   server: {
@@ -50,5 +51,6 @@ export default defineConfig({
         type: 'module',
       },
     }),
+    cesium(),
   ],
 });

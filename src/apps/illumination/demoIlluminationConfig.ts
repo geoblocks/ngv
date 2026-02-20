@@ -57,6 +57,7 @@ export const config: IIlluminationConfig = {
         terrainShadows: 1,
         scene3DOnly: true,
       },
+      baseUrl: '/cesium/',
     },
   },
 };
