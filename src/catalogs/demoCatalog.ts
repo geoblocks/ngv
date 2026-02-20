@@ -16,9 +16,9 @@ export const catalog: INGVCatalog = {
           credit: 'test',
         },
       },
-      position: [6.625727097014207, 46.50662035273721],
-      height: 374,
-      rotation: 45,
+      position: [6.62535703, 46.50667999],
+      height: 423,
+      rotation: -45,
     },
     sofa: {
       type: 'model',

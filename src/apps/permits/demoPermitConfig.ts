@@ -28,14 +28,14 @@ export const config: IPermitsConfig = {
         '@demo': () => import('../../catalogs/demoCatalog.js'),
       },
       layers: {
-        tiles3d: ['@geoadmin/buildings'], // @cesium/googlePhotorealistic
-        models: ['@demo/sofa', '@demo/thatopensmall'],
-        imageries: ['@geoadmin/pixel-karte-farbe'],
-        terrain: '@geoadmin/terrain',
+        tiles3d: ['@cesium/googlePhotorealistic'], // @cesium/googlePhotorealistic
+        models: ['@demo/thatopensmall'],
+        // imageries: ['@geoadmin/pixel-karte-farbe'],
+        // terrain: '@geoadmin/terrain',
       },
-      quickLists: {
-        baseLayers: ['@geoadmin/pixel-karte-farbe'],
-      },
+      // quickLists: {
+      //   baseLayers: ['@geoadmin/pixel-karte-farbe'],
+      // },
       camera: {
         position: [6.628484, 46.5, 1000],
         orientation: {
@@ -53,10 +53,10 @@ export const config: IPermitsConfig = {
             [6.62566, 46.50648],
           ],
           height: 5,
-          elevation: 374,
+          elevation: 700,
           flyDuration: 2,
           title: 'Building',
-          fovAngle: 45,
+          fovAngle: -30,
         },
         {
           id: 'building-2',
@@ -67,7 +67,7 @@ export const config: IPermitsConfig = {
             [6.62587, 46.50648],
           ],
           height: 2,
-          elevation: 374,
+          elevation: 700,
           flyDuration: 2,
           title: 'Building 2',
           fovAngle: 45,
