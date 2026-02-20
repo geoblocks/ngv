@@ -368,6 +368,7 @@ export const config: ISurveyConfig<ItemSummary, DemoItem> = {
           },
         },
       },
+      baseUrl: '/cesium/',
     },
   },
   projections: [

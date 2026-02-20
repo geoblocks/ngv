@@ -24,8 +24,8 @@
   "description": "Next Generation 3D Viewer framework",
   "type": "module",
   "devDependencies": {
-    "@cesium/engine": "18.0.0",
-    "@cesium/widgets": "12.1.0",
+    "@cesium/engine": "22.3.0",
+    "@cesium/widgets": "14.3.0",
     "@eslint/js": "9.29.0",
     "@geoblocks/ifc-gltf": "^0.0.2",
     "@geoblocks/oidcjs": "0.5.13",
@@ -49,6 +49,7 @@
     "typescript": "5.8.3",
     "typescript-eslint": "8.34.1",
     "vite": "6.3.5",
+    "vite-plugin-cesium": "^1.2.23",
     "vite-plugin-pwa": "1.0.0",
     "workbox-window": "^7.3.0"
   },

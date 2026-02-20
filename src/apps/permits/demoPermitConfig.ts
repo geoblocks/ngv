@@ -94,6 +94,7 @@ export const config: IPermitsConfig = {
       clippingOptions: {
         storeKey: 'permits-localStoreClipping',
       },
+      baseUrl: '/cesium/',
     },
   },
   projections: [
