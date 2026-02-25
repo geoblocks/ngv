@@ -13,6 +13,7 @@ import type {INGVCatalog} from './ingv-catalog.js';
 export interface IngvCesiumContext {
   name: string;
   ionDefaultAccessToken?: string;
+  ionDefaultServer?: string;
   ionAssetUrl?: string; // required when using layers from Cesium ION and offline plugin. Default: 'https://assets.ion.cesium.com/'
   cesiumApiUrl?: string; // required when using layers from Cesium ION and offline plugin. Default: 'https://api.cesium.com/'
   baseUrl?: string;

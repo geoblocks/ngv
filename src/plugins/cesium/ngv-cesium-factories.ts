@@ -250,6 +250,9 @@ export async function initCesiumWidget(
   if (cesiumContext.ionDefaultAccessToken) {
     Ion.defaultAccessToken = cesiumContext.ionDefaultAccessToken;
   }
+  if (cesiumContext.ionDefaultServer) {
+    Ion.defaultServer = cesiumContext.ionDefaultServer;
+  }
 
   if (!cesiumContext.cesiumApiUrl) {
     cesiumContext.cesiumApiUrl = 'https://api.cesium.com/';
