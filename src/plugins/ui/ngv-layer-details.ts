@@ -7,7 +7,7 @@ import {live} from 'lit/directives/live.js';
 
 export type LayerDetails = {
   name: string;
-  type: 'model';
+  type?: 'model';
   clippingOptions?: {
     terrainClipping: boolean;
     tilesClipping: boolean;
@@ -17,6 +17,9 @@ export type LayerDetails = {
     latitude: number;
     height: number;
     heading: number;
+    pitch: number;
+    roll: number;
+    scale: number;
   };
 };
 
@@ -30,6 +33,9 @@ export type PositionChangeDetail = {
   latitude?: number;
   height?: number;
   heading?: number;
+  pitch?: number;
+  roll?: number;
+  scale?: number;
 };
 
 @customElement('ngv-layer-details')
@@ -46,7 +52,7 @@ export class NgvLayerDetails extends LitElement {
     return html` <wa-card with-header>
       <div slot="header">
         <wa-icon src="../../../icons/slice.svg"></wa-icon>${msg(
-          'Clipping polygons',
+          'Model details',
         )}
       </div>
       <div class="ngv-layer-details">
@@ -147,8 +153,57 @@ export class NgvLayerDetails extends LitElement {
                     );
                 }}
               ></wa-input>
+              <wa-input
+                label=${msg('Pitch (°)')}
+                type="number"
+                size="small"
+                step="1"
+                .value=${live(String(this.layer.position.pitch))}
+                @change=${(e: InputEvent) => {
+                  const val = parseFloat((<HTMLInputElement>e.target).value);
+                  if (!isNaN(val))
+                    this.dispatchEvent(
+                      new CustomEvent<PositionChangeDetail>('positionChange', {
+                        detail: {pitch: val},
+                      }),
+                    );
+                }}
+              ></wa-input>
+              <wa-input
+                label=${msg('Roll (°)')}
+                type="number"
+                size="small"
+                step="1"
+                .value=${live(String(this.layer.position.roll))}
+                @change=${(e: InputEvent) => {
+                  const val = parseFloat((<HTMLInputElement>e.target).value);
+                  if (!isNaN(val))
+                    this.dispatchEvent(
+                      new CustomEvent<PositionChangeDetail>('positionChange', {
+                        detail: {roll: val},
+                      }),
+                    );
+                }}
+              ></wa-input>
+              <wa-input
+                label=${msg('Scale')}
+                type="number"
+                size="small"
+                step="0.01"
+                .value=${live(String(this.layer.position.scale))}
+                @change=${(e: InputEvent) => {
+                  const val = parseFloat((<HTMLInputElement>e.target).value);
+                  if (!isNaN(val))
+                    this.dispatchEvent(
+                      new CustomEvent<PositionChangeDetail>('positionChange', {
+                        detail: {scale: val},
+                      }),
+                    );
+                }}
+              ></wa-input>
             </div>`
           : ''}
+        <slot name="actions-start"></slot>
         <div class="ngv-layer-details-actions">
           <wa-button
             appearance="filled"

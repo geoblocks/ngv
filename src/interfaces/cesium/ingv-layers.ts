@@ -44,6 +44,7 @@ export interface INGVCesiumModelConfig {
 export interface INGVCesiumModel extends Model {
   id: {
     dimensions?: Cartesian3;
+    localCenter?: Cartesian3;
     name: string;
     terrainClipping?: boolean;
     tilesClipping?: boolean;

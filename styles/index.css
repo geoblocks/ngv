@@ -8,6 +8,7 @@
 @import 'layers.css';
 @import 'ngv-plugin-cesium-measure.css';
 @import 'ngv-plugin-cesium-offline.css';
+@import 'ngv-plugin-cesium-model-interact.css';
 
 .ngv-active::part(base) {
   background-color: var(--background-color-active);

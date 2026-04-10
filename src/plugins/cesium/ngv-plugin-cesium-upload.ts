@@ -1,7 +1,6 @@
 import type {CesiumWidget, PrimitiveCollection} from '@cesium/engine';
 import {
   Cartesian3,
-  Cartographic,
   HeadingPitchRoll,
   Math as CesiumMath,
   Matrix4,
@@ -19,8 +18,6 @@ import {instantiateModel} from './ngv-cesium-factories.js';
 import type {FileUploadDetails} from '../ui/ngv-upload.js';
 import {storeBlobInIndexedDB, updateModelsInLocalStore} from './localStore.js';
 import type {INGVCesiumModel} from '../../interfaces/cesium/ingv-layers.js';
-
-const cartographicScratch = new Cartographic();
 
 @customElement('ngv-plugin-cesium-upload')
 export class NgvPluginCesiumUpload extends LitElement {
@@ -139,17 +136,19 @@ export class NgvPluginCesiumUpload extends LitElement {
   }
 
   onMouseMove(event: ScreenSpaceEventHandler.MotionEvent): void {
-    if (!event.endPosition) return;
-    const position = this.viewer.scene.pickPosition(event.endPosition);
-    if (!position) return;
-    const cart = Cartographic.fromCartesian(
-      position,
-      this.viewer.scene.ellipsoid,
-      cartographicScratch,
-    );
-    const altitude = this.viewer.scene.globe.getHeight(cart);
-    cart.height = altitude || 0;
-    Cartographic.toCartesian(cart, this.viewer.scene.ellipsoid, position);
+    if (!event.endPosition || !this.uploadedModel) return;
+
+    // Temporarily hide the model so pick/pickPosition hits the surface beneath it
+    this.uploadedModel.show = false;
+
+    const picked: unknown = this.viewer.scene.pick(event.endPosition);
+    const position = picked
+      ? this.viewer.scene.pickPosition(event.endPosition)
+      : undefined;
+
+    this.uploadedModel.show = true;
+
+    if (!position || Cartesian3.equals(position, Cartesian3.ZERO)) return;
 
     this.uploadedModel.modelMatrix =
       Transforms.eastNorthUpToFixedFrame(position);

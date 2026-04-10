@@ -21,6 +21,8 @@ export const config: IPermitsConfig = {
   },
   app: {
     cesiumContext: {
+      ionDefaultAccessToken:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJhYWI5OThhNS04YmFhLTQxNmQtOGZjMC1iNDNmMTNlMmYwYzkiLCJpZCI6MjY5NDg1LCJpYXQiOjE3MzcwMzgyNzl9.ruI2nAUv00XwzUSNqf7pX5yip6l89eAyF0FmZbmlrpY',
       name: 'permits',
       catalogs: {
         '@cesium': () => import('../../catalogs/cesiumCatalog.js'),

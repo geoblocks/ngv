@@ -57,13 +57,21 @@ export async function instantiateTerrain(
 export async function instantiateModel(
   config: INGVCesiumModelConfig,
   extraOptions?: Record<string, any>,
+  onReady?: (model: INGVCesiumModel) => void,
 ): Promise<INGVCesiumModel> {
   const model: INGVCesiumModel = await Model.fromGltfAsync(
     withExtra(config.options, extraOptions),
   );
   model.readyEvent.addEventListener(() => {
-    model.id.dimensions = getDimensions(model);
+    // Only compute from glTF if not already pre-set from stored values
+    if (!model.id.dimensions || !model.id.localCenter) {
+      const {dimensions, localCenter} = getDimensions(model);
+      model.id.dimensions = dimensions;
+      model.id.localCenter = localCenter;
+    }
     model.id.clippingPolygon = getClippingPolygon(model);
+    // onReady fires after dimensions/localCenter are guaranteed to be set
+    onReady?.(model);
   });
   return model;
 }

@@ -107,6 +107,7 @@ export function deleteFromIndexedDB(
 export type StoredModel = {
   name: string;
   dimensions: number[];
+  localCenter: number[];
   translation: number[];
   rotation: number[];
   scale: number[];
@@ -130,11 +131,12 @@ export function updateModelsInLocalStore(
     );
     localStoreModels.push({
       name: model.id.name,
-      dimensions: [
-        model.id.dimensions.x,
-        model.id.dimensions.y,
-        model.id.dimensions.z,
-      ],
+      dimensions: model.id.dimensions
+        ? [model.id.dimensions.x, model.id.dimensions.y, model.id.dimensions.z]
+        : [1, 1, 1],
+      localCenter: model.id.localCenter
+        ? [model.id.localCenter.x, model.id.localCenter.y, model.id.localCenter.z]
+        : [0, 0, 0],
       translation: [translation.x, translation.y, translation.z],
       rotation: [rotation.x, rotation.y, rotation.z, rotation.w],
       scale: [scale.x, scale.y, scale.z],

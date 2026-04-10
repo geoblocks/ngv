@@ -1,0 +1,57 @@
+.ngv-model-transform-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 12px 4px;
+}
+
+.ngv-transform-modes {
+  display: flex;
+  gap: 4px;
+}
+
+.ngv-transform-modes wa-button,
+.ngv-transform-axes wa-button {
+  flex: 1;
+  min-width: 0;
+}
+
+.ngv-transform-axes {
+  display: flex;
+  gap: 4px;
+}
+
+.ngv-transform-hint {
+  font-size: 11px;
+  color: var(--wa-color-neutral-500, #999);
+  text-align: center;
+  padding: 2px 0 4px;
+  font-style: italic;
+}
+
+.ngv-model-transform-toolbar ~ ngv-layer-details wa-card {
+  border: none;
+  box-shadow: none;
+}
+
+.ngv-controls-overlay {
+  position: fixed;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 100;
+}
+
+.ngv-controls-overlay svg {
+  pointer-events: none;
+}
+
+.ngv-controls-overlay svg * {
+  pointer-events: none;
+}
+
+/* Re-enable pointer events only on interactive elements */
+.ngv-controls-overlay svg g[style*="cursor"],
+.ngv-controls-overlay svg circle[pointer-events="stroke"] {
+  pointer-events: all;
+}
