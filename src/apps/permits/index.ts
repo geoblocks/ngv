@@ -18,9 +18,11 @@ import '../../plugins/cesium/ngv-plugin-cesium-slicing';
 import '../../plugins/cesium/ngv-plugin-cesium-measure';
 import '../../plugins/cesium/ngv-plugin-cesium-navigation';
 import '../../plugins/cesium/ngv-plugin-cesium-click-info';
-import type {CesiumWidget, DataSourceCollection} from '@cesium/engine';
+import type {NgvPluginCesiumSlicing} from '../../plugins/cesium/ngv-plugin-cesium-slicing.js';
 
+import type {CesiumWidget, DataSourceCollection} from '@cesium/engine';
 import {PrimitiveCollection} from '@cesium/engine';
+import type {Cartesian3} from '@cesium/engine';
 import type {ViewerInitializedDetails} from '../../plugins/cesium/ngv-plugin-cesium-widget.js';
 import type {INGVCesiumModel} from '../../interfaces/cesium/ingv-layers.js';
 
@@ -31,6 +33,8 @@ export class NgvAppPermits extends ABaseApp<IPermitsConfig> {
   private viewer: CesiumWidget;
   @query('.ngv-vertical-menu')
   private verticalMenu: {show: () => void};
+  @query('ngv-plugin-cesium-slicing')
+  private slicingPlugin: NgvPluginCesiumSlicing;
   private uploadedModelsCollection: PrimitiveCollection =
     new PrimitiveCollection();
   private dataSourceCollection: DataSourceCollection;
@@ -92,11 +96,14 @@ export class NgvAppPermits extends ABaseApp<IPermitsConfig> {
             .primitiveCollection="${this.uploadedModelsCollection}"
             .tiles3dCollection="${this.collections.tiles3d}"
             .storeOptions="${this.storeOptions}"
-            .options="${{listTitle: 'Uploaded models'}}"
+            .options="${{listTitle: 'Uploaded models', showEditBtns: true}}"
             @chosenModelChanged=${(evt: {detail: INGVCesiumModel}) => {
               if (evt.detail) {
                 this.verticalMenu.show();
               }
+            }}
+            @modelAddClipping=${(evt: {detail: {positions: Cartesian3[], name: string}}) => {
+              this.slicingPlugin?.addClippingFromPositions(evt.detail.positions, evt.detail.name);
             }}
           ></ngv-plugin-cesium-model-interact>
 

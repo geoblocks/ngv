@@ -205,15 +205,18 @@ export function getDimensions(model: Model): {
   }
 }
 
-export function getClippingPolygon(model: INGVCesiumModel): ClippingPolygon {
-  const positions = LOCAL_EDGES.map((edge) => {
+export function getModelFootprintPositions(model: INGVCesiumModel): Cartesian3[] {
+  return LOCAL_EDGES.map((edge) => {
     const position = new Cartesian3();
     const matrix = getTranslationRotationDimensionsMatrix(model);
     Matrix4.multiplyByPoint(matrix, edge[0], position);
     return position;
   });
+}
+
+export function getClippingPolygon(model: INGVCesiumModel): ClippingPolygon {
   return new ClippingPolygon({
-    positions,
+    positions: getModelFootprintPositions(model),
   });
 }
 

@@ -20,7 +20,6 @@ import {
 } from '@cesium/engine';
 import '../ui/ngv-layer-details.js';
 import '../ui/ngv-layers-list.js';
-import type {ClippingChangeDetail} from '../ui/ngv-layer-details.js';
 import type {DrawEndDetails} from './draw.js';
 import {CesiumDraw} from './draw.js';
 import {msg} from '@lit/localize';
@@ -29,6 +28,7 @@ import {getStoredClipping, updateClippingInLocalStore} from './localStore.js';
 import type {IngvCesiumContext} from '../../interfaces/cesium/ingv-cesium-context.js';
 import {Task} from '@lit/task';
 import {classMap} from 'lit/directives/class-map.js';
+import type {ClippingChangeDetail} from '../ui/ngv-layer-details.js';
 
 export type ClippingData = {
   clipping: ClippingPolygon;
@@ -184,6 +184,7 @@ export class NgvPluginCesiumSlicing extends LitElement {
         `Polygon ${date.toLocaleDateString()} ${date.toLocaleTimeString()}`,
       show: false,
       polygon: {
+        perPositionHeight: true,
         hierarchy: positions || [],
         material: Color.RED.withAlpha(0.7),
       },
@@ -197,6 +198,26 @@ export class NgvPluginCesiumSlicing extends LitElement {
   addClippingPolygon(): void {
     this.draw.active = true;
     this.activePolygon = this.drawPolygon();
+  }
+
+  addClippingFromPositions(positions: Cartesian3[], name: string): void {
+    const entity = this.drawPolygon(positions, name);
+    entity.polygon.hierarchy = new ConstantProperty(new PolygonHierarchy(positions));
+    const clippingPolygon = new ClippingPolygon({positions});
+    const clippingData: ClippingData = {clipping: clippingPolygon, entity};
+    this.clippingPolygons = [...this.clippingPolygons, clippingData];
+    this.saveToLocalStore();
+    // open in edit mode
+    this.editingClipping = clippingData;
+    this.removeClipping(clippingData.clipping);
+    this.draw.type = 'polygon';
+    this.activePolygon = clippingData.entity;
+    this.draw.entityForEdit = this.drawDataSource.entities.add(
+      new Entity({polygon: clippingData.entity.polygon.clone()}),
+    );
+    this.draw.active = true;
+    this.active = true;
+    this.requestUpdate();
   }
 
   applyClipping(clippingData: ClippingData): void {
@@ -353,8 +374,10 @@ export class NgvPluginCesiumSlicing extends LitElement {
                   });
                   this.applyClipping(this.editingClipping);
                   this.activePolygon = undefined;
+                  this.editingClipping = undefined;
                   this.draw.active = false;
                   this.draw.clear();
+                  this.draw.entityForEdit = undefined;
                   this.requestUpdate();
                   this.saveToLocalStore();
                 } else {

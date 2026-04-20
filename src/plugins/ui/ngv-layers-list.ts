@@ -12,6 +12,7 @@ export type LayerListOptions = {
   showDeleteBtnCallback?: (index: number) => boolean;
   showZoomBtns?: boolean;
   showEditBtns?: boolean;
+  showAddClippingBtns?: boolean;
 };
 
 @customElement('ngv-layers-list')
@@ -48,6 +49,16 @@ export class NgvLayersList extends LitElement {
                 : ''}
               <span class="ngv-layers-list-title">${l.name}</span>
               <div class="ngv-layers-list-item-actions">
+                ${this.options?.showAddClippingBtns
+                  ? html`<wa-icon-button
+                      src="../../../icons/slice.svg"
+                      size="small"
+                      title="Add clipping"
+                      @click=${() => {
+                        this.dispatchEvent(new CustomEvent('addClipping', {detail: i}));
+                      }}
+                    ></wa-icon-button>`
+                  : ''}
                 ${this.options?.showEditBtns
                   ? html`<wa-icon-button
                     name="pencil"

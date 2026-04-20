@@ -31,6 +31,7 @@ import '../ui/ngv-layer-details.js';
 import '../ui/ngv-layers-list.js';
 import {
   applyClippingTo3dTileset,
+  getModelFootprintPositions,
   removeClippingFrom3dTilesets,
   updateModelClipping,
 } from './interactionHelpers.js';
@@ -38,7 +39,7 @@ import type {ControlType} from './controlsHelpers.js';
 import type {DragState} from './controlsDragMath.js';
 import {applyDrag, startDrag} from './controlsDragMath.js';
 import type {INGVCesiumModel} from '../../interfaces/cesium/ingv-layers.js';
-import type {ClippingChangeDetail, PositionChangeDetail} from '../ui/ngv-layer-details.js';
+import type {PositionChangeDetail} from '../ui/ngv-layer-details.js';
 import {Task} from '@lit/task';
 import {ControlAxis} from './controlAxis.js';
 import type {ControlPickId} from './controlAxis.js';
@@ -50,9 +51,10 @@ export class NgvPluginCesiumModelInteract extends LitElement {
   @property({type: Object}) tiles3dCollection: PrimitiveCollection;
   @property({type: Object}) dataSourceCollection: DataSourceCollection;
   @property({type: Object}) storeOptions?: {localStoreKey: string; indexDbName: string};
-  @property({type: Object}) options?: {listTitle: string};
+  @property({type: Object}) options?: {listTitle: string; showEditBtns?: boolean};
 
   @state() private chosenModel: INGVCesiumModel | undefined;
+  @state() private savedMatrix: Matrix4 | undefined;
   @state() private modelPosition: {
     longitude: number; latitude: number; height: number;
     heading: number; pitch: number; roll: number; scale: number;
@@ -255,17 +257,27 @@ export class NgvPluginCesiumModelInteract extends LitElement {
     const model = this.pickModel(evt.position);
     if (model) {
       if (model !== this.chosenModel) {
-        this.chosenModel = model;
-        this.modelPosition = this.extractModelPosition(model);
-        this.control?.show(model);
-        this._startContinuousRender();
+        this.selectModel(model);
       }
     } else {
-      this.chosenModel = undefined;
-      this.modelPosition = undefined;
-      this.control?.hide();
-      this._stopContinuousRender();
+      this.deselectModel();
     }
+  }
+
+  private selectModel(model: INGVCesiumModel): void {
+    this.chosenModel = model;
+    this.savedMatrix = Matrix4.clone(model.modelMatrix, new Matrix4());
+    this.modelPosition = this.extractModelPosition(model);
+    this.control?.show(model);
+    this._startContinuousRender();
+  }
+
+  private deselectModel(): void {
+    this.chosenModel = undefined;
+    this.savedMatrix = undefined;
+    this.modelPosition = undefined;
+    this.control?.hide();
+    this._stopContinuousRender();
   }
 
   private _unlistenPostRender: Event.RemoveCallback | undefined;
@@ -338,20 +350,10 @@ export class NgvPluginCesiumModelInteract extends LitElement {
       <ngv-layer-details
         .layer="${{
           name: this.chosenModel.id.name,
-          clippingOptions: {
-            terrainClipping: this.chosenModel.id.terrainClipping,
-            tilesClipping: this.chosenModel.id.tilesClipping,
-          },
           position: this.modelPosition,
         }}"
         .showDone=${true}
-        @clippingChange=${(evt: {detail: ClippingChangeDetail}) => {
-          if (typeof evt.detail.terrainClipping === 'boolean')
-            this.chosenModel.id.terrainClipping = evt.detail.terrainClipping;
-          if (typeof evt.detail.tilesClipping === 'boolean')
-            this.chosenModel.id.tilesClipping = evt.detail.tilesClipping;
-          updateModelClipping(this.chosenModel, this.tiles3dCollection, this.viewer.scene.globe);
-        }}
+        .showCancel=${true}
         @positionChange=${(evt: {detail: PositionChangeDetail}) => {
           if (!this.chosenModel || !this.modelPosition) return;
           const updated = {...this.modelPosition, ...evt.detail};
@@ -378,10 +380,18 @@ export class NgvPluginCesiumModelInteract extends LitElement {
           this.viewer.scene.requestRender();
         }}
         @done="${() => {
-          this.control?.hide();
-          this._stopContinuousRender();
-          this.chosenModel = undefined;
-          this.modelPosition = undefined;
+          this.deselectModel();
+          this.onPrimitivesChanged();
+        }}"
+        @cancel="${() => {
+          if (this.chosenModel && this.savedMatrix) {
+            Matrix4.clone(this.savedMatrix, this.chosenModel.modelMatrix);
+            if (this.chosenModel.id.tilesClipping || this.chosenModel.id.terrainClipping) {
+              updateModelClipping(this.chosenModel, this.tiles3dCollection, this.viewer.scene.globe);
+            }
+            this.viewer.scene.requestRender();
+          }
+          this.deselectModel();
           this.onPrimitivesChanged();
         }}"
       >
@@ -406,8 +416,21 @@ export class NgvPluginCesiumModelInteract extends LitElement {
           ${this.options?.listTitle}
         </div>
         <ngv-layers-list
-          .options="${{showDeleteBtns: true, showZoomBtns: true}}"
+          .options="${{showDeleteBtns: true, showZoomBtns: true, showEditBtns: this.options?.showEditBtns, showAddClippingBtns: this.options?.showEditBtns}}"
           .layers=${this.models.map((m) => ({name: m.id.name}))}
+          @addClipping="${(evt: {detail: number}) => {
+            const model = this.primitiveCollection.get(evt.detail) as INGVCesiumModel;
+            if (!model) return;
+            const positions = getModelFootprintPositions(model);
+            this.dispatchEvent(new CustomEvent('modelAddClipping', {
+              detail: {positions, name: model.id.name},
+              bubbles: true, composed: true,
+            }));
+          }}"
+          @edit="${(evt: {detail: number}) => {
+            const model = this.primitiveCollection.get(evt.detail) as INGVCesiumModel;
+            if (model) this.selectModel(model);
+          }}"
           @remove="${(evt: {detail: number}) => {
             const model = this.primitiveCollection.get(evt.detail) as INGVCesiumModel;
             if (model) this.primitiveCollection.remove(model);
